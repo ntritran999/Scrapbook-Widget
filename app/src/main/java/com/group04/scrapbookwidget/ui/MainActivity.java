@@ -10,6 +10,9 @@ import androidx.core.view.WindowInsetsCompat;
 
 import com.group04.scrapbookwidget.R;
 
+import dagger.hilt.android.AndroidEntryPoint;
+
+@AndroidEntryPoint
 public class MainActivity extends AppCompatActivity {
 
     @Override

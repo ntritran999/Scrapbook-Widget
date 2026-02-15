@@ -51,4 +51,9 @@ dependencies {
 
     implementation(libs.dagger.hilt.android)
     annotationProcessor(libs.hilt.compiler)
+
+    debugImplementation(libs.fragment.testing.manifest)
+    androidTestImplementation(libs.androidx.fragment.testing)
+    androidTestImplementation(libs.androidx.runner)
+    androidTestImplementation(libs.rules)
 }

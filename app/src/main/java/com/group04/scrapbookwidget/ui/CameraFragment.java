@@ -1,43 +1,87 @@
 package com.group04.scrapbookwidget.ui;
 
+import android.Manifest;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
-
-import androidx.fragment.app.Fragment;
-
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Toast;
 
-import com.group04.scrapbookwidget.R;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.camera.core.CameraSelector;
+import androidx.camera.core.Preview;
+import androidx.camera.lifecycle.ProcessCameraProvider;
+import androidx.core.content.ContextCompat;
+import androidx.fragment.app.Fragment;
+
+import com.google.common.util.concurrent.ListenableFuture;
+import com.group04.scrapbookwidget.databinding.FragmentCameraBinding;
+
+import java.util.concurrent.ExecutionException;
 
 public class CameraFragment extends Fragment {
 
-    private static final String ARG_PARAM1 = "param1";
-    private static final String ARG_PARAM2 = "param2";
+    private FragmentCameraBinding binding;
 
-    public CameraFragment() {}
-    public static ScrapbookViewFragment newInstance(String param1, String param2) {
-        ScrapbookViewFragment fragment = new ScrapbookViewFragment();
-        Bundle args = new Bundle();
-//        args.putString(ARG_PARAM1, param1);
-//        args.putString(ARG_PARAM2, param2);
-        fragment.setArguments(args);
-        return fragment;
-    }
+    private final ActivityResultLauncher<String> requestPermissionLauncher =
+            registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {
+                if (isGranted) {
+                    startCamera();
+                } else {
+                    Toast.makeText(getContext(), "Permission request denied.", Toast.LENGTH_SHORT).show();
+                }
+            }); // listener for a request-permission dialog on closing, INPUT: RequestPermission(), OUTpuT: boolean result
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-//        if (getArguments() != null) {
-//            mParam1 = getArguments().getString(ARG_PARAM1);
-//            mParam2 = getArguments().getString(ARG_PARAM2);
-//        }
+    }
+
+    @Nullable
+    @Override
+    public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
+        binding = FragmentCameraBinding.inflate(inflater, container, false);
+
+        // Check if this app is granted CAMERA permission
+        if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+            startCamera();
+        } else {
+            // if not granted, show popup request
+            requestPermissionLauncher.launch(Manifest.permission.CAMERA);
+        }
+
+        return binding.getRoot();
+    }
+
+    // camera setup
+    private void startCamera() {
+        ListenableFuture<ProcessCameraProvider> cameraProviderFuture = ProcessCameraProvider.getInstance(requireContext());
+
+        cameraProviderFuture.addListener(() -> {
+            try {
+                ProcessCameraProvider cameraProvider = cameraProviderFuture.get(); // return the real object, not promise
+
+                Preview preview = new Preview.Builder().build();
+                preview.setSurfaceProvider(binding.viewFinder.getSurfaceProvider());
+
+                CameraSelector cameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA;
+
+                cameraProvider.unbindAll(); // avoid memory leak
+                cameraProvider.bindToLifecycle(this, cameraSelector, preview);
+
+            } catch (ExecutionException | InterruptedException e) {
+                e.printStackTrace();
+            }
+        }, ContextCompat.getMainExecutor(requireContext()));
     }
 
     @Override
-    public View onCreateView(LayoutInflater inflater, ViewGroup container,
-                             Bundle savedInstanceState) {
-
-        return inflater.inflate(R.layout.fragment_camera, container, false);
+    public void onDestroyView() {
+        super.onDestroyView();
+        binding = null;
     }
 }

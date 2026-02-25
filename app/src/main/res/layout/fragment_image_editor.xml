@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@android:color/black">
+
+        <ImageView
+            android:id="@+id/imgPreview"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:layout_margin="32dp"
+            android:scaleType="fitCenter"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toTopOf="@+id/bottomToolsLayout"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+        <LinearLayout
+            android:id="@+id/bottomToolsLayout"
+            android:layout_width="match_parent"
+            android:layout_height="80dp"
+            android:orientation="horizontal"
+            android:background="#222222"
+            android:gravity="center"
+            app:layout_constraintBottom_toBottomOf="parent">
+
+            <Button
+                android:id="@+id/btnToolMask"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Mask"
+                android:layout_margin="8dp"/>
+
+            <Button
+                android:id="@+id/btnToolDraw"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Draw"
+                android:enabled="false"
+                android:layout_margin="8dp"/>
+
+            <Button
+                android:id="@+id/btnToolFilter"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Filter"
+                android:enabled="false"
+                android:layout_margin="8dp"/>
+
+        </LinearLayout>
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</layout>

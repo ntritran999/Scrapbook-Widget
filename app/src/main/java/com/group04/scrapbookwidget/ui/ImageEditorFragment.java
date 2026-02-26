@@ -32,7 +32,19 @@ public class ImageEditorFragment extends Fragment {
             binding.imgPreview.setImageURI(Uri.parse(photoPath));
         }
 
-        // TODO
+        final boolean[] isMaskApplied = {false};
+
+        binding.btnToolMask.setOnClickListener(view -> {
+            isMaskApplied[0] = !isMaskApplied[0];
+
+            binding.imgPreview.setMaskEnabled(isMaskApplied[0]); // ScrapbookMaskView
+
+            if (isMaskApplied[0]) {
+                binding.btnToolMask.setBackgroundColor(android.graphics.Color.parseColor("#4CAF50")); // Màu xanh
+            } else {
+                binding.btnToolMask.setBackgroundColor(android.graphics.Color.parseColor("#222222")); // Trở về màu xám cũ
+            }
+        });
 
         return binding.getRoot();
     }

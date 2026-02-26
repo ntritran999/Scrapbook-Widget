@@ -68,7 +68,6 @@ public class CameraFragment extends Fragment {
             } else {
                 lensFacing = CameraSelector.LENS_FACING_BACK;
             }
-            // Gọi lại hàm startCamera() để hệ thống tự unbind cái cũ và bind cái mới
             startCamera();
         });
 

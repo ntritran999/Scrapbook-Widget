@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "52208309642",
+    "project_id": "srcapbookwidget",
+    "storage_bucket": "srcapbookwidget.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:52208309642:android:8ea23dcf738e939d712473",
+        "android_client_info": {
+          "package_name": "com.group04.scrapbookwidget"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBN_AhqkKgs2LDUyk_EXPSJ9XPasnrwtWM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

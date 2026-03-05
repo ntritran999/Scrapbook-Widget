@@ -3,4 +3,20 @@
     <string name="appwidget_text">Scrapbook Widget</string>
     <string name="add_widget">Add widget</string>
     <string name="app_widget_description">App widget layout preview</string>
+
+    <!-- Auth Login -->
+    <string name="login_welcome">Welcome back!</string>
+    <string name="login_subtitle">Sign in to continue</string>
+    <string name="email">Email</string>
+    <string name="password">Password</string>
+    <string name="forgot_password">Forgot Password?</string>
+    <string name="login">Login</string>
+    <string name="dont_have_account">Don\'t have an account? Register</string>
+
+    <!-- Auth Register -->
+    <string name="register_welcome">Create Account</string>
+    <string name="register_subtitle">Sign up to get started</string>
+    <string name="confirm_password">Confirm Password</string>
+    <string name="register">Register</string>
+    <string name="already_have_account">Already have an account? Login</string>
 </resources>

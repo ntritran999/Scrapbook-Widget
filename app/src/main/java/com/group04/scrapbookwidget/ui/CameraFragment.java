@@ -2,8 +2,10 @@ package com.group04.scrapbookwidget.ui;
 
 import android.Manifest;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.view.LayoutInflater;
+import android.view.ScaleGestureDetector;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Toast;
@@ -12,6 +14,7 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.camera.core.Camera;
 import androidx.camera.core.CameraSelector;
 import androidx.camera.core.ImageCapture;
 import androidx.camera.core.ImageCaptureException;
@@ -24,6 +27,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.group04.scrapbookwidget.databinding.FragmentCameraBinding;
 
 import java.io.File;
+import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 
 public class CameraFragment extends Fragment {
@@ -32,7 +36,11 @@ public class CameraFragment extends Fragment {
 
     private ImageCapture imageCapture;
 
+    private Camera camera;
+
     private int lensFacing = CameraSelector.LENS_FACING_FRONT;
+
+    private int flashMode = ImageCapture.FLASH_MODE_OFF;
 
     private final ActivityResultLauncher<String> requestPermissionLauncher =
             registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {
@@ -76,6 +84,17 @@ public class CameraFragment extends Fragment {
             takePhoto();
         });
 
+        // flash button
+        binding.btnFlash.setOnClickListener(view -> {
+            if (flashMode == ImageCapture.FLASH_MODE_OFF) {
+                binding.btnFlash.setColorFilter(Color.parseColor("#FFC107"));
+                flashMode = ImageCapture.FLASH_MODE_ON;
+            } else {
+                binding.btnFlash.setColorFilter(Color.WHITE);
+                flashMode = ImageCapture.FLASH_MODE_OFF;
+            }
+        });
+
         return binding.getRoot();
     }
 
@@ -100,7 +119,27 @@ public class CameraFragment extends Fragment {
                     .build();
 
                 cameraProvider.unbindAll(); // avoid memory leak
-                cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageCapture);
+                camera = cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageCapture);
+
+                // pinch listener
+                ScaleGestureDetector scaleGestureDetector = new ScaleGestureDetector(requireContext(),
+                    new ScaleGestureDetector.SimpleOnScaleGestureListener() {
+                        @Override
+                        public boolean onScale(@NonNull ScaleGestureDetector detector) {
+                            if (camera != null) {
+                                float currentZoomRatio = Objects.requireNonNull(camera.getCameraInfo().getZoomState().getValue()).getZoomRatio();
+                                float delta = detector.getScaleFactor();
+                                camera.getCameraControl().setZoomRatio(currentZoomRatio * delta);
+                            }
+                            return true;
+                        }
+                    });
+
+                // zooming
+                binding.viewFinder.setOnTouchListener((view, event) -> {
+                    scaleGestureDetector.onTouchEvent(event);
+                    return true;
+                });
             } catch (ExecutionException | InterruptedException e) {
                 e.printStackTrace();
             }

@@ -21,7 +21,7 @@ public class PageRenderer implements GLSurfaceView.Renderer {
     private final int backTexDefault = 0;
     private int[] bitmapIds = {
             R.drawable.test__1_,
-            R.drawable.test__2_,
+            R.drawable.test__5_,
             R.drawable.test__3_,
             R.drawable.test__4_,
 

@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <data>
+        <variable
+            name="viewModel"
+            type="com.group04.scrapbookwidget.ui.auth.register.RegisterViewModel" />
+    </data>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:padding="24dp">
+
+        <include
+            layout="@layout/view_auth_header"
+            app:subtitle="@{@string/register_subtitle}"
+            app:title="@{@string/register_welcome}" />
+
+        <!-- Email Field -->
+        <include
+            android:id="@+id/emailInput"
+            layout="@layout/item_auth_input"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:label="@{@string/email}"
+            app:text="@{viewModel.email}"
+            app:error="@{viewModel.emailError}" />
+
+        <!-- Password Field -->
+        <include
+            android:id="@+id/passwordInput"
+            layout="@layout/item_auth_input"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            app:label="@{@string/password}"
+            app:text="@{viewModel.password}"
+            app:error="@{viewModel.passwordError}" />
+
+        <!-- Confirm Password Field -->
+        <include
+            android:id="@+id/confirmPasswordInput"
+            layout="@layout/item_auth_input"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            app:label="@{@string/confirm_password}"
+            app:text="@{viewModel.confirmPassword}"
+            app:error="@{viewModel.confirmPasswordError}" />
+
+        <!-- Register Button -->
+        <com.google.android.material.button.MaterialButton
+            style="?attr/materialIconButtonFilledStyle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="32dp"
+            android:text="@string/register"
+            android:onClick="@{() -> viewModel.onRegisterClick()}" />
+
+        <Space
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
+
+        <!-- Login Button -->
+        <com.google.android.material.button.MaterialButton
+            style="?attr/borderlessButtonStyle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/already_have_account"
+            android:textAllCaps="false"
+            android:onClick="@{() -> viewModel.onLoginClick()}" />
+
+    </LinearLayout>
+
+</layout>

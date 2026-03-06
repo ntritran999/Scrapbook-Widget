@@ -1,6 +1,9 @@
 plugins {
     alias(libs.plugins.android.application)
     id("com.google.dagger.hilt.android")
+
+    // Add the Google services Gradle plugin
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -67,4 +70,12 @@ dependencies {
 
     implementation("androidx.camera:camera-view:$camerax_version")
     implementation("androidx.camera:camera-extensions:$camerax_version")
+
+    // Import the Firebase BoM
+    implementation(platform("com.google.firebase:firebase-bom:34.9.0"))
+
+    // dependencies for Firebase products
+    implementation("com.google.firebase:firebase-analytics")
+    implementation("com.google.firebase:firebase-firestore")
+
 }

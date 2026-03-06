@@ -14,6 +14,7 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 import androidx.camera.core.Camera;
 import androidx.camera.core.CameraSelector;
 import androidx.camera.core.ImageCapture;
@@ -197,5 +198,15 @@ public class CameraFragment extends Fragment {
     public void onDestroyView() {
         super.onDestroyView();
         binding = null;
+    }
+
+    @VisibleForTesting
+    public int getFlashMode() {
+        return flashMode;
+    }
+
+    @VisibleForTesting
+    public Camera getCamera() {
+        return camera;
     }
 }

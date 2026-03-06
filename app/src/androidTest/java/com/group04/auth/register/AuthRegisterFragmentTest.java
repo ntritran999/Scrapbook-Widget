@@ -1,4 +1,4 @@
-package com.group04.scrapbookwidget.ui.auth.register;
+package com.group04.auth.register;
 
 import static androidx.test.espresso.Espresso.onView;
 import static androidx.test.espresso.assertion.ViewAssertions.matches;
@@ -9,6 +9,7 @@ import androidx.fragment.app.testing.FragmentScenario;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
 import com.group04.scrapbookwidget.R;
+import com.group04.scrapbookwidget.ui.auth.register.AuthRegisterFragment;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;

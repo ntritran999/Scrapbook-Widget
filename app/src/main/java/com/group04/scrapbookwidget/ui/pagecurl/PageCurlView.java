@@ -2,12 +2,16 @@ package com.group04.scrapbookwidget.ui.pagecurl;
 
 import android.content.Context;
 import android.graphics.RectF;
+import android.media.MediaPlayer;
 import android.opengl.GLSurfaceView;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.MotionEvent;
 
+import com.group04.scrapbookwidget.R;
+
 public class PageCurlView extends GLSurfaceView {
+    private final Context _context;
     private PageRenderer pageRenderer;
     private final float CURL_THRESHOLD = 0.5f;
     private int curPage = 1;
@@ -19,11 +23,11 @@ public class PageCurlView extends GLSurfaceView {
     private final Runnable runnable;
     public PageCurlView(Context context, Runnable runnable) {
         super(context);
+        _context = context;
         this.runnable = runnable;
         setEGLContextClientVersion(3);
         pageRenderer = new PageRenderer(context);
         setRenderer(pageRenderer);
-        setRenderMode(GLSurfaceView.RENDERMODE_WHEN_DIRTY);
     }
 
     @Override
@@ -78,11 +82,16 @@ public class PageCurlView extends GLSurfaceView {
 
                 if (!isCurling) return true;
 
+                int prevPage = curPage;
                 if (isForward && normX < CURL_THRESHOLD) {
                     curPage++;
                 }
                 else if (!isForward && normX >= CURL_THRESHOLD) {
                     curPage--;
+                }
+                if (prevPage != curPage) {
+                    MediaPlayer mediaPlayer = MediaPlayer.create(_context, R.raw.page_turn_sound);
+                    mediaPlayer.start();
                 }
 
                 isCurling = false;

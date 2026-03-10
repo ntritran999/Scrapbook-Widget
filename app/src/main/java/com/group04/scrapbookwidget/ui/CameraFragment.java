@@ -3,6 +3,7 @@ package com.group04.scrapbookwidget.ui;
 import android.Manifest;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
+import android.media.MediaPlayer;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.ScaleGestureDetector;
@@ -25,6 +26,7 @@ import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import com.group04.scrapbookwidget.R;
 import com.group04.scrapbookwidget.databinding.FragmentCameraBinding;
 
 import java.io.File;
@@ -148,6 +150,10 @@ public class CameraFragment extends Fragment {
     }
 
     private void takePhoto() {
+        // Sound effect
+        MediaPlayer mediaPlayer = MediaPlayer.create(requireContext(), R.raw.camera_shutter_sound);
+        mediaPlayer.start();
+
         if (imageCapture == null) {
             return;
         }

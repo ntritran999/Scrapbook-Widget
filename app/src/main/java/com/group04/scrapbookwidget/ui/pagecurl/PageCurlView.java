@@ -83,11 +83,13 @@ public class PageCurlView extends GLSurfaceView {
                 if (!isCurling) return true;
 
                 int prevPage = curPage;
-                if (isForward && normX < CURL_THRESHOLD) {
-                    curPage++;
-                }
-                else if (!isForward && normX >= CURL_THRESHOLD) {
-                    curPage--;
+                if (!pageRenderer.getIsDeveloping()) {
+                    if (isForward && normX < CURL_THRESHOLD) {
+                        curPage++;
+                    }
+                    else if (!isForward && normX >= CURL_THRESHOLD) {
+                        curPage--;
+                    }
                 }
                 if (prevPage != curPage) {
                     MediaPlayer mediaPlayer = MediaPlayer.create(_context, R.raw.page_turn_sound);

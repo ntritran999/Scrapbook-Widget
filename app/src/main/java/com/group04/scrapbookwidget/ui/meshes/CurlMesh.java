@@ -1,6 +1,8 @@
-package com.group04.scrapbookwidget.ui.pagecurl;
+package com.group04.scrapbookwidget.ui.meshes;
 
 import android.opengl.GLES32;
+
+import com.group04.scrapbookwidget.ui.pagecurl.PageRenderer;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;

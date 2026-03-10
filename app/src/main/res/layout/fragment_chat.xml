@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    tools:context=".ui.group.ChatFragment">
+
+    <androidx.fragment.app.FragmentContainerView
+        android:id="@+id/top_bar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:name="com.group04.scrapbookwidget.ui.group.ChatTopBarFragment"
+        tools:layout="@layout/fragment_chat_top_bar"/>
+
+    <androidx.fragment.app.FragmentContainerView
+        android:id="@+id/mainContent"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:name="com.group04.scrapbookwidget.ui.group.ListGroupFragment"
+        tools:layout="@layout/fragment_list_group"/>
+</LinearLayout>

@@ -64,7 +64,8 @@
                 android:layout_height="96dp"
                 android:clickable="true"
                 android:contentDescription="shutter-button"
-                android:focusable="true">
+                android:focusable="true"
+                android:soundEffectsEnabled="false">
                 <View
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"

@@ -1,6 +1,43 @@
 <?xml version="1.0" encoding="utf-8"?>
 <navigation xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:id="@+id/app_nav">
-
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/app_nav"
+    app:startDestination="@id/homeFragment">
+    <fragment
+        android:id="@+id/authLoginFragment"
+        android:name="com.group04.scrapbookwidget.ui.auth.login.AuthLoginFragment"
+        android:label="AuthLoginFragment"
+        tools:layout="@layout/fragment_auth_login">
+        <action
+            android:id="@+id/action_authLoginFragment_to_authRegisterFragment"
+            app:destination="@id/authRegisterFragment" />
+    </fragment>
+    <fragment
+        android:id="@+id/authRegisterFragment"
+        android:name="com.group04.scrapbookwidget.ui.auth.register.AuthRegisterFragment"
+        android:label="AuthRegisterFragment"
+        tools:layout="@layout/fragment_auth_register">
+        <action
+            android:id="@+id/action_authRegisterFragment_to_authLoginFragment"
+            app:destination="@id/authLoginFragment" />
+    </fragment>
+    <fragment
+        android:id="@+id/homeFragment"
+        android:name="com.group04.scrapbookwidget.ui.HomeFragment"
+        android:label="fragment_home"
+        tools:layout="@layout/fragment_home" >
+        <action
+            android:id="@+id/action_homeFragment_to_chatFragment"
+            app:destination="@id/chatFragment" />
+    </fragment>
+    <fragment
+        android:id="@+id/chatFragment"
+        android:name="com.group04.scrapbookwidget.ui.group.ChatFragment"
+        android:label="fragment_chat"
+        tools:layout="@layout/fragment_chat" >
+        <action
+            android:id="@+id/action_chatFragment_to_homeFragment"
+            app:destination="@id/homeFragment" />
+    </fragment>
 </navigation>

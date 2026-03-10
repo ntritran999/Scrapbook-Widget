@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
@@ -8,16 +8,9 @@
     android:id="@+id/main"
     >
     <androidx.fragment.app.FragmentContainerView
+        android:id="@+id/nav_host_fragment"
+        android:name="androidx.navigation.fragment.NavHostFragment"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:id="@+id/fragmentTopBar"
-        android:name="com.group04.scrapbookwidget.ui.TopBarFragment"
-        tools:layout="@layout/fragment_top_bar" />
-    <androidx.fragment.app.FragmentContainerView
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:id="@+id/fragmentCamera"
-        android:name="com.group04.scrapbookwidget.ui.CameraFragment"
-        tools:layout="@layout/fragment_camera" />
-</LinearLayout>
+        android:layout_height="match_parent"
+        app:navGraph="@navigation/app_nav" />
+</FrameLayout>

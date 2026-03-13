@@ -8,12 +8,13 @@ import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.PointF;
 import android.util.AttributeSet;
+import android.widget.FrameLayout;
 
 import androidx.appcompat.widget.AppCompatImageView;
 
 import java.util.Random;
 
-public class ScrapbookMaskView extends AppCompatImageView {
+public class ScrapbookMaskView extends FrameLayout {
 
     private Path maskPath = new Path();
     private final Random random = new Random();
@@ -143,20 +144,20 @@ public class ScrapbookMaskView extends AppCompatImageView {
     }
 
     @Override
-    protected void onDraw(Canvas canvas) {
+    protected void dispatchDraw(Canvas canvas) {
         if (!isMaskEnabled) {
-            super.onDraw(canvas);
+            super.dispatchDraw(canvas);
             return;
         }
-
-        canvas.drawPath(maskPath, shadowPaint);
-        canvas.drawPath(maskPath, dustPaint);
-        canvas.drawPath(maskPath, corePaint);
 
         canvas.save();
         canvas.clipPath(maskPath);
 
-        super.onDraw(canvas);
+        super.dispatchDraw(canvas);
         canvas.restore();
+
+        canvas.drawPath(maskPath, shadowPaint);
+        canvas.drawPath(maskPath, dustPaint);
+        canvas.drawPath(maskPath, corePaint);
     }
 }

@@ -1,5 +1,6 @@
 package com.group04.scrapbookwidget.ui;
 
+import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
 import android.view.LayoutInflater;
@@ -17,6 +18,7 @@ public class ImageEditorFragment extends Fragment {
     private FragmentImageEditorBinding binding;
     private String photoPath;
     private boolean isMaskApplied = false;
+    private boolean isDrawingMode = false;
 
     private boolean saveToGallery(String cachedPhotoPath) {
         if (cachedPhotoPath == null) {
@@ -71,26 +73,90 @@ public class ImageEditorFragment extends Fragment {
             binding.imgPreview.setImageURI(Uri.parse(photoPath));
         }
 
-        binding.btnToolMask.setOnClickListener(view -> {
-            isMaskApplied = !isMaskApplied;
+        setupMainTools();
+        setupBrushTools();
+        setupColorPalette();
 
-            binding.imgPreview.setMaskEnabled(isMaskApplied); // ScrapbookMaskView
-
-            if (isMaskApplied) {
-                binding.btnToolMask.setBackgroundColor(android.graphics.Color.parseColor("#4CAF50")); // Màu xanh
-            } else {
-                binding.btnToolMask.setBackgroundColor(android.graphics.Color.parseColor("#222222")); // Trở về màu xám cũ
-            }
-        });
-
-        binding.btnSave.setOnClickListener(view -> {
-            boolean isSaved = saveToGallery(photoPath);
-            if (isSaved) {
-                binding.btnSave.setEnabled(false);
-                binding.btnSave.setAlpha(0.5f);
-            }
-        });
+        binding.btnSave.setOnClickListener(view -> saveToGallery(photoPath));
 
         return binding.getRoot();
+    }
+
+    private void setupMainTools() {
+        binding.btnToolMask.setOnClickListener(view -> {
+            isMaskApplied = !isMaskApplied;
+            binding.tornPaperFrame.setMaskEnabled(isMaskApplied);
+            updateToolButtonStyles();
+        });
+
+        binding.btnToolDraw.setOnClickListener(view -> {
+            isDrawingMode = !isDrawingMode;
+            binding.drawView.setDrawingEnabled(isDrawingMode);
+            
+            int visibility = isDrawingMode ? View.VISIBLE : View.GONE;
+            binding.brushToolsLayout.setVisibility(visibility);
+            binding.colorPaletteLayout.setVisibility(visibility);
+
+            if (isDrawingMode) {
+                selectPencil();
+            }
+
+            updateToolButtonStyles();
+        });
+    }
+
+    private void setupBrushTools() {
+        binding.btnBrushPencil.setOnClickListener(v -> selectPencil());
+        binding.btnBrushEraser.setOnClickListener(v -> selectEraser());
+    }
+
+    private void selectPencil() {
+        binding.drawView.setBrushType(ScrapbookDrawView.BrushType.PENCIL);
+        binding.btnBrushPencil.setBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.parseColor("#4CAF50")));
+        binding.btnBrushPencil.setTextColor(Color.WHITE);
+        
+        binding.btnBrushEraser.setBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.parseColor("#EEEEEE")));
+        binding.btnBrushEraser.setTextColor(Color.BLACK);
+        
+        binding.colorPaletteLayout.setAlpha(1.0f);
+        enableColorPalette(true);
+    }
+
+    private void selectEraser() {
+        binding.drawView.setBrushType(ScrapbookDrawView.BrushType.ERASER);
+        binding.btnBrushEraser.setBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.parseColor("#F44336")));
+        binding.btnBrushEraser.setTextColor(Color.WHITE);
+        
+        binding.btnBrushPencil.setBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.parseColor("#EEEEEE")));
+        binding.btnBrushPencil.setTextColor(Color.BLACK);
+        
+        binding.colorPaletteLayout.setAlpha(0.3f);
+        enableColorPalette(false);
+    }
+
+    private void enableColorPalette(boolean enabled) {
+        for (int i = 0; i < binding.colorPaletteLayout.getChildCount(); i++) {
+            binding.colorPaletteLayout.getChildAt(i).setEnabled(enabled);
+        }
+    }
+
+    private void updateToolButtonStyles() {
+        binding.btnToolMask.setBackgroundColor(isMaskApplied ? Color.parseColor("#4CAF50") : Color.parseColor("#222222"));
+        binding.btnToolDraw.setBackgroundColor(isDrawingMode ? Color.parseColor("#4CAF50") : Color.parseColor("#222222"));
+    }
+
+    private void setupColorPalette() {
+        binding.colorWhite.setOnClickListener(v -> binding.drawView.changeColor(Color.WHITE));
+        binding.colorRed.setOnClickListener(v -> binding.drawView.changeColor(Color.parseColor("#F44336")));
+        binding.colorYellow.setOnClickListener(v -> binding.drawView.changeColor(Color.parseColor("#FFEB3B")));
+        binding.colorGreen.setOnClickListener(v -> binding.drawView.changeColor(Color.parseColor("#4CAF50")));
+        binding.colorBlue.setOnClickListener(v -> binding.drawView.changeColor(Color.parseColor("#2196F3")));
+        binding.colorBlack.setOnClickListener(v -> binding.drawView.changeColor(Color.BLACK));
+    }
+
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        binding = null;
     }
 }

@@ -78,4 +78,7 @@ dependencies {
     implementation("com.google.firebase:firebase-analytics")
     implementation("com.google.firebase:firebase-firestore")
 
+    // Google ML Kit
+    implementation("com.google.mlkit:face-detection:16.1.7")
+    implementation("com.google.mlkit:smart-reply:17.0.4")
 }

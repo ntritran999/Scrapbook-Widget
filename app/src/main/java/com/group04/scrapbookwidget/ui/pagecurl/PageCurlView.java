@@ -1,7 +1,7 @@
 package com.group04.scrapbookwidget.ui.pagecurl;
 
 import android.content.Context;
-import android.graphics.RectF;
+import android.graphics.Rect;
 import android.media.MediaPlayer;
 import android.opengl.GLSurfaceView;
 import android.os.Handler;
@@ -9,8 +9,28 @@ import android.os.Looper;
 import android.view.MotionEvent;
 
 import com.group04.scrapbookwidget.R;
+import com.group04.scrapbookwidget.data.model.Layout;
+import com.group04.scrapbookwidget.ui.scrapbookview.ScrapbookPageData;
+
+import org.checkerframework.checker.units.qual.A;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class PageCurlView extends GLSurfaceView {
+    class PhotoRect {
+        public String pageId, itemId;
+        public Rect rect;
+        public PhotoRect(String pageId, String itemId, Rect rect) {
+            this.pageId = pageId;
+            this.itemId = itemId;
+            this.rect = rect;
+        }
+    }
+
+    public interface OnPhotoHitListener {
+        void onPhotoHit(String pageId, String itemId);
+    }
     private final Context _context;
     private PageRenderer pageRenderer;
     private final float CURL_THRESHOLD = 0.5f;
@@ -19,15 +39,21 @@ public class PageCurlView extends GLSurfaceView {
     private boolean isForward = false;
 
     private boolean isPressed = false;
+
+    private List<List<PhotoRect>> photoRects;
+    private OnPhotoHitListener listener;
     private final Handler handler = new Handler(Looper.getMainLooper());
-    private final Runnable runnable;
-    public PageCurlView(Context context, Runnable runnable) {
+    private Runnable runnable;
+    public PageCurlView(Context context) {
         super(context);
         _context = context;
-        this.runnable = runnable;
         setEGLContextClientVersion(3);
         pageRenderer = new PageRenderer(context);
         setRenderer(pageRenderer);
+    }
+
+    public PageRenderer getPageRenderer() {
+        return pageRenderer;
     }
 
     @Override
@@ -44,7 +70,13 @@ public class PageCurlView extends GLSurfaceView {
 
         switch (event.getAction()) {
             case MotionEvent.ACTION_DOWN:
-                if (!isCurling && isPhotoHit(x, y)) {
+                PhotoRect photoRect = getPhotoHit(x, y);
+                if (!pageRenderer.getIsDeveloping() && !isCurling && photoRect != null) {
+                    runnable = () -> {
+                        if (listener != null) {
+                            listener.onPhotoHit(photoRect.pageId, photoRect.itemId);
+                        };
+                    };
                     handler.postDelayed(runnable, touchDelayMillis);
                     isPressed = true;
                 }
@@ -65,7 +97,7 @@ public class PageCurlView extends GLSurfaceView {
             case MotionEvent.ACTION_MOVE:
                 if (!isCurling) return true;
 
-                if (isPressed) {
+                if (isPressed && runnable != null) {
                     isPressed = false;
                     handler.removeCallbacks(runnable);
                 }
@@ -107,8 +139,39 @@ public class PageCurlView extends GLSurfaceView {
         return true;
     }
 
-    private RectF dummyRect = new RectF(35, 35, 250, 450);
-    private boolean isPhotoHit(float x, float y) {
-        return dummyRect.contains(x, y);
+    public void setOnPhotoHitListener(OnPhotoHitListener listener) {
+        this.listener = listener;
+    }
+    public void setPhotoRects(List<ScrapbookPageData> pages) {
+        photoRects = new ArrayList<>();
+        for (var page: pages) {
+            List<PhotoRect> pagePhotoRects = new ArrayList<>();
+            for (var item: page.scrapbookItems) {
+                Layout layout = item.getLayout();
+                Rect rect = new Rect(
+                        Math.round(layout.x),
+                        Math.round(layout.y),
+                        Math.round(layout.x + layout.width),
+                        Math.round(layout.y + layout.height)
+                );
+                System.out.println(item.getId());
+                pagePhotoRects.add(new PhotoRect(page.scrapbookPage.getId(), item.getId(), rect));
+            }
+            photoRects.add(pagePhotoRects);
+        }
+    }
+
+    private PhotoRect getPhotoHit(float x, float y) {
+        if (photoRects != null) {
+            float xScale = x * pageRenderer.getBmpW() / getWidth();
+            float yScale = y * pageRenderer.getBmpH() / getHeight();
+            List<PhotoRect> photos = photoRects.get(curPage - 1);
+            for (var photo: photos) {
+                if (photo.rect.contains(Math.round(xScale), Math.round(yScale))) {
+                    return photo;
+                }
+            }
+        }
+        return null;
     }
 }

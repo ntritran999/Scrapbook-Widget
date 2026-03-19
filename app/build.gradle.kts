@@ -81,4 +81,7 @@ dependencies {
     // Google ML Kit
     implementation("com.google.mlkit:face-detection:16.1.7")
     implementation("com.google.mlkit:smart-reply:17.0.4")
+
+    // Glide
+    implementation("com.github.bumptech.glide:glide:5.0.5")
 }

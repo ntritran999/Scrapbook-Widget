@@ -1,4 +1,4 @@
-package com.group04.scrapbookwidget.ui;
+package com.group04.scrapbookwidget.ui.scrapbookview;
 
 import android.os.Bundle;
 

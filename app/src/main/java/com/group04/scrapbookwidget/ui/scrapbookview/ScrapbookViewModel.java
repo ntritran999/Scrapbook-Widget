@@ -9,8 +9,6 @@ import com.google.android.gms.tasks.Tasks;
 import com.group04.scrapbookwidget.data.model.ScrapbookItem;
 import com.group04.scrapbookwidget.data.repository.IScrapbookRepository;
 
-import org.checkerframework.checker.units.qual.A;
-
 import java.util.ArrayList;
 import java.util.List;
 
@@ -22,6 +20,9 @@ import dagger.hilt.android.lifecycle.HiltViewModel;
 public class ScrapbookViewModel extends ViewModel {
     private final IScrapbookRepository scrapbookRepository;
 
+    private int pageIndex = 0;
+
+    private String groupId;
     private final MutableLiveData<List<ScrapbookPageData>> pagesLiveData = new MutableLiveData<>();
     private final MutableLiveData<String> errorMessage = new MutableLiveData<>();
     @Inject
@@ -29,6 +30,13 @@ public class ScrapbookViewModel extends ViewModel {
         scrapbookRepository = repo;
     }
 
+    public int getPageIndex() {
+        return pageIndex;
+    }
+
+    public String getGroupId() {
+        return groupId;
+    }
     public LiveData<List<ScrapbookPageData>> getPagesLiveData() {
         return pagesLiveData;
     }
@@ -37,7 +45,7 @@ public class ScrapbookViewModel extends ViewModel {
         return errorMessage;
     }
 
-    public void loadScrapbook(String groupId) {
+    public void loadScrapbook(String groupId, String pageId) {
         List<ScrapbookPageData> data = pagesLiveData.getValue();
         if (data != null && !data.isEmpty()) {
             return;
@@ -57,9 +65,13 @@ public class ScrapbookViewModel extends ViewModel {
                 List<ScrapbookPageData> scrapbookData = new ArrayList<>();
                 for (int i = 0; i < pages.size(); i++) {
                     scrapbookData.add(new ScrapbookPageData(pages.get(i), (List<ScrapbookItem>) results.get(i)));
+                    if (pages.get(i).getId().equals(pageId)) {
+                        pageIndex = i;
+                    }
                 }
 
                 pagesLiveData.setValue(scrapbookData);
+                this.groupId = groupId;
             }).addOnFailureListener(e -> {
                 errorMessage.setValue("Failed to load items: " + e.getMessage());
             });

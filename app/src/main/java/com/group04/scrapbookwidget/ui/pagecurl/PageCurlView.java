@@ -161,6 +161,11 @@ public class PageCurlView extends GLSurfaceView {
         }
     }
 
+    public void setCurPage(int page) {
+        curPage = page + 1;
+        pageRenderer.setCurPage(curPage);
+    }
+
     private PhotoRect getPhotoHit(float x, float y) {
         if (photoRects != null) {
             float xScale = x * pageRenderer.getBmpW() / getWidth();

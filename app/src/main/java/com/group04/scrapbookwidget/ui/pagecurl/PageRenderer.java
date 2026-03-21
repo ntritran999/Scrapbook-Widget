@@ -2,15 +2,12 @@ package com.group04.scrapbookwidget.ui.pagecurl;
 
 import android.content.Context;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
-import android.graphics.Color;
 import android.graphics.Rect;
 import android.opengl.GLES32;
 import android.opengl.GLSurfaceView;
 import android.opengl.GLUtils;
 import android.opengl.Matrix;
 
-import com.group04.scrapbookwidget.R;
 import com.group04.scrapbookwidget.ui.meshes.CurlMesh;
 import com.group04.scrapbookwidget.ui.meshes.SimpleMesh;
 

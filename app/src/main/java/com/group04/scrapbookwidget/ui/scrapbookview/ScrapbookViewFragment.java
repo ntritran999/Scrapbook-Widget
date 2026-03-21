@@ -2,8 +2,11 @@ package com.group04.scrapbookwidget.ui.scrapbookview;
 
 import android.os.Bundle;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.databinding.DataBindingUtil;
 import androidx.fragment.app.Fragment;
+import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.Navigation;
 
 import android.view.LayoutInflater;
@@ -13,28 +16,30 @@ import android.view.ViewGroup;
 import com.group04.scrapbookwidget.R;
 import com.group04.scrapbookwidget.databinding.FragmentScrapbookViewBinding;
 
+import dagger.hilt.android.AndroidEntryPoint;
+
+@AndroidEntryPoint
 public class ScrapbookViewFragment extends Fragment {
-
-    private static final String ARG_PARAM1 = "param1";
-    private static final String ARG_PARAM2 = "param2";
-
+    private ScrapbookViewModel scrapbookViewModel;
+    private String groupId = "", pageId = "";
     public ScrapbookViewFragment() {}
-    public static ScrapbookViewFragment newInstance(String param1, String param2) {
-        ScrapbookViewFragment fragment = new ScrapbookViewFragment();
-        Bundle args = new Bundle();
-//        args.putString(ARG_PARAM1, param1);
-//        args.putString(ARG_PARAM2, param2);
-        fragment.setArguments(args);
-        return fragment;
-    }
 
     @Override
-    public void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-//        if (getArguments() != null) {
-//            mParam1 = getArguments().getString(ARG_PARAM1);
-//            mParam2 = getArguments().getString(ARG_PARAM2);
-//        }
+    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
+        if (savedInstanceState == null) {
+           Bundle bundle = getArguments();
+           if (bundle != null) {
+               groupId = bundle.getString("GROUP_ID");
+               pageId = bundle.getString("PAGE_ID");
+           }
+        }
+        else {
+            groupId = savedInstanceState.getString("GROUP_ID");
+            pageId = savedInstanceState.getString("PAGE_ID");
+        }
+        scrapbookViewModel = new ViewModelProvider(this).get(ScrapbookViewModel.class);
+        scrapbookViewModel.loadScrapbook(groupId, pageId);
     }
 
     @Override

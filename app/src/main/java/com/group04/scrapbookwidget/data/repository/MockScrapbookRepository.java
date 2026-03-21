@@ -22,12 +22,15 @@ public class MockScrapbookRepository implements IScrapbookRepository{
         List<ScrapbookPage> pages = new ArrayList<>();
 
         ScrapbookPage page1 = new ScrapbookPage();
+        page1.setId("page1");
         page1.setBackgroundImage("http://10.0.2.2:8080/test__2_.jpg");
 
         ScrapbookPage page2 = new ScrapbookPage();
+        page2.setId("page2");
         page2.setBackgroundImage("http://10.0.2.2:8080/test__2_.jpg");
 
         ScrapbookPage page3 = new ScrapbookPage();
+        page3.setId("page3");
         page3.setBackgroundImage("http://10.0.2.2:8080/test__2_.jpg");
 
         pages.add(page1);

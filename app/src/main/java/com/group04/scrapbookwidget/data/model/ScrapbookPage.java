@@ -7,6 +7,10 @@ public class ScrapbookPage {
         return id;
     }
 
+    public void setId(String id) {
+        this.id = id;
+    }
+
     public String getBackgroundImage() {
         return backgroundImage;
     }

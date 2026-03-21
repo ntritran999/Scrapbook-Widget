@@ -1,7 +1,5 @@
 package com.group04.scrapbookwidget.ui.scrapbookview;
 
-import android.content.Context;
-import android.graphics.Bitmap;
 import android.os.Bundle;
 
 import androidx.annotation.NonNull;
@@ -18,7 +16,6 @@ import com.group04.scrapbookwidget.ui.pagecurl.PageBuilder;
 import com.group04.scrapbookwidget.ui.pagecurl.PageCurlView;
 import com.group04.scrapbookwidget.ui.pagecurl.PageResources;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 
@@ -28,8 +25,6 @@ import dagger.hilt.android.AndroidEntryPoint;
 public class PageFragment extends Fragment {
     private ScrapbookViewModel scrapbookViewModel;
     private PageCurlView pageCurlView;
-    private String curGroupId = "test_id";
-    private int curPage = 0;
 
     public PageFragment() {}
 
@@ -47,20 +42,21 @@ public class PageFragment extends Fragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-        scrapbookViewModel = new ViewModelProvider(this).get(ScrapbookViewModel.class);
+        scrapbookViewModel = new ViewModelProvider(requireParentFragment()).get(ScrapbookViewModel.class);
         scrapbookViewModel.getPagesLiveData().observe(getViewLifecycleOwner(), pages -> {
             if (pages != null && !pages.isEmpty()) {
-                prepareBitmaps(pages, curPage);
+                prepareBitmaps(pages, scrapbookViewModel.getPageIndex());
 
                 pageCurlView.setPhotoRects(pages);
                 pageCurlView.setOnPhotoHitListener((pageId, itemId) -> {
-                    PhotoDialogFragment photoDialogFragment = PhotoDialogFragment.newInstance(curGroupId, pageId, itemId);
+                    PhotoDialogFragment photoDialogFragment = PhotoDialogFragment.newInstance(scrapbookViewModel.getGroupId(), pageId, itemId);
                     photoDialogFragment.show(getChildFragmentManager(), PhotoDialogFragment.TAG);
                 });
             }
+            else {
+                Toast.makeText(getContext(), scrapbookViewModel.getErrorMessage().getValue(), Toast.LENGTH_SHORT).show();
+            }
         });
-
-        scrapbookViewModel.loadScrapbook(curGroupId);
     }
 
     @Override
@@ -72,6 +68,7 @@ public class PageFragment extends Fragment {
     }
 
     private void prepareBitmaps(List<ScrapbookPageData> data, int page) {
+        pageCurlView.setCurPage(page);
         new Thread(() -> {
             try {
                 PageResources resources = PageBuilder.buildPages(getContext(), data, page);

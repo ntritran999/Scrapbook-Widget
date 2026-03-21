@@ -24,6 +24,7 @@ import androidx.camera.core.Preview;
 import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
+import androidx.navigation.Navigation;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.group04.scrapbookwidget.R;
@@ -72,13 +73,8 @@ public class CameraFragment extends Fragment {
             requestPermissionLauncher.launch(Manifest.permission.CAMERA);
         }
 
-        // flip button
         binding.btnFlipCamera.setOnClickListener(view -> {
-            if (lensFacing == CameraSelector.LENS_FACING_BACK) {
-                lensFacing = CameraSelector.LENS_FACING_FRONT;
-            } else {
-                lensFacing = CameraSelector.LENS_FACING_BACK;
-            }
+            lensFacing = (lensFacing == CameraSelector.LENS_FACING_BACK) ? CameraSelector.LENS_FACING_FRONT : CameraSelector.LENS_FACING_BACK;
             startCamera();
         });
 
@@ -107,7 +103,7 @@ public class CameraFragment extends Fragment {
 
         cameraProviderFuture.addListener(() -> {
             try {
-                ProcessCameraProvider cameraProvider = cameraProviderFuture.get(); // return the real object, not promise
+                ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
 
                 // viewFinder setup
                 Preview preview = new Preview.Builder().build();
@@ -152,49 +148,34 @@ public class CameraFragment extends Fragment {
     private void takePhoto() {
         // Sound effect
         MediaPlayer mediaPlayer = MediaPlayer.create(requireContext(), R.raw.camera_shutter_sound);
-        mediaPlayer.start();
-
-        if (imageCapture == null) {
-            return;
+        if (mediaPlayer != null) {
+            mediaPlayer.setOnCompletionListener(MediaPlayer::release);
+            mediaPlayer.start();
         }
 
-        // create temporary file to cache photo
+        if (imageCapture == null) return;
 
-        java.io.File photoFile = new java.io.File(
-            requireContext().getCacheDir(),
-            System.currentTimeMillis() + ".jpg"
-        );
+        File photoFile = new File(requireContext().getCacheDir(), System.currentTimeMillis() + ".jpg");
+        ImageCapture.OutputFileOptions outputOptions = new ImageCapture.OutputFileOptions.Builder(photoFile).build();
 
-        // photo's output setup
-        ImageCapture.OutputFileOptions outputOptions =
-            new ImageCapture.OutputFileOptions.Builder(photoFile).build();
-
-        // take photo
         imageCapture.takePicture(
                 outputOptions,
                 ContextCompat.getMainExecutor(requireContext()),
                 new ImageCapture.OnImageSavedCallback() {
                     @Override
                     public void onError(@NonNull ImageCaptureException e) {
-                        String msg = "Error capture image: " + e.getMessage();
-                        android.widget.Toast.makeText(requireContext(), msg, android.widget.Toast.LENGTH_SHORT).show();
+                        Toast.makeText(requireContext(), "Error capture: " + e.getMessage(), Toast.LENGTH_SHORT).show();
                     }
 
                     @Override
-                    public void onImageSaved(@NonNull ImageCapture.OutputFileResults outputFileResults) {
-                        String msg = "Saved at: " + photoFile.getAbsolutePath();
-                        Toast.makeText(requireContext(), msg, Toast.LENGTH_SHORT).show();
+                    public void onImageSaved(@NonNull ImageCapture.OutputFileResults results) {
+                        if (getView() == null) return;
 
                         Bundle bundle = new Bundle();
                         bundle.putString("PHOTO_PATH", photoFile.getAbsolutePath());
 
-                        ImageEditorFragment editorFragment = new ImageEditorFragment();
-                        editorFragment.setArguments(bundle);
-
-                        requireActivity().getSupportFragmentManager().beginTransaction()
-                            .replace(((ViewGroup) getView().getParent()).getId(), editorFragment)
-                            .addToBackStack(null)
-                            .commit();
+                        Navigation.findNavController(requireView())
+                                .navigate(R.id.action_cameraFragment_to_imageEditorFragment, bundle);
                     }
                 }
         );

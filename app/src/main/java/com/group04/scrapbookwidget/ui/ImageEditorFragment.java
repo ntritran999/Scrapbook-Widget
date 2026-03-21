@@ -1,5 +1,8 @@
 package com.group04.scrapbookwidget.ui;
 
+import android.app.AlertDialog;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
@@ -11,7 +14,14 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
+import androidx.navigation.NavController;
+import androidx.navigation.fragment.NavHostFragment;
+
+import com.group04.scrapbookwidget.R;
 import com.group04.scrapbookwidget.databinding.FragmentImageEditorBinding;
+
+import java.io.File;
+import java.io.FileOutputStream;
 
 public class ImageEditorFragment extends Fragment {
 
@@ -78,8 +88,49 @@ public class ImageEditorFragment extends Fragment {
         setupColorPalette();
 
         binding.btnSave.setOnClickListener(view -> saveToGallery(photoPath));
+        
+        binding.btnPaste.setOnClickListener(view -> handlePasteToScrapbook());
 
         return binding.getRoot();
+    }
+
+    private void handlePasteToScrapbook() {
+        if (binding.tornPaperFrame.getWidth() <= 0 || binding.tornPaperFrame.getHeight() <= 0) {
+            Toast.makeText(getContext(), "Please wait!", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        try {
+            // Render view to bitmap
+            Bitmap bitmap = Bitmap.createBitmap(binding.tornPaperFrame.getWidth(), 
+                    binding.tornPaperFrame.getHeight(), Bitmap.Config.ARGB_8888);
+            Canvas canvas = new Canvas(bitmap);
+            binding.tornPaperFrame.draw(canvas);
+
+            File outputDir = requireContext().getCacheDir();
+            File imageFile = File.createTempFile("pasted_image", ".png", outputDir);
+            try (FileOutputStream out = new FileOutputStream(imageFile)) {
+                bitmap.compress(Bitmap.CompressFormat.PNG, 100, out);
+            }
+
+            NavController navController = NavHostFragment.findNavController(this);
+            
+            if (navController.getCurrentDestination() != null && 
+                navController.getCurrentDestination().getId() == R.id.imageEditorFragment) {
+                
+                Bundle bundle = new Bundle();
+                bundle.putString("PASTED_IMAGE_PATH", imageFile.getAbsolutePath());
+                bundle.putString("GROUP_NAME", "Default Group");
+
+                navController.navigate(R.id.action_imageEditorFragment_to_scrapbookViewFragment, bundle);
+            } else {
+                Toast.makeText(getContext(), "NAVIGATION ERROR: ", Toast.LENGTH_SHORT).show();
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            Toast.makeText(getContext(), "ERROR: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+        }
     }
 
     private void setupMainTools() {
@@ -129,7 +180,7 @@ public class ImageEditorFragment extends Fragment {
         
         binding.btnBrushPencil.setBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.parseColor("#EEEEEE")));
         binding.btnBrushPencil.setTextColor(Color.BLACK);
-        
+
         binding.colorPaletteLayout.setAlpha(0.3f);
         enableColorPalette(false);
     }

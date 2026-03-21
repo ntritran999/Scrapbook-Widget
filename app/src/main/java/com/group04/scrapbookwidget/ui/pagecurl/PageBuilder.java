@@ -4,6 +4,7 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Rect;
+import android.util.DisplayMetrics;
 
 import com.bumptech.glide.Glide;
 import com.group04.scrapbookwidget.data.model.Layout;
@@ -28,7 +29,14 @@ public class PageBuilder {
     }
 
     private static void buildBackground(Context context, PageResources pageResources, ScrapbookPage page) throws ExecutionException, InterruptedException {
-        pageResources.backgroundBitmap = Glide.with(context).asBitmap().load(page.getBackgroundImage()).submit().get();
+        DisplayMetrics displayMetrics = context.getResources().getDisplayMetrics();
+        pageResources.backgroundBitmap = Glide.with(context)
+                .asBitmap()
+                .load(page.getBackgroundImage())
+                .override(displayMetrics.widthPixels, displayMetrics.heightPixels)
+                .centerCrop()
+                .submit()
+                .get();
 
         pageResources.bitmapWidth = pageResources.backgroundBitmap.getWidth();
         pageResources.bitmapHeight = pageResources.backgroundBitmap.getHeight();
@@ -38,9 +46,10 @@ public class PageBuilder {
         pageResources.developingPhotosBitmaps = new ArrayList<>();
         pageResources.imageRects = new ArrayList<>();
         for (var item: items) {
-            pageResources.developingPhotosBitmaps.add(getBitMapFromUrl(context, item.getContent().photoUrl));
+            Layout layout = item.getLayout();
+            pageResources.developingPhotosBitmaps.add(getBitMapFromUrl(context, item.getContent().photoUrl, (int) layout.width, (int) layout.height));
 
-            pageResources.imageRects.add(getRectFromLayout(item.getLayout()));
+            pageResources.imageRects.add(getRectFromLayout(layout));
         }
     }
 
@@ -57,8 +66,9 @@ public class PageBuilder {
             Canvas canvas = new Canvas(result);
             canvas.drawBitmap(background, 0, 0, null);
             for (var item: pageData.scrapbookItems) {
-                Bitmap photo = getBitMapFromUrl(context, item.getContent().photoUrl);
-                Rect rect = getRectFromLayout(item.getLayout());
+                Layout layout = item.getLayout();
+                Bitmap photo = getBitMapFromUrl(context, item.getContent().photoUrl, (int) layout.width, (int) layout.height);
+                Rect rect = getRectFromLayout(layout);
 
                 canvas.drawBitmap(photo, null, rect, null);
             }
@@ -76,7 +86,13 @@ public class PageBuilder {
         );
     }
 
-    private static Bitmap getBitMapFromUrl(Context context, String url) throws ExecutionException, InterruptedException {
-        return Glide.with(context).asBitmap().load(url).submit().get();
+    private static Bitmap getBitMapFromUrl(Context context, String url, int w, int h) throws ExecutionException, InterruptedException {
+        return Glide.with(context)
+                .asBitmap()
+                .load(url)
+                .override(w, h)
+                .centerCrop()
+                .submit()
+                .get();
     }
 }

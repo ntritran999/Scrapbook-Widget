@@ -28,6 +28,7 @@ public class AppWidget extends AppWidgetProvider {
             args.putString("GROUP_ID", groupId);
             args.putString("PAGE_ID", pageId);
             intent.putExtras(args);
+            intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
         }
         PendingIntent pendingIntent = PendingIntent.getActivity(
                 context,

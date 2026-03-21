@@ -1,10 +1,12 @@
 package com.group04.scrapbookwidget.ui;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 
 import androidx.activity.EdgeToEdge;
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
@@ -37,12 +39,23 @@ public class MainActivity extends AppCompatActivity {
 
         saveDummyWidgetMetadata();
 
+        navigateToHomeFromWidget();
+
+//        removeDummyWidgetMetadata();
+    }
+
+    @Override
+    protected void onNewIntent(@NonNull Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        navigateToHomeFromWidget();
+    }
+
+    private void navigateToHomeFromWidget() {
         NavHostFragment navHostFragment =
                 (NavHostFragment) getSupportFragmentManager().findFragmentById(R.id.nav_host_fragment);
         NavController navController = navHostFragment.getNavController();
         navController.setGraph(R.navigation.app_nav, getIntent().getExtras());
-
-//        removeDummyWidgetMetadata();
     }
 
     private void saveDummyWidgetMetadata() {

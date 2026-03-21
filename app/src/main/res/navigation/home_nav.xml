@@ -7,7 +7,7 @@
 
     <fragment
         android:id="@+id/scrapbookViewFragment"
-        android:name="com.group04.scrapbookwidget.ui.ScrapbookViewFragment"
+        android:name="com.group04.scrapbookwidget.ui.scrapbookview.ScrapbookViewFragment"
         android:label="fragment_scrapbook_view"
         tools:layout="@layout/fragment_scrapbook_view" >
         <action

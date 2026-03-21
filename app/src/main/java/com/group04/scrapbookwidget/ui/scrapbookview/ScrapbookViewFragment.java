@@ -1,9 +1,17 @@
-package com.group04.scrapbookwidget.ui;
+package com.group04.scrapbookwidget.ui.scrapbookview;
 
 import android.annotation.SuppressLint;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.os.Bundle;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.databinding.DataBindingUtil;
+import androidx.fragment.app.Fragment;
+import androidx.lifecycle.ViewModelProvider;
+import androidx.navigation.Navigation;
+
 import android.os.Handler;
 import android.os.Looper;
 import android.view.LayoutInflater;
@@ -12,17 +20,16 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
-import android.widget.Toast;
-
-import androidx.annotation.NonNull;
-import androidx.databinding.DataBindingUtil;
-import androidx.fragment.app.Fragment;
-import androidx.navigation.Navigation;
 
 import com.group04.scrapbookwidget.R;
 import com.group04.scrapbookwidget.databinding.FragmentScrapbookViewBinding;
 
+import dagger.hilt.android.AndroidEntryPoint;
+
+@AndroidEntryPoint
 public class ScrapbookViewFragment extends Fragment {
+    private ScrapbookViewModel scrapbookViewModel;
+    private String groupId = "", pageId = "";
 
     private FragmentScrapbookViewBinding binding;
     private float dX, dY;
@@ -31,8 +38,27 @@ public class ScrapbookViewFragment extends Fragment {
     public ScrapbookViewFragment() {}
 
     @Override
-    public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container,
+    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
+        if (savedInstanceState == null) {
+           Bundle bundle = getArguments();
+           if (bundle != null) {
+               groupId = bundle.getString("GROUP_ID");
+               pageId = bundle.getString("PAGE_ID");
+           }
+        }
+        else {
+            groupId = savedInstanceState.getString("GROUP_ID");
+            pageId = savedInstanceState.getString("PAGE_ID");
+        }
+        scrapbookViewModel = new ViewModelProvider(this).get(ScrapbookViewModel.class);
+        scrapbookViewModel.loadScrapbook(groupId, pageId);
+    }
+
+    @Override
+    public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
+
         binding = DataBindingUtil.inflate(inflater, R.layout.fragment_scrapbook_view, container, false);
 
         // Giả lập thời gian load view

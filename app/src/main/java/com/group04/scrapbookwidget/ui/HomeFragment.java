@@ -2,7 +2,11 @@ package com.group04.scrapbookwidget.ui;
 
 import android.os.Bundle;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
+import androidx.navigation.NavController;
+import androidx.navigation.fragment.NavHostFragment;
 
 import android.view.LayoutInflater;
 import android.view.View;
@@ -46,6 +50,20 @@ public class HomeFragment extends Fragment {
         args.putString(ARG_PARAM2, param2);
         fragment.setArguments(args);
         return fragment;
+    }
+
+    @Override
+    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
+        Bundle args = getArguments();
+        if (args != null) {
+            NavHostFragment navHostFragment =
+                    (NavHostFragment) getChildFragmentManager().findFragmentById(R.id.home_nav_host_fragment);
+            NavController navController = navHostFragment.getNavController();
+            view.post(() -> {
+                navController.navigate(R.id.scrapbookViewFragment, args);
+            });
+        }
     }
 
     @Override

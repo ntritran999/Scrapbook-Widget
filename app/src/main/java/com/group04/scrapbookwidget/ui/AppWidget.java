@@ -1,10 +1,13 @@
 package com.group04.scrapbookwidget.ui;
 
+import android.app.Activity;
 import android.app.PendingIntent;
 import android.appwidget.AppWidgetManager;
 import android.appwidget.AppWidgetProvider;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
+import android.os.Bundle;
 import android.widget.RemoteViews;
 
 import com.group04.scrapbookwidget.R;
@@ -14,10 +17,19 @@ import com.group04.scrapbookwidget.R;
  */
 public class AppWidget extends AppWidgetProvider {
 
+    private final String PREF_NAME = "widget_metadata";
     static void updateAppWidget(Context context, AppWidgetManager appWidgetManager,
-                                int appWidgetId) {
-
+                                int appWidgetId, SharedPreferences preferences) {
         Intent intent = new Intent(context, MainActivity.class);
+        String groupId = preferences.getString("GROUP_ID", null);
+        String pageId = preferences.getString("PAGE_ID", null);
+        if (groupId != null && pageId != null) {
+            Bundle args = new Bundle();
+            args.putString("GROUP_ID", groupId);
+            args.putString("PAGE_ID", pageId);
+            intent.putExtras(args);
+            intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        }
         PendingIntent pendingIntent = PendingIntent.getActivity(
                 context,
                 0,
@@ -34,9 +46,10 @@ public class AppWidget extends AppWidgetProvider {
 
     @Override
     public void onUpdate(Context context, AppWidgetManager appWidgetManager, int[] appWidgetIds) {
+        SharedPreferences widgetPrefs = context.getSharedPreferences(PREF_NAME, Activity.MODE_PRIVATE);
         // There may be multiple widgets active, so update all of them
         for (int appWidgetId : appWidgetIds) {
-            updateAppWidget(context, appWidgetManager, appWidgetId);
+            updateAppWidget(context, appWidgetManager, appWidgetId, widgetPrefs);
         }
     }
 

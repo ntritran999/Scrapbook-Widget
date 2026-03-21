@@ -1,4 +1,5 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     style="@style/Widget.ScrapbookWidget.AppWidget.Container"
     android:id="@+id/widget_container"
     android:layout_width="match_parent"
@@ -15,4 +16,25 @@
         android:layout_height="wrap_content"
         android:contentDescription="@string/appwidget_text"
         android:text="@string/appwidget_text" />
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"/>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <ImageView
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:src="@drawable/test__1_"/>
+        <TextView
+            android:id="@+id/status"
+            style="@style/Widget.ScrapbookWidget.AppWidget.InnerView"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Status"/>
+    </LinearLayout>
 </LinearLayout>

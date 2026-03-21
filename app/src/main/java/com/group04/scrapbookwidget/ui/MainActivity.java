@@ -1,13 +1,19 @@
 package com.group04.scrapbookwidget.ui;
 
+import android.app.Activity;
+import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 
 import androidx.activity.EdgeToEdge;
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
+import androidx.navigation.NavController;
+import androidx.navigation.fragment.NavHostFragment;
 
 import com.group04.scrapbookwidget.R;
 
@@ -16,6 +22,7 @@ import dagger.hilt.android.AndroidEntryPoint;
 @AndroidEntryPoint
 public class MainActivity extends AppCompatActivity {
 
+    private final String PREF_NAME = "widget_metadata";
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -29,5 +36,38 @@ public class MainActivity extends AppCompatActivity {
 
         new WindowInsetsControllerCompat(getWindow(),
                 getWindow().getDecorView()).setAppearanceLightStatusBars(false);
+
+        saveDummyWidgetMetadata();
+
+        navigateToHomeFromWidget();
+
+//        removeDummyWidgetMetadata();
+    }
+
+    @Override
+    protected void onNewIntent(@NonNull Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        navigateToHomeFromWidget();
+    }
+
+    private void navigateToHomeFromWidget() {
+        NavHostFragment navHostFragment =
+                (NavHostFragment) getSupportFragmentManager().findFragmentById(R.id.nav_host_fragment);
+        NavController navController = navHostFragment.getNavController();
+        navController.setGraph(R.navigation.app_nav, getIntent().getExtras());
+    }
+
+    private void saveDummyWidgetMetadata() {
+        SharedPreferences preferences = getSharedPreferences(PREF_NAME, Activity.MODE_PRIVATE);
+        SharedPreferences.Editor editor = preferences.edit();
+        editor.putString("GROUP_ID", "test_id");
+        editor.putString("PAGE_ID", "page2");
+        editor.commit();
+    }
+
+    private void removeDummyWidgetMetadata() {
+        SharedPreferences preferences = getSharedPreferences(PREF_NAME, Activity.MODE_PRIVATE);
+        preferences.edit().clear().commit();
     }
 }

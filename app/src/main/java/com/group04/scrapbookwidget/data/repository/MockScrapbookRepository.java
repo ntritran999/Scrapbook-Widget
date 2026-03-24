@@ -1,5 +1,7 @@
 package com.group04.scrapbookwidget.data.repository;
 
+import android.util.Log;
+
 import com.group04.scrapbookwidget.data.model.ScrapbookItem;
 import com.group04.scrapbookwidget.data.model.ScrapbookPage;
 import com.group04.scrapbookwidget.data.service.GroupService;
@@ -12,10 +14,12 @@ import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
-public class ScrapbookRepository implements IScrapbookRepository {
+public class MockScrapbookRepository implements IScrapbookRepository {
     private GroupService groupService;
+    String mockGroupId = "test_group1";
+
     @Inject
-    ScrapbookRepository(GroupService groupService) {
+    MockScrapbookRepository(GroupService groupService) {
         this.groupService = groupService;
     }
 
@@ -26,17 +30,21 @@ public class ScrapbookRepository implements IScrapbookRepository {
 
     @Override
     public void getAllPages(String groupId, RepositoryCallback<List<ScrapbookPage>> callback) {
-        groupService.getScrapbookPages(groupId).enqueue(new Callback<>() {
+        groupService.getScrapbookPages(mockGroupId).enqueue(new Callback<>() {
             @Override
             public void onResponse(Call<List<ScrapbookPage>> call, Response<List<ScrapbookPage>> response) {
                 if (response.isSuccessful()) {
+                    Log.d("REPO", "Actual URL called: " + call.request().url().toString());
                     callback.onSuccess(response.body());
+                }
+                else {
+                    Log.d("REPO", "NO");
                 }
             }
 
             @Override
             public void onFailure(Call<List<ScrapbookPage>> call, Throwable t) {
-                callback.onError(new Exception(t));
+                callback.onError((Exception) t);
             }
         });
     }
@@ -48,7 +56,7 @@ public class ScrapbookRepository implements IScrapbookRepository {
 
     @Override
     public void getItem(String groupId, String pageId, String itemId, RepositoryCallback<ScrapbookItem> callback) {
-        groupService.getItem(groupId, pageId, itemId).enqueue(new Callback<>() {
+        groupService.getItem(mockGroupId, pageId, itemId).enqueue(new Callback<>() {
             @Override
             public void onResponse(Call<ScrapbookItem> call, Response<ScrapbookItem> response) {
                 if (response.isSuccessful()) {
@@ -58,14 +66,14 @@ public class ScrapbookRepository implements IScrapbookRepository {
 
             @Override
             public void onFailure(Call<ScrapbookItem> call, Throwable t) {
-                callback.onError(new Exception(t));
+                callback.onError((Exception) t);
             }
         });
     }
 
     @Override
     public void getAllItems(String groupId, String pageId, RepositoryCallback<List<ScrapbookItem>> callback) {
-        groupService.getItems(groupId, pageId).enqueue(new Callback<>() {
+        groupService.getItems(mockGroupId, pageId).enqueue(new Callback<>() {
             @Override
             public void onResponse(Call<List<ScrapbookItem>> call, Response<List<ScrapbookItem>> response) {
                 if (response.isSuccessful()) {
@@ -75,7 +83,7 @@ public class ScrapbookRepository implements IScrapbookRepository {
 
             @Override
             public void onFailure(Call<List<ScrapbookItem>> call, Throwable t) {
-                callback.onError(new Exception(t));
+                callback.onError((Exception) t);
             }
         });
     }

@@ -54,7 +54,12 @@ public class PageFragment extends Fragment {
                 });
             }
             else {
-                Toast.makeText(getContext(), scrapbookViewModel.getErrorMessage().getValue(), Toast.LENGTH_SHORT).show();
+                String err = scrapbookViewModel.getErrorMessage().getValue();
+                String msg = "Cannot load pages.";
+                if (err != null) {
+                    msg = err;
+                }
+                Toast.makeText(getContext(), msg, Toast.LENGTH_SHORT).show();
             }
         });
     }

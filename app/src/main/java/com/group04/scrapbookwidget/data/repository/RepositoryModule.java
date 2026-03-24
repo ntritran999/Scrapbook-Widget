@@ -12,5 +12,5 @@ import dagger.hilt.components.SingletonComponent;
 public abstract class RepositoryModule {
     @Singleton
     @Binds
-    public abstract IScrapbookRepository bindScrapbookRepository(MockScrapbookRepository mockScrapbookRepository);
+    public abstract IScrapbookRepository bindScrapbookRepository(ScrapbookRepository scrapbookRepository);
 }

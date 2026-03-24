@@ -84,4 +84,7 @@ dependencies {
 
     // Glide
     implementation("com.github.bumptech.glide:glide:5.0.5")
+
+    // Retrofit
+    implementation("com.squareup.retrofit2:retrofit:3.0.0")
 }

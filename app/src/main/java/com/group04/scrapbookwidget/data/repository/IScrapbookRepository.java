@@ -1,20 +1,18 @@
 package com.group04.scrapbookwidget.data.repository;
 
-import com.google.android.gms.tasks.Task;
 import com.group04.scrapbookwidget.data.model.ScrapbookItem;
 import com.group04.scrapbookwidget.data.model.ScrapbookPage;
 
 import java.util.List;
 
 public interface IScrapbookRepository {
-    Task<ScrapbookPage> getPage(String groupId, String pageId);
-    Task<List<ScrapbookPage>> getAllPages(String groupId);
-    Task<String> createPage(String groupId, ScrapbookPage page);
+    void getPage(String groupId, String pageId, RepositoryCallback<ScrapbookPage> callback);
+    void getAllPages(String groupId, RepositoryCallback<List<ScrapbookPage>> callback);
+    void createPage(String groupId, ScrapbookPage page, RepositoryCallback<String> callback);
 
-    Task<ScrapbookItem> getItem(String groupId, String pageId, String itemId);
-    Task<List<ScrapbookItem>> getAllItems(String groupId, String pageId);
-    Task<List<ScrapbookItem>> getItemsByType(String groupId, String pageId, String type);
-    Task<String> addItem(String groupId, String pageId, ScrapbookItem item);
-    Task<Void> updateItem(String groupId, String pageId, String itemId, ScrapbookItem updatedItem);
-
+    void getItem(String groupId, String pageId, String itemId, RepositoryCallback<ScrapbookItem> callback);
+    void getAllItems(String groupId, String pageId, RepositoryCallback<List<ScrapbookItem>> callback);
+    void getItemsByType(String groupId, String pageId, String type, RepositoryCallback<List<ScrapbookItem>> callback);
+    void addItem(String groupId, String pageId, ScrapbookItem item, RepositoryCallback<String> callback);
+    void updateItem(String groupId, String pageId, String itemId, ScrapbookItem updatedItem, RepositoryCallback<Void> callback);
 }

@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel;
 
 import com.group04.scrapbookwidget.data.model.ScrapbookItem;
 import com.group04.scrapbookwidget.data.repository.IScrapbookRepository;
+import com.group04.scrapbookwidget.data.repository.RepositoryCallback;
 
 import javax.inject.Inject;
 
@@ -29,10 +30,16 @@ public class PhotoViewModel extends ViewModel {
     }
 
     public void loadItem(String groupId, String pageId, String itemId) {
-        scrapbookRepository.getItem(groupId, pageId, itemId).addOnSuccessListener(item -> {
-            itemLiveData.setValue(item);
-        }).addOnFailureListener(e -> {
-            errorMessage.setValue(e.getMessage());
+        scrapbookRepository.getItem(groupId, pageId, itemId, new RepositoryCallback<ScrapbookItem>() {
+            @Override
+            public void onSuccess(ScrapbookItem item) {
+                itemLiveData.setValue(item);
+            }
+
+            @Override
+            public void onError(Exception e) {
+                errorMessage.setValue(e.getMessage());
+            }
         });
     }
 }

@@ -25,6 +25,7 @@ public class ScrapbookViewModel extends ViewModel {
 
     private String groupId;
     private final MutableLiveData<List<ScrapbookPageData>> pagesLiveData = new MutableLiveData<>();
+    private final MutableLiveData<Boolean> isLoading = new MutableLiveData<>();
     private final MutableLiveData<String> errorMessage = new MutableLiveData<>();
     @Inject
     public ScrapbookViewModel(IScrapbookRepository repo) {
@@ -42,13 +43,20 @@ public class ScrapbookViewModel extends ViewModel {
         return pagesLiveData;
     }
 
+    public LiveData<Boolean> getIsLoading() {
+        return isLoading;
+    }
+
     public LiveData<String> getErrorMessage() {
         return errorMessage;
     }
 
     public void loadScrapbook(String groupId, String pageId) {
+        isLoading.setValue(true);
+
         List<ScrapbookPageData> data = pagesLiveData.getValue();
         if (data != null && !data.isEmpty()) {
+            isLoading.setValue(false);
             return;
         }
 
@@ -57,6 +65,7 @@ public class ScrapbookViewModel extends ViewModel {
             public void onSuccess(List<ScrapbookPage> pages) {
                 if (pages == null || pages.isEmpty()) {
                     pagesLiveData.setValue(new ArrayList<>());
+                    isLoading.setValue(false);
                     return;
                 }
 
@@ -81,6 +90,8 @@ public class ScrapbookViewModel extends ViewModel {
                                 }
                                 pagesLiveData.setValue(scrapbookData);
                                 ScrapbookViewModel.this.groupId = groupId;
+
+                                isLoading.setValue(false);
                             }
                         }
 
@@ -89,6 +100,7 @@ public class ScrapbookViewModel extends ViewModel {
                             if (hasError[0]) return;
                             hasError[0] = true;
                             errorMessage.setValue("Failed to load items: " + e.getMessage());
+                            isLoading.setValue(false);
                         }
                     });
                 }
@@ -97,6 +109,7 @@ public class ScrapbookViewModel extends ViewModel {
             @Override
             public void onError(Exception e) {
                 errorMessage.setValue("Failed to load pages: " + e.getMessage());
+                isLoading.setValue(false);
             }
         });
     }

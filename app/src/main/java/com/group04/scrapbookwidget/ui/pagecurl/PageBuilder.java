@@ -13,12 +13,16 @@ import com.group04.scrapbookwidget.data.model.ScrapbookPage;
 import com.group04.scrapbookwidget.ui.scrapbookview.ScrapbookPageData;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
 public class PageBuilder {
+    private static Map<String, Bitmap> bitmapCache;
     public static PageResources buildPages(Context context, List<ScrapbookPageData> pagesData, int pageNum) throws ExecutionException, InterruptedException {
         PageResources pageResources = new PageResources();
+        bitmapCache = new HashMap<>();
 
         ScrapbookPageData developingPageData = pagesData.get(pageNum);
         buildBackground(context, pageResources, developingPageData.scrapbookPage);
@@ -47,7 +51,9 @@ public class PageBuilder {
         pageResources.imageRects = new ArrayList<>();
         for (var item: items) {
             Layout layout = item.getLayout();
-            pageResources.developingPhotosBitmaps.add(getBitMapFromUrl(context, item.getContent().photoUrl, (int) layout.width, (int) layout.height));
+            Bitmap bm = getBitMapFromUrl(context, item.getContent().photoUrl, (int) layout.width, (int) layout.height);
+            pageResources.developingPhotosBitmaps.add(bm);
+            bitmapCache.put(item.getId(), bm);
 
             pageResources.imageRects.add(getRectFromLayout(layout));
         }
@@ -67,7 +73,8 @@ public class PageBuilder {
             canvas.drawBitmap(background, 0, 0, null);
             for (var item: pageData.scrapbookItems) {
                 Layout layout = item.getLayout();
-                Bitmap photo = getBitMapFromUrl(context, item.getContent().photoUrl, (int) layout.width, (int) layout.height);
+                Bitmap photo = bitmapCache.get(item.getId());
+                photo = photo != null ? photo : getBitMapFromUrl(context, item.getContent().photoUrl, (int) layout.width, (int) layout.height);
                 Rect rect = getRectFromLayout(layout);
 
                 canvas.drawBitmap(photo, null, rect, null);

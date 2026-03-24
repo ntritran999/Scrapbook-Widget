@@ -38,12 +38,14 @@ public class MockScrapbookRepository implements IScrapbookRepository {
                     callback.onSuccess(response.body());
                 }
                 else {
-                    Log.d("REPO", "NO");
+                    Log.d("REPO", "unsuccessful");
+                    callback.onSuccess(null);
                 }
             }
 
             @Override
             public void onFailure(Call<List<ScrapbookPage>> call, Throwable t) {
+                Log.d("REPO", "Server broken");
                 callback.onError((Exception) t);
             }
         });

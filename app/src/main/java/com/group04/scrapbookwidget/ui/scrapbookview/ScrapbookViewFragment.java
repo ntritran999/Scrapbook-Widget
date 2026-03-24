@@ -53,6 +53,11 @@ public class ScrapbookViewFragment extends Fragment {
         }
         scrapbookViewModel = new ViewModelProvider(this).get(ScrapbookViewModel.class);
         scrapbookViewModel.loadScrapbook(groupId, pageId);
+        scrapbookViewModel.getIsLoading().observe(getViewLifecycleOwner(), loading -> {
+            if (!loading && binding != null) {
+                binding.loadingOverlay.setVisibility(View.GONE);
+            }
+        });
     }
 
     @Override
@@ -60,13 +65,6 @@ public class ScrapbookViewFragment extends Fragment {
                              Bundle savedInstanceState) {
 
         binding = DataBindingUtil.inflate(inflater, R.layout.fragment_scrapbook_view, container, false);
-
-        // Giả lập thời gian load view
-        new Handler(Looper.getMainLooper()).postDelayed(() -> {
-            if (binding != null) {
-                binding.loadingOverlay.setVisibility(View.GONE);
-            }
-        }, 3000);
 
         binding.cameraBtn.setOnClickListener(v -> {
             Navigation.findNavController(v).navigate(R.id.action_scrapbookViewFragment_to_cameraFragment);

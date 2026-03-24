@@ -4,13 +4,14 @@ import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.ViewModel;
 
-import com.google.android.gms.tasks.Task;
-import com.google.android.gms.tasks.Tasks;
 import com.group04.scrapbookwidget.data.model.ScrapbookItem;
+import com.group04.scrapbookwidget.data.model.ScrapbookPage;
 import com.group04.scrapbookwidget.data.repository.IScrapbookRepository;
+import com.group04.scrapbookwidget.data.repository.RepositoryCallback;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.inject.Inject;
 
@@ -51,32 +52,52 @@ public class ScrapbookViewModel extends ViewModel {
             return;
         }
 
-        scrapbookRepository.getAllPages(groupId).addOnSuccessListener(pages -> {
-            if (pages == null || pages.isEmpty()) {
-                pagesLiveData.setValue(new ArrayList<>());
-                return;
-            }
-
-            List<Task<List<ScrapbookItem>>> itemTasks = new ArrayList<>();
-            for (var page: pages) {
-                itemTasks.add(scrapbookRepository.getAllItems(groupId, page.getId()));
-            }
-            Tasks.whenAllSuccess(itemTasks).addOnSuccessListener(results -> {
-                List<ScrapbookPageData> scrapbookData = new ArrayList<>();
-                for (int i = 0; i < pages.size(); i++) {
-                    scrapbookData.add(new ScrapbookPageData(pages.get(i), (List<ScrapbookItem>) results.get(i)));
-                    if (pages.get(i).getId().equals(pageId)) {
-                        pageIndex = i;
-                    }
+        scrapbookRepository.getAllPages(groupId, new RepositoryCallback<List<ScrapbookPage>>() {
+            @Override
+            public void onSuccess(List<ScrapbookPage> pages) {
+                if (pages == null || pages.isEmpty()) {
+                    pagesLiveData.setValue(new ArrayList<>());
+                    return;
                 }
 
-                pagesLiveData.setValue(scrapbookData);
-                this.groupId = groupId;
-            }).addOnFailureListener(e -> {
-                errorMessage.setValue("Failed to load items: " + e.getMessage());
-            });
-        }).addOnFailureListener(e -> {
-            errorMessage.setValue("Failed to load pages: " + e.getMessage());
+                List<ScrapbookItem>[] resultsArray = new List[pages.size()];
+                AtomicInteger completedCount = new AtomicInteger(0);
+                boolean[] hasError = {false};
+
+                for (int i = 0; i < pages.size(); i++) {
+                    final int index = i;
+                    scrapbookRepository.getAllItems(groupId, pages.get(i).getId(), new RepositoryCallback<List<ScrapbookItem>>() {
+                        @Override
+                        public void onSuccess(List<ScrapbookItem> items) {
+                            if (hasError[0]) return;
+                            resultsArray[index] = items;
+                            if (completedCount.incrementAndGet() == pages.size()) {
+                                List<ScrapbookPageData> scrapbookData = new ArrayList<>();
+                                for (int j = 0; j < pages.size(); j++) {
+                                    scrapbookData.add(new ScrapbookPageData(pages.get(j), resultsArray[j]));
+                                    if (pages.get(j).getId().equals(pageId)) {
+                                        pageIndex = j;
+                                    }
+                                }
+                                pagesLiveData.setValue(scrapbookData);
+                                ScrapbookViewModel.this.groupId = groupId;
+                            }
+                        }
+
+                        @Override
+                        public void onError(Exception e) {
+                            if (hasError[0]) return;
+                            hasError[0] = true;
+                            errorMessage.setValue("Failed to load items: " + e.getMessage());
+                        }
+                    });
+                }
+            }
+
+            @Override
+            public void onError(Exception e) {
+                errorMessage.setValue("Failed to load pages: " + e.getMessage());
+            }
         });
     }
 }

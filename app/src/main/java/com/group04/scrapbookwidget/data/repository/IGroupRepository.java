@@ -1,21 +1,20 @@
 package com.group04.scrapbookwidget.data.repository;
 
-import com.google.android.gms.tasks.Task;
 import com.group04.scrapbookwidget.data.model.Group;
 
 import java.util.List;
 import java.util.Map;
 
 public interface IGroupRepository {
-    Task<Group> getGroupById(String groupId);
-    Task<List<Group>> getGroupsForUser(String userId);
-    Task<Void> updateGroup(String groupId, Group updatedGroup);
-    Task<Void> deleteGroup(String groupId);
+    void getGroupById(String groupId, RepositoryCallback<Group> callback);
+    void getGroupsForUser(String userId, RepositoryCallback<List<Group>> callback);
+    void updateGroup(String groupId, Group updatedGroup, RepositoryCallback<Void> callback);
+    void deleteGroup(String groupId, RepositoryCallback<Void> callback);
 
-    Task<Map<String, Object>> getMember(String groupId, String userId);
-    Task<Map<String, Map<String, Object>>> getAllMembers(String groupId);
+    void getMember(String groupId, String userId, RepositoryCallback<Map<String, Object>> callback);
+    void getAllMembers(String groupId, RepositoryCallback<Map<String, Map<String, Object>>> callback);
 
-    Task<Void> addMember(String groupId, String userId, String role);
-    Task<Void> updateMemberRole(String groupId, String userId, String newRole);
-    Task<Void> removeMember(String groupId, String userId);
+    void addMember(String groupId, String userId, String role, RepositoryCallback<Void> callback);
+    void updateMemberRole(String groupId, String userId, String newRole, RepositoryCallback<Void> callback);
+    void removeMember(String groupId, String userId, RepositoryCallback<Void> callback);
 }

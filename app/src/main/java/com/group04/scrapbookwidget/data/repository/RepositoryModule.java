@@ -18,4 +18,8 @@ public abstract class RepositoryModule {
     @Singleton
     @Binds
     public abstract IWidgetRepository bindWidgetRepository(WidgetRepository widgetRepository);
+
+    @Singleton
+    @Binds
+    public abstract IUserRepository bindUserRepository(MockUserRepo mockUserRepo);
 }

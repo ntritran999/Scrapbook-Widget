@@ -1,6 +1,9 @@
 package com.group04.scrapbookwidget.data.repository;
 
+import com.group04.scrapbookwidget.data.model.Group;
 import com.group04.scrapbookwidget.data.model.User;
+
+import java.util.List;
 
 public interface IUserRepository {
     void getUserById(String userId, RepositoryCallback<User> callback);
@@ -10,4 +13,6 @@ public interface IUserRepository {
     void updateUserStatus(String userId, String status, RepositoryCallback<Void> callback);
     void updateAvatarUrl(String userId, String avatarUrl, RepositoryCallback<Void> callback);
     void deleteUser(String userId, RepositoryCallback<Void> callback);
+
+    void getUserGroups(String userId, RepositoryCallback<List<Group>> callback);
 }

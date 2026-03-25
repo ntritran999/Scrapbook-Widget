@@ -38,6 +38,7 @@ public class MainActivity extends AppCompatActivity {
                 getWindow().getDecorView()).setAppearanceLightStatusBars(false);
 
         saveDummyWidgetMetadata();
+        saveDummyUserSession();
 
         navigateToHomeFromWidget();
 
@@ -61,9 +62,20 @@ public class MainActivity extends AppCompatActivity {
     private void saveDummyWidgetMetadata() {
         SharedPreferences preferences = getSharedPreferences(PREF_NAME, Activity.MODE_PRIVATE);
         SharedPreferences.Editor editor = preferences.edit();
-        editor.putString("GROUP_ID", "test_id");
-        editor.putString("PAGE_ID", "page2");
+        editor.putString("USER_ID", "test_user1");
         editor.commit();
+    }
+
+    private void saveDummyUserSession() {
+        SharedPreferences preferences = getSharedPreferences("TMP_USER_SESSION", Activity.MODE_PRIVATE);
+        SharedPreferences.Editor editor = preferences.edit();
+        editor.putString("USER_ID", "test_user1");
+        editor.commit();
+    }
+
+    private void removeDummyUserSession() {
+        SharedPreferences preferences = getSharedPreferences("TMP_USER_SESSION", Activity.MODE_PRIVATE);
+        preferences.edit().clear().commit();
     }
 
     private void removeDummyWidgetMetadata() {

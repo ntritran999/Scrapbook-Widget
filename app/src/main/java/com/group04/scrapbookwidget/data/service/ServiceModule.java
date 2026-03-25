@@ -59,4 +59,14 @@ public class ServiceModule {
                 .build()
                 .create(UserService.class);
     }
+
+    @Singleton
+    @Provides
+    public WidgetService provideWidgetService() {
+        return new Retrofit.Builder()
+                .baseUrl(BASE_URL)
+                .addConverterFactory(GsonConverterFactory.create())
+                .build()
+                .create(WidgetService.class);
+    }
 }

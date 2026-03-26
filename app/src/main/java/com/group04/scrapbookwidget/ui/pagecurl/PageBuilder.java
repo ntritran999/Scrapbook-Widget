@@ -8,27 +8,21 @@ import android.util.DisplayMetrics;
 
 import com.bumptech.glide.Glide;
 import com.group04.scrapbookwidget.data.model.Layout;
-import com.group04.scrapbookwidget.data.model.ScrapbookItem;
 import com.group04.scrapbookwidget.data.model.ScrapbookPage;
 import com.group04.scrapbookwidget.ui.scrapbookview.ScrapbookPageData;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
 public class PageBuilder {
-    private static Map<String, Bitmap> bitmapCache;
-    public static PageResources buildPages(Context context, List<ScrapbookPageData> pagesData, int pageNum) throws ExecutionException, InterruptedException {
+    public static PageResources buildPages(Context context, List<ScrapbookPageData> pagesData) throws ExecutionException, InterruptedException {
         PageResources pageResources = new PageResources();
-        bitmapCache = new HashMap<>();
 
-        ScrapbookPageData developingPageData = pagesData.get(pageNum);
-        buildBackground(context, pageResources, developingPageData.scrapbookPage);
-        buildDevelopingItems(context, pageResources, developingPageData.scrapbookItems);
-
-        buildPagesBitmaps(context, pageResources, pagesData);
+        if (pagesData != null && !pagesData.isEmpty()) {
+            buildBackground(context, pageResources, pagesData.get(0).scrapbookPage);
+            buildPagesBitmaps(context, pageResources, pagesData);
+        }
         return pageResources;
     }
 
@@ -45,23 +39,12 @@ public class PageBuilder {
         pageResources.bitmapWidth = pageResources.backgroundBitmap.getWidth();
         pageResources.bitmapHeight = pageResources.backgroundBitmap.getHeight();
     }
-
-    private static void buildDevelopingItems(Context context, PageResources pageResources, List<ScrapbookItem> items) throws ExecutionException, InterruptedException {
-        pageResources.developingPhotosBitmaps = new ArrayList<>();
-        pageResources.imageRects = new ArrayList<>();
-        for (var item: items) {
-            Layout layout = item.getLayout();
-            Bitmap bm = getBitMapFromUrl(context, item.getContent().photoUrl, (int) layout.width, (int) layout.height);
-            pageResources.developingPhotosBitmaps.add(bm);
-            bitmapCache.put(item.getId(), bm);
-
-            pageResources.imageRects.add(getRectFromLayout(layout));
-        }
-    }
-
     private static void buildPagesBitmaps(Context context, PageResources pageResources, List<ScrapbookPageData> pagesData) throws ExecutionException, InterruptedException {
         pageResources.pageBitmaps = new ArrayList<>();
         for (var pageData: pagesData) {
+            if (pageResources.backgroundBitmap.isRecycled()) {
+                buildBackground(context, pageResources, pagesData.get(0).scrapbookPage);
+            }
             Bitmap background = pageResources.backgroundBitmap;
             Bitmap result = Bitmap.createBitmap(
                     background.getWidth(),
@@ -73,8 +56,7 @@ public class PageBuilder {
             canvas.drawBitmap(background, 0, 0, null);
             for (var item: pageData.scrapbookItems) {
                 Layout layout = item.getLayout();
-                Bitmap photo = bitmapCache.get(item.getId());
-                photo = photo != null ? photo : getBitMapFromUrl(context, item.getContent().photoUrl, (int) layout.width, (int) layout.height);
+                Bitmap photo = getBitMapFromUrl(context, item.getContent().photoUrl, (int) layout.width, (int) layout.height);
                 Rect rect = getRectFromLayout(layout);
 
                 canvas.drawBitmap(photo, null, rect, null);

@@ -1,6 +1,5 @@
-package com.group04.scrapbookwidget.ui;
+package com.group04.scrapbookwidget.ui.camera;
 
-import android.app.AlertDialog;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;

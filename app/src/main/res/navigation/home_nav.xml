@@ -16,7 +16,7 @@
     </fragment>
     <fragment
         android:id="@+id/cameraFragment"
-        android:name="com.group04.scrapbookwidget.ui.CameraFragment"
+        android:name="com.group04.scrapbookwidget.ui.camera.CameraFragment"
         android:label="CameraFragment"
         tools:layout="@layout/fragment_camera" >
         <action
@@ -25,7 +25,7 @@
     </fragment>
     <fragment
         android:id="@+id/imageEditorFragment"
-        android:name="com.group04.scrapbookwidget.ui.ImageEditorFragment"
+        android:name="com.group04.scrapbookwidget.ui.camera.ImageEditorFragment"
         android:label="ImageEditorFragment"
         tools:layout="@layout/fragment_image_editor" >
         <action

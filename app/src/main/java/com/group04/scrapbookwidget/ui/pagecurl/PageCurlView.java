@@ -12,8 +12,6 @@ import com.group04.scrapbookwidget.R;
 import com.group04.scrapbookwidget.data.model.Layout;
 import com.group04.scrapbookwidget.ui.scrapbookview.ScrapbookPageData;
 
-import org.checkerframework.checker.units.qual.A;
-
 import java.util.ArrayList;
 import java.util.List;
 
@@ -71,7 +69,7 @@ public class PageCurlView extends GLSurfaceView {
         switch (event.getAction()) {
             case MotionEvent.ACTION_DOWN:
                 PhotoRect photoRect = getPhotoHit(x, y);
-                if (!pageRenderer.getIsDeveloping() && !isCurling && photoRect != null) {
+                if (!isCurling && photoRect != null) {
                     runnable = () -> {
                         if (listener != null) {
                             listener.onPhotoHit(photoRect.pageId, photoRect.itemId);
@@ -115,13 +113,11 @@ public class PageCurlView extends GLSurfaceView {
                 if (!isCurling) return true;
 
                 int prevPage = curPage;
-                if (!pageRenderer.getIsDeveloping()) {
-                    if (isForward && normX < CURL_THRESHOLD) {
-                        curPage++;
-                    }
-                    else if (!isForward && normX >= CURL_THRESHOLD) {
-                        curPage--;
-                    }
+                if (isForward && normX < CURL_THRESHOLD) {
+                    curPage++;
+                }
+                else if (!isForward && normX >= CURL_THRESHOLD) {
+                    curPage--;
                 }
                 if (prevPage != curPage) {
                     MediaPlayer mediaPlayer = MediaPlayer.create(_context, R.raw.page_turn_sound);

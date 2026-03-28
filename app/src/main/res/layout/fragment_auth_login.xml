@@ -27,8 +27,9 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             app:label="@{@string/email}"
-            app:text="@{viewModel.email}"
-            app:error="@{viewModel.emailError}" />
+            app:text="@={viewModel.email}"
+            app:error="@{viewModel.emailError}"
+            app:isPassword="@{false}" />
 
         <!-- Password Field -->
         <include
@@ -38,8 +39,9 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
             app:label="@{@string/password}"
-            app:text="@{viewModel.password}"
-            app:error="@{viewModel.passwordError}" />
+            app:text="@={viewModel.password}"
+            app:error="@{viewModel.passwordError}"
+            app:isPassword="@{true}" />
 
         <!-- Forgot Password -->
         <com.google.android.material.button.MaterialButton
@@ -58,6 +60,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
             android:text="@string/login"
+            android:enabled="@{!viewModel.isLoading}"
             android:onClick="@{() -> viewModel.onLoginClick()}" />
 
         <Space

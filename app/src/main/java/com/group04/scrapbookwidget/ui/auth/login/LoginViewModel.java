@@ -4,23 +4,46 @@ import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.ViewModel;
 
+import com.group04.scrapbookwidget.data.model.User;
+import com.group04.scrapbookwidget.data.repository.IUserRepository;
+import com.group04.scrapbookwidget.data.repository.RepositoryCallback;
+
+import javax.inject.Inject;
+
+import dagger.hilt.android.lifecycle.HiltViewModel;
+
+@HiltViewModel
 public class LoginViewModel extends ViewModel {
+
+    private final IUserRepository userRepository;
 
     // =========================
     // Input Fields
     // =========================
-    // Changed to public MutableLiveData to support two-way data binding
     public final MutableLiveData<String> email = new MutableLiveData<>("");
     public final MutableLiveData<String> password = new MutableLiveData<>("");
 
     // =========================
-    // Error Fields
+    // State Fields
     // =========================
     private final MutableLiveData<String> _emailError = new MutableLiveData<>(null);
     private final MutableLiveData<String> _passwordError = new MutableLiveData<>(null);
+    private final MutableLiveData<Boolean> _isLoading = new MutableLiveData<>(false);
+    private final MutableLiveData<String> _errorMessage = new MutableLiveData<>(null);
+    private final MutableLiveData<User> _user = new MutableLiveData<>(null);
+    private final MutableLiveData<Boolean> _navigateToRegister = new MutableLiveData<>(false);
 
-    public LiveData<String> emailError = _emailError;
-    public LiveData<String> passwordError = _passwordError;
+    public LiveData<String> getEmailError() { return _emailError; }
+    public LiveData<String> getPasswordError() { return _passwordError; }
+    public LiveData<Boolean> getIsLoading() { return _isLoading; }
+    public LiveData<String> getErrorMessage() { return _errorMessage; }
+    public LiveData<User> getUser() { return _user; }
+    public LiveData<Boolean> getNavigateToRegister() { return _navigateToRegister; }
+
+    @Inject
+    public LoginViewModel(IUserRepository userRepository) {
+        this.userRepository = userRepository;
+    }
 
     // =========================
     // Click Events
@@ -28,24 +51,36 @@ public class LoginViewModel extends ViewModel {
     public void onLoginClick() {
         validate();
 
-        if (_emailError.getValue() == null &&
-                _passwordError.getValue() == null) {
+        if (_emailError.getValue() == null && _passwordError.getValue() == null) {
+            _isLoading.setValue(true);
+            _errorMessage.setValue(null);
 
-            // TODO: Call repository / API
-            System.out.println("Login success with: "
-                    + email.getValue() + " / "
-                    + password.getValue());
+            userRepository.login(email.getValue(), password.getValue(), new RepositoryCallback<User>() {
+                @Override
+                public void onSuccess(User result) {
+                    _isLoading.setValue(false);
+                    _user.setValue(result);
+                }
+
+                @Override
+                public void onError(Exception e) {
+                    _isLoading.setValue(false);
+                    _errorMessage.setValue(e.getMessage());
+                }
+            });
         }
     }
 
     public void onForgotPasswordClick() {
         // TODO: Navigate to Forgot Password screen
-        System.out.println("Forgot password clicked");
     }
 
     public void onRegisterClick() {
-        // TODO: Navigate to Register screen
-        System.out.println("Register clicked");
+        _navigateToRegister.setValue(true);
+    }
+
+    public void onNavigatedToRegister() {
+        _navigateToRegister.setValue(false);
     }
 
     // =========================

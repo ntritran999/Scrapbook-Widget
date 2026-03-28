@@ -19,4 +19,43 @@
     <string name="confirm_password">Confirm Password</string>
     <string name="register">Register</string>
     <string name="already_have_account">Already have an account? Login</string>
+
+    <!-- Settings -->
+    <string name="settings">Settings</string>
+    <string name="general">General</string>
+    <string name="notifications">Notifications</string>
+    <string name="edit_name">Edit name</string>
+    <string name="change_email">Change email address</string>
+    <string name="support">Support</string>
+    <string name="make_suggestion">Make a suggestion</string>
+    <string name="report_problem">Report a problem</string>
+    <string name="privacy_and_safety">Privacy and safety</string>
+    <string name="blocked_accounts">Blocked accounts</string>
+    <string name="privacy_and_data">Privacy and Data</string>
+    <string name="about">About</string>
+    <string name="tiktok">TikTok</string>
+    <string name="instagram">Instagram</string>
+    <string name="x_twitter">X (Twitter)</string>
+    <string name="share_locket">Share Locket</string>
+    <string name="rate_locket">Rate Locket</string>
+    <string name="terms_of_service">Terms of Service</string>
+    <string name="privacy_policy">Privacy Policy</string>
+    <string name="danger_zone">Danger Zone</string>
+    <string name="delete_account">Delete account</string>
+    <string name="sign_out">Sign Out</string>
+    <string name="delete_account_confirmation">Are you sure you want to delete your account? This action cannot be undone.</string>
+    <string name="back">Back</string>
+
+    <!-- New Settings strings -->
+    <string name="edit_photo">Edit Photo</string>
+    <string name="get_locket_gold">Get Scrapbook Premium</string>
+    <string name="premium_plan">Get Scrapbook Premium</string>
+    <string name="locket_gold_subtitle">Unlock the best of Scrapbook</string>
+    <string name="rollcall">Rollcall</string>
+    <string name="rollcall_subtitle">Happening now!</string>
+    <string name="pick_yours">PICK YOURS</string>
+    <string name="invite_friends">Invite friends to Scrapbook!</string>
+    <string name="widget_setup">Widget Setup</string>
+    <string name="how_to_add_widget">How to add the widget</string>
+    <string name="streak_on_widget">Streak on widget</string>
 </resources>

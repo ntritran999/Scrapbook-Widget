@@ -15,6 +15,8 @@ import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.navigation.NavController;
 import androidx.navigation.fragment.NavHostFragment;
 
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.group04.scrapbookwidget.R;
 
 import dagger.hilt.android.AndroidEntryPoint;
@@ -23,6 +25,8 @@ import dagger.hilt.android.AndroidEntryPoint;
 public class MainActivity extends AppCompatActivity {
 
     private final String PREF_NAME = "widget_metadata";
+    private final String TMP_PREF_NAME = "TMP_USER_SESSION";
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -37,49 +41,43 @@ public class MainActivity extends AppCompatActivity {
         new WindowInsetsControllerCompat(getWindow(),
                 getWindow().getDecorView()).setAppearanceLightStatusBars(false);
 
-        saveDummyWidgetMetadata();
-        saveDummyUserSession();
+        checkAuthAndNavigate();
+    }
 
-        navigateToHomeFromWidget();
+    private void checkAuthAndNavigate() {
+        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+        NavHostFragment navHostFragment =
+                (NavHostFragment) getSupportFragmentManager().findFragmentById(R.id.nav_host_fragment);
+        NavController navController = navHostFragment.getNavController();
 
-//        removeDummyWidgetMetadata();
+        if (currentUser == null) {
+            // Chưa đăng nhập: set graph (mặc định vào authLoginFragment do startDestination)
+            navController.setGraph(R.navigation.app_nav);
+        } else {
+            // Đã đăng nhập: sync session và ép buộc điều hướng tới Home
+            syncUserSession(currentUser.getUid());
+            navController.setGraph(R.navigation.app_nav);
+            navController.navigate(R.id.homeFragment);
+        }
+    }
+
+    private void syncUserSession(String userId) {
+        SharedPreferences preferences = getSharedPreferences(TMP_PREF_NAME, Activity.MODE_PRIVATE);
+        preferences.edit().putString("USER_ID", userId).apply();
     }
 
     @Override
     protected void onNewIntent(@NonNull Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
-        navigateToHomeFromWidget();
+        checkAuthAndNavigate();
     }
 
-    private void navigateToHomeFromWidget() {
-        NavHostFragment navHostFragment =
-                (NavHostFragment) getSupportFragmentManager().findFragmentById(R.id.nav_host_fragment);
-        NavController navController = navHostFragment.getNavController();
-        navController.setGraph(R.navigation.app_nav, getIntent().getExtras());
-    }
-
+    // Các hàm dummy giữ nguyên để tránh lỗi compile nếu có gọi ở đâu đó
     private void saveDummyWidgetMetadata() {
         SharedPreferences preferences = getSharedPreferences(PREF_NAME, Activity.MODE_PRIVATE);
         SharedPreferences.Editor editor = preferences.edit();
         editor.putString("USER_ID", "test_user1");
         editor.commit();
-    }
-
-    private void saveDummyUserSession() {
-        SharedPreferences preferences = getSharedPreferences("TMP_USER_SESSION", Activity.MODE_PRIVATE);
-        SharedPreferences.Editor editor = preferences.edit();
-        editor.putString("USER_ID", "test_user1");
-        editor.commit();
-    }
-
-    private void removeDummyUserSession() {
-        SharedPreferences preferences = getSharedPreferences("TMP_USER_SESSION", Activity.MODE_PRIVATE);
-        preferences.edit().clear().commit();
-    }
-
-    private void removeDummyWidgetMetadata() {
-        SharedPreferences preferences = getSharedPreferences(PREF_NAME, Activity.MODE_PRIVATE);
-        preferences.edit().clear().commit();
     }
 }

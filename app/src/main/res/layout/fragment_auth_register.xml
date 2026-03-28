@@ -27,8 +27,9 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             app:label="@{@string/email}"
-            app:text="@{viewModel.email}"
-            app:error="@{viewModel.emailError}" />
+            app:text="@={viewModel.email}"
+            app:error="@{viewModel.emailError}"
+            app:isPassword="@{false}" />
 
         <!-- Password Field -->
         <include
@@ -38,8 +39,9 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
             app:label="@{@string/password}"
-            app:text="@{viewModel.password}"
-            app:error="@{viewModel.passwordError}" />
+            app:text="@={viewModel.password}"
+            app:error="@{viewModel.passwordError}"
+            app:isPassword="@{true}" />
 
         <!-- Confirm Password Field -->
         <include
@@ -49,8 +51,9 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
             app:label="@{@string/confirm_password}"
-            app:text="@{viewModel.confirmPassword}"
-            app:error="@{viewModel.confirmPasswordError}" />
+            app:text="@={viewModel.confirmPassword}"
+            app:error="@{viewModel.confirmPasswordError}"
+            app:isPassword="@{true}" />
 
         <!-- Register Button -->
         <com.google.android.material.button.MaterialButton
@@ -59,6 +62,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="32dp"
             android:text="@string/register"
+            android:enabled="@{!viewModel.isLoading}"
             android:onClick="@{() -> viewModel.onRegisterClick()}" />
 
         <Space

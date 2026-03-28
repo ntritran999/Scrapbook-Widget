@@ -6,6 +6,10 @@ import com.group04.scrapbookwidget.data.model.User;
 import java.util.List;
 
 public interface IUserRepository {
+    void login(String email, String password, RepositoryCallback<User> callback);
+    void register(String email, String password, String name, RepositoryCallback<User> callback);
+    void logout();
+
     void getUserById(String userId, RepositoryCallback<User> callback);
     void getUserByUsername(String username, RepositoryCallback<User> callback);
     void createUser(User user, RepositoryCallback<Void> callback);

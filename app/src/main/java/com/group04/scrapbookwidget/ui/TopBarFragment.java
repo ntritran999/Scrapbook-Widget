@@ -8,6 +8,7 @@ import androidx.databinding.DataBindingUtil;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.NavController;
+import androidx.navigation.Navigation;
 import androidx.navigation.fragment.NavHostFragment;
 
 import android.view.LayoutInflater;
@@ -69,6 +70,16 @@ public class TopBarFragment extends Fragment {
 
         groupListViewModel.getErrorMessage().observe(getViewLifecycleOwner(), error -> {
             Toast.makeText(getContext(), "Cannot load group list.", Toast.LENGTH_SHORT).show();
+        });
+
+        binding.btnSettings.setOnClickListener(v -> {
+            Navigation.findNavController(requireActivity(), R.id.nav_host_fragment)
+                    .navigate(R.id.action_homeFragment_to_settingFragment);
+        });
+
+        binding.btnChat.setOnClickListener(v -> {
+            Navigation.findNavController(requireActivity(), R.id.nav_host_fragment)
+                    .navigate(R.id.action_homeFragment_to_chatFragment);
         });
     }
 

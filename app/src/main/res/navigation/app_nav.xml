@@ -3,7 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/app_nav"
-    app:startDestination="@id/homeFragment">
+    app:startDestination="@id/authLoginFragment">
     <fragment
         android:id="@+id/authLoginFragment"
         android:name="com.group04.scrapbookwidget.ui.auth.login.AuthLoginFragment"
@@ -12,6 +12,11 @@
         <action
             android:id="@+id/action_authLoginFragment_to_authRegisterFragment"
             app:destination="@id/authRegisterFragment" />
+        <action
+            android:id="@+id/action_authLoginFragment_to_homeFragment"
+            app:destination="@id/homeFragment"
+            app:popUpTo="@id/app_nav"
+            app:popUpToInclusive="true" />
     </fragment>
     <fragment
         android:id="@+id/authRegisterFragment"
@@ -30,6 +35,9 @@
         <action
             android:id="@+id/action_homeFragment_to_chatFragment"
             app:destination="@id/chatFragment" />
+        <action
+            android:id="@+id/action_homeFragment_to_settingFragment"
+            app:destination="@id/settingFragment" />
     </fragment>
     <fragment
         android:id="@+id/chatFragment"
@@ -40,4 +48,9 @@
             android:id="@+id/action_chatFragment_to_homeFragment"
             app:destination="@id/homeFragment" />
     </fragment>
+    <fragment
+        android:id="@+id/settingFragment"
+        android:name="com.group04.scrapbookwidget.ui.SettingFragment"
+        android:label="SettingFragment"
+        tools:layout="@layout/fragment_setting" />
 </navigation>

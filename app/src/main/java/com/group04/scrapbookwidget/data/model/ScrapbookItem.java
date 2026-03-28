@@ -5,6 +5,17 @@ public class ScrapbookItem {
     private ItemContent content;
     private Layout layout;
 
+    // Default constructor for JSON deserialization
+    public ScrapbookItem() {}
+
+    // Constructor for creating new items
+    public ScrapbookItem(String type, String createdBy, ItemContent content, Layout layout) {
+        this.type = type;
+        this.createdBy = createdBy;
+        this.content = content;
+        this.layout = layout;
+    }
+
     public String getId() {
         return id;
     }

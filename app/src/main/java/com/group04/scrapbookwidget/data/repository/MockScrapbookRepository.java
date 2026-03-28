@@ -101,6 +101,11 @@ public class MockScrapbookRepository implements IScrapbookRepository {
     }
 
     @Override
+    public void addItemWithFile(String groupId, String pageId, String imagePath, ScrapbookItem itemModel, RepositoryCallback<ScrapbookItem> callback) {
+
+    }
+
+    @Override
     public void updateItem(String groupId, String pageId, String itemId, ScrapbookItem updatedItem, RepositoryCallback<Void> callback) {
 
     }

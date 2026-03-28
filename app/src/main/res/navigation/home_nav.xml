@@ -30,6 +30,7 @@
         tools:layout="@layout/fragment_image_editor" >
         <action
             android:id="@+id/action_imageEditorFragment_to_scrapbookViewFragment"
-            app:destination="@id/scrapbookViewFragment" />
+            app:destination="@id/scrapbookViewFragment"
+            app:popUpTo="@id/scrapbookViewFragment" />
     </fragment>
 </navigation>

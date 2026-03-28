@@ -19,4 +19,10 @@
     <string name="confirm_password">Confirm Password</string>
     <string name="register">Register</string>
     <string name="already_have_account">Already have an account? Login</string>
+
+    <!-- Group Selection -->
+    <string name="select_group">Select Group</string>
+    <string name="loading_groups">Loading groups...</string>
+    <string name="no_groups_found">No groups found</string>
+    <string name="switch_group">Switch Group</string>
 </resources>

@@ -1,6 +1,7 @@
 package com.group04.scrapbookwidget.ui;
 
 import android.app.Activity;
+import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
@@ -26,6 +27,14 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        // Khởi tạo nhanh SharedPreferences với tên file là TMP_USER_SESSION
+        // SharedPreferences sharedPref = getSharedPreferences("TMP_USER_SESSION", Context.MODE_PRIVATE);
+
+        // Mở bộ chỉnh sửa và ghi đè USER_ID
+        // SharedPreferences.Editor editor = sharedPref.edit();
+        // editor.putString("USER_ID", "test_user1");
+        // editor.apply(); // Dùng apply() để lưu ngầm dưới background, tránh đơ UI
+        // ------------------------------------------------------------
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_main);
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
@@ -55,8 +64,10 @@ public class MainActivity extends AppCompatActivity {
     private void navigateToHomeFromWidget() {
         NavHostFragment navHostFragment =
                 (NavHostFragment) getSupportFragmentManager().findFragmentById(R.id.nav_host_fragment);
-        NavController navController = navHostFragment.getNavController();
-        navController.setGraph(R.navigation.app_nav, getIntent().getExtras());
+        if (navHostFragment != null) {
+            NavController navController = navHostFragment.getNavController();
+            navController.setGraph(R.navigation.app_nav, getIntent().getExtras());
+        }
     }
 
     private void saveDummyWidgetMetadata() {

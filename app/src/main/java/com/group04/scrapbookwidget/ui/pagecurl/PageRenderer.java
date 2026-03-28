@@ -136,28 +136,37 @@ public class PageRenderer implements GLSurfaceView.Renderer {
     }
 
     public void updatePageResources(PageResources pageResources) {
+        android.util.Log.d("PageRenderer", "updatePageResources: Starting update");
+        
         this.pageResources = pageResources;
+        
+        android.util.Log.d("PageRenderer", "updatePageResources: Creating " + pageResources.pageBitmaps.size() + " page textures");
         textures = new int[pageResources.pageBitmaps.size()];
         GLES32.glGenTextures(textures.length, textures, 0);
         for (int i = 0; i < textures.length; i++) {
+            android.util.Log.d("PageRenderer", "  Loading texture for page " + i);
             loadTex(pageResources.pageBitmaps.get(i), textures[i]);
         }
 
         backTex = new int[1];
         GLES32.glGenTextures(1, backTex, 0);
+        android.util.Log.d("PageRenderer", "updatePageResources: Loading background texture");
         loadTex(pageResources.backgroundBitmap, backTex[0]);
 
+        android.util.Log.d("PageRenderer", "updatePageResources: Loading photo developing effect textures");
         loadPhotoDevelopingEffectTex();
 
+        android.util.Log.d("PageRenderer", "updatePageResources: Recycling bitmaps");
         pageResources.backgroundBitmap.recycle();
         for (var bitmap: pageResources.developingPhotosBitmaps) {
-            bitmap.recycle();
+            if (bitmap != null) bitmap.recycle();
         }
         for (var bitmap: pageResources.pageBitmaps) {
-            bitmap.recycle();
+            if (bitmap != null) bitmap.recycle();
         }
 
         isLoaded = true;
+        android.util.Log.d("PageRenderer", "updatePageResources: Completed, isLoaded=true");
     }
 
     private void loadTex(Bitmap bitmap, int texId) {

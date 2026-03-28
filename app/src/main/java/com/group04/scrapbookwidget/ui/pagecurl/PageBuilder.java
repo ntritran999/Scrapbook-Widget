@@ -45,11 +45,13 @@ public class PageBuilder {
         android.util.Log.d("PageBuilder", "buildBackground: Loading background image: " + page.getBackgroundImage());
         
         DisplayMetrics displayMetrics = context.getResources().getDisplayMetrics();
+        int targetWidth = 1080;
+        int targetHeight = (int) (targetWidth * ((float) displayMetrics.heightPixels / displayMetrics.widthPixels));
         pageResources.backgroundBitmap = Glide.with(context)
                 .asBitmap()
                 .load(page.getBackgroundImage())
                 .skipMemoryCache(true)
-                .override(displayMetrics.widthPixels, displayMetrics.heightPixels)
+                .override(targetWidth, targetHeight)
                 .centerCrop()
                 .submit()
                 .get();

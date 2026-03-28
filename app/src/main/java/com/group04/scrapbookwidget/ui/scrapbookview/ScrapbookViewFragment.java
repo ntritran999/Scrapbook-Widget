@@ -28,7 +28,7 @@ import dagger.hilt.android.AndroidEntryPoint;
 
 @AndroidEntryPoint
 public class ScrapbookViewFragment extends Fragment {
-    private static final String TMP_PREF_NAME = "tmp_pref";
+    private static final String TMP_PREF_NAME = "TMP_USER_SESSION";
 
     private ScrapbookViewModel scrapbookViewModel;
     private String groupId = "", pageId = "";
@@ -122,20 +122,15 @@ public class ScrapbookViewFragment extends Fragment {
         setupClickListeners();
 
         // PRIORITY: Load pasted image from ImageEditor if present (this takes precedence)
+        // ALWAYS show group selection dialog when entering pasting mode - no exceptions
         if (pastedImagePath != null && !pastedImagePath.isEmpty()) {
             android.util.Log.d("ScrapbookViewFragment", "onViewCreated - LOADING PASTED IMAGE: " + pastedImagePath);
-            if (currentPastingView == null) {
-                addPastedImageToScrapbook(pastedImagePath);
-                enterPastingMode();
-            }
-
-            // Also load the scrapbook in background to show the page structure
-            if (!groupId.isEmpty()) {
-                android.util.Log.d("ScrapbookViewFragment", "onViewCreated - Also loading scrapbook for context");
-                scrapbookViewModel.loadScrapbook(groupId, pageId);
-            }
+            android.util.Log.d("ScrapbookViewFragment", "onViewCreated - Forcing group selection dialog for pasting mode");
+            // Always show group selection dialog when pasting - user must select group each time
+            showGroupSelectionDialog();
+            return;  // Don't load anything until group is selected
         }
-        // If no pasted image, check group and load scrapbook normally
+        // If no pasted image, load scrapbook with current group (or show dialog if empty)
         else if (groupId.isEmpty()) {
             android.util.Log.d("ScrapbookViewFragment", "GroupId is empty, showing group selection dialog");
             showGroupSelectionDialog();
@@ -150,7 +145,7 @@ public class ScrapbookViewFragment extends Fragment {
         scrapbookViewModel.getIsLoading().observe(getViewLifecycleOwner(), loading -> {
             android.util.Log.d("ScrapbookViewFragment", "setupObservers: isLoading = " + loading);
             if (binding != null) {
-                binding.loadingOverlay.setVisibility(loading ? View.VISIBLE : View.GONE);
+                binding.loadingOverlay.setVisibility(loading ? View.VISIBLE : View.INVISIBLE);
             }
         });
 
@@ -204,7 +199,7 @@ public class ScrapbookViewFragment extends Fragment {
     private void showGroupSelectionDialog() {
         GroupSelectionDialogFragment dialog = new GroupSelectionDialogFragment();
         dialog.setOnGroupSelectedListener(group -> {
-            // Update groupId and reload scrapbook
+            // Update groupId
             groupId = group.getId();
             pageId = ""; // Reset pageId when switching groups
 
@@ -217,8 +212,18 @@ public class ScrapbookViewFragment extends Fragment {
 
             android.util.Log.d("ScrapbookViewFragment", "Group selected - groupId: " + groupId);
 
-            // Reload scrapbook with new group
-            scrapbookViewModel.loadScrapbook(groupId, "");
+            // Check if we have a pasted image waiting to be placed
+            if (pastedImagePath != null && !pastedImagePath.isEmpty() && isInPastingMode == false) {
+                android.util.Log.d("ScrapbookViewFragment", "Group selected - Loading pasted image");
+                addPastedImageToScrapbook(pastedImagePath);
+                enterPastingMode();
+                // Load scrapbook in background for context
+                scrapbookViewModel.loadScrapbook(groupId, "");
+            } else {
+                // Normal scrapbook load
+                android.util.Log.d("ScrapbookViewFragment", "Group selected - Loading scrapbook normally");
+                scrapbookViewModel.loadScrapbook(groupId, "");
+            }
         });
         dialog.setCancelable(false); // Force user to select a group
         dialog.show(getChildFragmentManager(), "GroupSelectionDialog");
@@ -231,7 +236,7 @@ public class ScrapbookViewFragment extends Fragment {
         }
         android.util.Log.d("ScrapbookViewFragment", "enterPastingMode: Entering pasting mode");
         isInPastingMode = true;
-        binding.cameraBtn.setVisibility(View.GONE);
+        binding.cameraBtn.setVisibility(View.INVISIBLE);
         binding.btnConfirmPaste.setVisibility(View.VISIBLE);
         Toast.makeText(requireContext(), "Ảnh sẵn sàng dán. Kéo, xoay tuỳ ý rồi nhấn Confirm", Toast.LENGTH_SHORT).show();
     }
@@ -251,7 +256,7 @@ public class ScrapbookViewFragment extends Fragment {
         pastedImagePath = null;
         isInPastingMode = false;
         binding.cameraBtn.setVisibility(View.VISIBLE);
-        binding.btnConfirmPaste.setVisibility(View.GONE);
+        binding.btnConfirmPaste.setVisibility(View.INVISIBLE);
     }
 
     private void addPastedImageToScrapbook(String path) {
@@ -263,6 +268,13 @@ public class ScrapbookViewFragment extends Fragment {
         if (path == null || path.isEmpty()) {
             android.util.Log.e("ScrapbookViewFragment", "addPastedImageToScrapbook: path is null or empty");
             Toast.makeText(requireContext(), "Invalid image path", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // Group must be selected before adding image (enforced in onViewCreated)
+        if (groupId == null || groupId.isEmpty()) {
+            android.util.Log.e("ScrapbookViewFragment", "addPastedImageToScrapbook: ERROR - GroupId is empty!");
+            Toast.makeText(requireContext(), "Please select a group first", Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -280,18 +292,38 @@ public class ScrapbookViewFragment extends Fragment {
 
         currentPastingView = new ImageView(requireContext());
         currentPastingView.setImageBitmap(bitmap);
+        currentPastingView.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
 
-        int width = (int) (getResources().getDisplayMetrics().widthPixels * 0.45);
-        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(width, width);
-        params.leftMargin = 150;
-        params.topMargin = 150;
+        // Calculate initial display size on this device's preview screen
+        // Scrapbook page is typically 1080x2400, but display preview is device screen
+        int frameWidth = binding.scrapbookFrame.getWidth();
+        int frameHeight = binding.scrapbookFrame.getHeight();
+        if (frameWidth <= 0 || frameHeight <= 0) {
+            frameWidth = getResources().getDisplayMetrics().widthPixels;
+            frameHeight = (int)(frameWidth * 2.22); // Approx 1080x2400 aspect ratio
+        }
+        
+        // Initial size: 40% of visible frame width, maintain aspect ratio
+        int imageWidth = (int) (frameWidth * 0.4);
+        int imageHeight = (int) (imageWidth * bitmap.getHeight() / (float) bitmap.getWidth());
+        
+        // Position: centered horizontally, positioned in middle vertically
+        int leftMargin = (frameWidth - imageWidth) / 2;
+        int topMargin = (frameHeight - imageHeight) / 2;
+        
+        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(imageWidth, imageHeight);
+        params.leftMargin = leftMargin;
+        params.topMargin = topMargin;
         currentPastingView.setLayoutParams(params);
         currentPastingView.setElevation(pastedImageZIndex);
 
         setupDragListener(currentPastingView);
         binding.scrapbookFrame.addView(currentPastingView);
 
-        android.util.Log.d("ScrapbookViewFragment", "Pasted image added to scrapbook frame successfully");
+        android.util.Log.d("ScrapbookViewFragment", "Pasted image added to scrapbook frame");
+        android.util.Log.d("ScrapbookViewFragment", "  Frame size: " + frameWidth + "x" + frameHeight);
+        android.util.Log.d("ScrapbookViewFragment", "  Image initial size: " + imageWidth + "x" + imageHeight);
+        android.util.Log.d("ScrapbookViewFragment", "  Position: left=" + leftMargin + ", top=" + topMargin);
     }
 
     private void confirmPastedImage() {
@@ -313,9 +345,10 @@ public class ScrapbookViewFragment extends Fragment {
             return;
         }
 
-        // Get the page ID where the image was actually pasted
-        // This should match the current visible page in PageFragment
-        // For now, we'll use the current page from ViewModel (which tracks page flips)
+        // Get the current page ID where user is viewing/pasting
+        // This is tracked by PageFragment calling ViewModel.setCurrentDisplayingPageIndex()
+        // Get via ViewModel which properly maps pageIndex to actual page ID
+        int currentPageIndex = scrapbookViewModel.getPageIndex();
         String currentPageId = scrapbookViewModel.getCurrentPageId();
         String finalPageId = (currentPageId != null && !currentPageId.isEmpty()) ? currentPageId : pageId;
 
@@ -326,27 +359,44 @@ public class ScrapbookViewFragment extends Fragment {
             return;
         }
 
-        android.util.Log.d("ScrapbookViewFragment", "confirmPastedImage: Page validation passed");
+        android.util.Log.d("ScrapbookViewFragment", "confirmPastedImage: Page tracking info");
+        android.util.Log.d("ScrapbookViewFragment", "  currentPageIndex from ViewModel: " + currentPageIndex);
         android.util.Log.d("ScrapbookViewFragment", "  currentPageId from ViewModel: " + currentPageId);
         android.util.Log.d("ScrapbookViewFragment", "  fallback pageId from args: " + pageId);
-        android.util.Log.d("ScrapbookViewFragment", "  finalPageId: " + finalPageId);
+        android.util.Log.d("ScrapbookViewFragment", "  FINAL pageId for save: " + finalPageId);
 
-        pastedImageX = currentPastingView.getX();
-        pastedImageY = currentPastingView.getY();
-        pastedImageWidth = currentPastingView.getWidth();
-        pastedImageHeight = currentPastingView.getHeight();
-        pastedImageScale = currentPastingView.getScaleX();
+        // Get the actual transformed dimensions after user dragging/scaling
+        // Note: getX/Y are relative to parent FrameLayout, getWidth/Height are actual rendered size
+        float currentX = currentPastingView.getX();
+        float currentY = currentPastingView.getY();
+        float currentWidth = currentPastingView.getWidth();
+        float currentHeight = currentPastingView.getHeight();
+        float currentScale = currentPastingView.getScaleX();
+        
+        // Map to scrapbook page coordinates (1080 width)
+        // Frame display coordinates -> Scrapbook page coordinates
+        int frameWidth = binding.scrapbookFrame.getWidth();
+        float scaleFactor = frameWidth > 0 ? 1080f / frameWidth : 1f;
+        
+        pastedImageX = currentX * scaleFactor;
+        pastedImageY = currentY * scaleFactor;
+        pastedImageWidth = currentWidth * scaleFactor;
+        pastedImageHeight = currentHeight * scaleFactor;
+        pastedImageScale = currentScale;
 
-        android.util.Log.d("ScrapbookViewFragment", "confirmPastedImage: Image data collected");
-        android.util.Log.d("ScrapbookViewFragment", "  groupId=" + groupId + ", pageId=" + finalPageId + ", userId=" + userId);
-        android.util.Log.d("ScrapbookViewFragment", "  x=" + pastedImageX + ", y=" + pastedImageY);
-        android.util.Log.d("ScrapbookViewFragment", "  width=" + pastedImageWidth + ", height=" + pastedImageHeight);
+        android.util.Log.d("ScrapbookViewFragment", "confirmPastedImage: Image coordinates (transformed)");
+        android.util.Log.d("ScrapbookViewFragment", "  Frame width on device: " + frameWidth + "px");
+        android.util.Log.d("ScrapbookViewFragment", "  Scale factor to scrapbook (1080): " + scaleFactor);
+        android.util.Log.d("ScrapbookViewFragment", "  Raw device coords: x=" + currentX + ", y=" + currentY + ", w=" + currentWidth + ", h=" + currentHeight);
+        android.util.Log.d("ScrapbookViewFragment", "  Scrapbook coords: x=" + pastedImageX + ", y=" + pastedImageY + ", w=" + pastedImageWidth + ", h=" + pastedImageHeight);
         android.util.Log.d("ScrapbookViewFragment", "  scale=" + pastedImageScale);
+
+        android.util.Log.d("ScrapbookViewFragment", "confirmPastedImage: Saving item to server");
+        android.util.Log.d("ScrapbookViewFragment", "  groupId=" + groupId + ", pageId=" + finalPageId + ", userId=" + userId);
         android.util.Log.d("ScrapbookViewFragment", "  imagePath=" + pastedImagePath);
 
         Toast.makeText(requireContext(), "Saving image", Toast.LENGTH_SHORT).show();
 
-        android.util.Log.d("ScrapbookViewFragment", "confirmPastedImage: Calling ViewModel.saveScrapbookItem");
         scrapbookViewModel.saveScrapbookItem(
                 finalPageId, pastedImagePath, userId,
                 pastedImageX, pastedImageY, pastedImageWidth, pastedImageHeight,
@@ -391,7 +441,7 @@ public class ScrapbookViewFragment extends Fragment {
         super.onResume();
 
         if (isInPastingMode && pastedImagePath != null && !pastedImagePath.isEmpty()) {
-            binding.cameraBtn.setVisibility(View.GONE);
+            binding.cameraBtn.setVisibility(View.INVISIBLE);
             binding.btnConfirmPaste.setVisibility(View.VISIBLE);
         }
     }

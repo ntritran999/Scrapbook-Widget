@@ -74,7 +74,7 @@ public class PageFragment extends Fragment {
         pageCurlView.setCurPage(page);
         new Thread(() -> {
             try {
-                PageResources resources = PageBuilder.buildPages(getContext(), data, page);
+                PageResources resources = PageBuilder.buildPages(getContext(), data);
 
                 pageCurlView.queueEvent(() -> {
                     pageCurlView.getPageRenderer().updatePageResources(resources);

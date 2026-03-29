@@ -1,4 +1,4 @@
-package com.group04.scrapbookwidget.ui;
+package com.group04.scrapbookwidget.ui.camera;
 
 import android.Manifest;
 import android.content.pm.PackageManager;

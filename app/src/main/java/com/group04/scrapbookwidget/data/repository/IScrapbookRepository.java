@@ -14,5 +14,6 @@ public interface IScrapbookRepository {
     void getAllItems(String groupId, String pageId, RepositoryCallback<List<ScrapbookItem>> callback);
     void getItemsByType(String groupId, String pageId, String type, RepositoryCallback<List<ScrapbookItem>> callback);
     void addItem(String groupId, String pageId, ScrapbookItem item, RepositoryCallback<String> callback);
+    void addItemWithFile(String groupId, String pageId, String imagePath, ScrapbookItem itemModel, RepositoryCallback<ScrapbookItem> callback);
     void updateItem(String groupId, String pageId, String itemId, ScrapbookItem updatedItem, RepositoryCallback<Void> callback);
 }

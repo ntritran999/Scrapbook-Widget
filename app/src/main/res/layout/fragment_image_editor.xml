@@ -47,7 +47,7 @@
 
         </LinearLayout>
 
-        <com.group04.scrapbookwidget.ui.ScrapbookMaskView
+        <com.group04.scrapbookwidget.ui.camera.ScrapbookMaskView
             android:id="@+id/tornPaperFrame"
             android:layout_width="0dp"
             android:layout_height="0dp"
@@ -61,11 +61,11 @@
                 android:scaleType="centerCrop"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"/>
-            <com.group04.scrapbookwidget.ui.ScrapbookDrawView
+            <com.group04.scrapbookwidget.ui.camera.ScrapbookDrawView
                 android:id="@+id/drawView"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent" />
-        </com.group04.scrapbookwidget.ui.ScrapbookMaskView>
+        </com.group04.scrapbookwidget.ui.camera.ScrapbookMaskView>
 
         <LinearLayout
             android:id="@+id/colorPaletteLayout"

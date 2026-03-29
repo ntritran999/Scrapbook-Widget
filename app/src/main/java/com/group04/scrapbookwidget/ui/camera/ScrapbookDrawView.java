@@ -1,4 +1,4 @@
-package com.group04.scrapbookwidget.ui;
+package com.group04.scrapbookwidget.ui.camera;
 
 import android.content.Context;
 import android.graphics.BlurMaskFilter;
@@ -6,7 +6,6 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.ComposePathEffect;
 import android.graphics.CornerPathEffect;
-import android.graphics.DashPathEffect;
 import android.graphics.DiscretePathEffect;
 import android.graphics.Paint;
 import android.graphics.Path;

@@ -13,7 +13,7 @@ import androidx.fragment.app.testing.FragmentScenario;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.rule.GrantPermissionRule;
 
-import com.group04.scrapbookwidget.ui.CameraFragment;
+import com.group04.scrapbookwidget.ui.camera.CameraFragment;
 
 import org.junit.Rule;
 import org.junit.Test;

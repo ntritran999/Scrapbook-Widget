@@ -385,24 +385,22 @@ public class ScrapbookViewFragment extends Fragment {
         float currentWidth = currentPastingView.getWidth();
         float currentHeight = currentPastingView.getHeight();
         float currentScale = currentPastingView.getScaleX();
-        
-        // Map to scrapbook page coordinates (1080 width)
-        // Frame display coordinates -> Scrapbook page coordinates
-        int frameWidth = binding.scrapbookFrame.getWidth();
-        float scaleFactor = frameWidth > 0 ? 1080f / frameWidth : 1f;
-        
-        pastedImageX = currentX * scaleFactor;
-        pastedImageY = currentY * scaleFactor;
-        pastedImageWidth = currentWidth * scaleFactor;
-        pastedImageHeight = currentHeight * scaleFactor;
-        pastedImageScale = currentScale;
 
-        android.util.Log.d("ScrapbookViewFragment", "confirmPastedImage: Image coordinates (transformed)");
-        android.util.Log.d("ScrapbookViewFragment", "  Frame width on device: " + frameWidth + "px");
-        android.util.Log.d("ScrapbookViewFragment", "  Scale factor to scrapbook (1080): " + scaleFactor);
-        android.util.Log.d("ScrapbookViewFragment", "  Raw device coords: x=" + currentX + ", y=" + currentY + ", w=" + currentWidth + ", h=" + currentHeight);
-        android.util.Log.d("ScrapbookViewFragment", "  Scrapbook coords: x=" + pastedImageX + ", y=" + pastedImageY + ", w=" + pastedImageWidth + ", h=" + pastedImageHeight);
-        android.util.Log.d("ScrapbookViewFragment", "  scale=" + pastedImageScale);
+        android.util.DisplayMetrics displayMetrics = getResources().getDisplayMetrics();
+        int targetWidth = 1080;
+        int targetHeight = (int) (targetWidth * ((float) displayMetrics.heightPixels / displayMetrics.widthPixels));
+
+        int frameWidth = binding.scrapbookFrame.getWidth();
+        int frameHeight = binding.scrapbookFrame.getHeight();
+
+        float scaleX = frameWidth > 0 ? (float) targetWidth / frameWidth : 1f;
+        float scaleY = frameHeight > 0 ? (float) targetHeight / frameHeight : 1f;
+
+        pastedImageX = currentX * scaleX;
+        pastedImageY = currentY * scaleY;
+        pastedImageWidth = currentWidth * scaleX;
+        pastedImageHeight = currentHeight * scaleY;
+        pastedImageScale = currentScale;
 
         android.util.Log.d("ScrapbookViewFragment", "confirmPastedImage: Saving item to server");
         android.util.Log.d("ScrapbookViewFragment", "  groupId=" + groupId + ", pageId=" + finalPageId + ", userId=" + userId);

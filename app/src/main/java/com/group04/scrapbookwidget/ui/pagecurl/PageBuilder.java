@@ -156,12 +156,12 @@ public class PageBuilder {
     }
 
     private static Bitmap getBitMapFromUrl(Context context, String url, int w, int h) throws ExecutionException, InterruptedException {
+        int size = Math.max(w, h);
         return Glide.with(context)
                 .asBitmap()
                 .load(url)
                 .skipMemoryCache(true)
-                .override(w, h)
-                .centerCrop()
+                .override(size, size)
                 .submit()
                 .get();
     }

@@ -21,5 +21,5 @@ public abstract class RepositoryModule {
 
     @Singleton
     @Binds
-    public abstract IUserRepository bindUserRepository(MockUserRepo mockUserRepo);
+    public abstract IUserRepository bindUserRepository(UserRepository userRepository);
 }

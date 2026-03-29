@@ -39,6 +39,7 @@ public class PageFragment extends Fragment {
 
     public static PageFragment newInstance(String param1, String param2) {
         PageFragment fragment = new PageFragment();
+
         return fragment;
     }
 
@@ -51,11 +52,7 @@ public class PageFragment extends Fragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         scrapbookViewModel = new ViewModelProvider(requireParentFragment()).get(ScrapbookViewModel.class);
-        
-        android.util.Log.d("PageFragment", "onViewCreated: Setting up observer on pagesLiveData");
         scrapbookViewModel.getPagesLiveData().observe(getViewLifecycleOwner(), pages -> {
-            android.util.Log.d("PageFragment", "onViewCreated: pagesLiveData observer triggered, pages=" + (pages != null ? pages.size() : "null"));
-            
             if (pages != null && !pages.isEmpty()) {
                 android.util.Log.d("PageFragment", "onViewCreated: Pages not empty, calling debouncedPrepareBitmaps");
                 // Debounce bitmap preparation to avoid frequent rendering
@@ -73,12 +70,10 @@ public class PageFragment extends Fragment {
                 });
             }
             else {
-                android.util.Log.w("PageFragment", "onViewCreated: Pages is null or empty");
                 Toast.makeText(getContext(), "Cannot load pages.", Toast.LENGTH_SHORT).show();
             }
         });
         scrapbookViewModel.getErrorMessage().observe(getViewLifecycleOwner(), error -> {
-            android.util.Log.e("PageFragment", "onViewCreated: Error message observer triggered: " + error);
             Toast.makeText(getContext(), "Cannot load pages", Toast.LENGTH_SHORT).show();
         });
     }
@@ -97,7 +92,7 @@ public class PageFragment extends Fragment {
      */
     private void debouncedPrepareBitmaps(List<ScrapbookPageData> data, int page) {
         android.util.Log.d("PageFragment", "debouncedPrepareBitmaps: Called with " + (data != null ? data.size() : "null") + " pages, current page=" + page);
-        
+
         // Skip if already preparing bitmaps
         if (isBitmapPreparing) {
             android.util.Log.d("PageFragment", "debouncedPrepareBitmaps: Already preparing, skipping");
@@ -123,10 +118,10 @@ public class PageFragment extends Fragment {
 
     private void prepareBitmaps(List<ScrapbookPageData> data, int page) {
         android.util.Log.d("PageFragment", "prepareBitmaps: Starting bitmap preparation for page " + page);
-        
+
         // Notify ViewModel about the currently rendering page
         scrapbookViewModel.setCurrentDisplayingPageIndex(page);
-        
+
         pageCurlView.setCurPage(page);
         isBitmapPreparing = true;
 
@@ -136,12 +131,11 @@ public class PageFragment extends Fragment {
         bitmapExecutor.execute(() -> {
             try {
                 android.util.Log.d("PageFragment", "prepareBitmaps: Calling PageBuilder.buildPages on background thread");
-                PageResources resources = PageBuilder.buildPages(getContext(), data, page);
-                
+                PageResources resources = PageBuilder.buildPages(getContext(), data);
+
                 android.util.Log.d("PageFragment", "prepareBitmaps: PageBuilder.buildPages completed, posting render update to GL thread");
 
                 pageCurlView.queueEvent(() -> {
-                    android.util.Log.d("PageFragment", "prepareBitmaps: Updating PageRenderer with new resources");
                     pageCurlView.getPageRenderer().updatePageResources(resources);
                     pageCurlView.requestRender();
                     android.util.Log.d("PageFragment", "prepareBitmaps: Render requested");

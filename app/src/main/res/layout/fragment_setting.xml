@@ -1,0 +1,450 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <data>
+        <variable
+            name="viewModel"
+            type="com.group04.scrapbookwidget.ui.SettingViewModel" />
+    </data>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#000000"
+        android:orientation="vertical">
+
+        <!-- Toolbar area with back button -->
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            android:paddingHorizontal="8dp">
+
+            <ImageButton
+                android:id="@+id/btnBack"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_gravity="start|center_vertical"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/back"
+                android:src="@drawable/ic_back"
+                app:tint="#FFFFFF" />
+
+<!--            <ImageView-->
+<!--                android:layout_width="24dp"-->
+<!--                android:layout_height="24dp"-->
+<!--                android:layout_gravity="end|center_vertical"-->
+<!--                android:layout_marginEnd="12dp"-->
+<!--                android:src="@drawable/ic_back"-->
+<!--                android:rotation="180"-->
+<!--                app:tint="#FFFFFF" />-->
+        </FrameLayout>
+
+        <ScrollView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_horizontal"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <!-- Profile Section -->
+                <com.google.android.material.imageview.ShapeableImageView
+                    android:id="@+id/imgProfile"
+                    android:layout_width="120dp"
+                    android:layout_height="120dp"
+                    android:padding="4dp"
+                    android:scaleType="centerCrop"
+                    android:src="@drawable/account_circle_24"
+                    android:contentDescription="@string/edit_photo"
+                    app:shapeAppearanceOverlay="@style/CircleAppearance"
+                    app:strokeColor="#FFD700"
+                    app:strokeWidth="3dp" />
+
+                <TextView
+                    android:id="@+id/tvProfileName"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="@{viewModel.currentUser.displayName ?? @string/app_name}"
+                    android:textColor="#FFFFFF"
+                    android:textSize="24sp"
+                    android:textStyle="bold"
+                    tools:text="Trâm Võ" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="@string/edit_photo"
+                    android:textColor="#FFD700"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
+
+                <!-- Gold Card -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="24dp"
+                    android:background="@drawable/bg_gold_card"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:padding="20dp">
+
+                    <ImageView
+                        android:layout_width="32dp"
+                        android:layout_height="32dp"
+                        android:src="@drawable/heart_filled_24"
+                        android:contentDescription="@null"
+                        app:tint="#FFD700" />
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="16dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/premium_plan"
+                            android:textColor="#FFFFFF"
+                            android:textSize="18sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/locket_gold_subtitle"
+                            android:textColor="#CCCCCC"
+                            android:textSize="14sp" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!-- Rollcall Card -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:background="@drawable/bg_chat_bubble"
+                    android:backgroundTint="#1A1A1A"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:padding="16dp">
+
+                    <ImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:src="@drawable/ic_send"
+                        android:rotation="-45"
+                        android:contentDescription="@null"
+                        app:tint="#FFFFFF" />
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="12dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/rollcall"
+                            android:textColor="#FFFFFF"
+                            android:textSize="16sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/rollcall_subtitle"
+                            android:textColor="#AAAAAA"
+                            android:textSize="12sp" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:background="@drawable/bg_palette"
+                        android:paddingHorizontal="12dp"
+                        android:paddingVertical="6dp"
+                        android:text="@string/pick_yours"
+                        android:textColor="#FFD700"
+                        android:textSize="12sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <!-- Invite Card -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:background="@drawable/bg_chat_bubble"
+                    android:backgroundTint="#1A1A1A"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:padding="16dp">
+
+                    <com.google.android.material.imageview.ShapeableImageView
+                        android:layout_width="32dp"
+                        android:layout_height="32dp"
+                        android:src="@drawable/account_circle_24"
+                        android:contentDescription="@null"
+                        app:shapeAppearanceOverlay="@style/CircleAppearance"
+                        app:strokeColor="#FFD700"
+                        app:strokeWidth="1dp" />
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="12dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/invite_friends"
+                            android:textColor="#FFFFFF"
+                            android:textSize="14sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@{`locket.cam/` + (viewModel.currentUser.username ?? `user`)}"
+                            android:textColor="#AAAAAA"
+                            android:textSize="12sp"
+                            tools:text="locket.cam/tremolitee" />
+                    </LinearLayout>
+
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:src="@drawable/ic_send"
+                        android:contentDescription="@null"
+                        app:tint="#FFFFFF" />
+                </LinearLayout>
+
+                <!-- Widget Setup Section -->
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="32dp"
+                    android:layout_marginBottom="16dp"
+                    android:text="@string/widget_setup"
+                    android:textColor="#FFFFFF"
+                    android:textSize="20sp"
+                    android:textStyle="bold" />
+
+                <include
+                    android:id="@+id/btnAddWidget"
+                    layout="@layout/item_setting"
+                    app:icon="@{@drawable/ic_back}"
+                    app:title="@{@string/add_widget}" />
+
+                <include
+                    android:id="@+id/btnHowToAddWidget"
+                    layout="@layout/item_setting"
+                    app:icon="@{@drawable/ic_back}"
+                    app:title="@{@string/how_to_add_widget}" />
+
+                <RelativeLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingVertical="12dp">
+
+                    <ImageView
+                        android:id="@+id/icStreak"
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_centerVertical="true"
+                        android:src="@drawable/ic_flash"
+                        android:contentDescription="@null"
+                        app:tint="#FFFFFF" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_centerVertical="true"
+                        android:layout_marginStart="16dp"
+                        android:layout_toEndOf="@id/icStreak"
+                        android:layout_toStartOf="@+id/switchStreak"
+                        android:text="@string/streak_on_widget"
+                        android:textColor="#FFFFFF"
+                        android:textSize="16sp" />
+
+                    <com.google.android.material.materialswitch.MaterialSwitch
+                        android:id="@+id/switchStreak"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_alignParentEnd="true"
+                        android:layout_centerVertical="true"
+                        android:checked="@{viewModel.streakEnabled}"
+                        android:onCheckedChanged="@{(view, isChecked) -> viewModel.setStreakEnabled(isChecked)}" />
+                </RelativeLayout>
+
+                <!-- General Section -->
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="32dp"
+                    android:layout_marginBottom="16dp"
+                    android:text="@string/general"
+                    android:textColor="#FFFFFF"
+                    android:textSize="20sp"
+                    android:textStyle="bold" />
+
+                <include
+                    android:id="@+id/btnNotifications"
+                    layout="@layout/item_setting"
+                    app:icon="@{@drawable/ic_back}"
+                    app:title="@{@string/notifications}" />
+
+                <include
+                    android:id="@+id/btnEditName"
+                    layout="@layout/item_setting"
+                    app:icon="@{@drawable/account_circle_24}"
+                    app:title="@{@string/edit_name}"
+                    app:subtitle="@{viewModel.currentUser.displayName}"/>
+
+                <include
+                    android:id="@+id/btnChangeEmail"
+                    layout="@layout/item_setting"
+                    app:icon="@{@drawable/ic_back}"
+                    app:title="@{@string/change_email}"
+                    app:subtitle="@{viewModel.currentUser.email}"/>
+
+                <!-- Support Section -->
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="32dp"
+                    android:layout_marginBottom="16dp"
+                    android:text="@string/support"
+                    android:textColor="#FFFFFF"
+                    android:textSize="20sp"
+                    android:textStyle="bold" />
+
+                <include
+                    android:id="@+id/btnMakeSuggestion"
+                    layout="@layout/item_setting"
+                    app:icon="@{@drawable/ic_back}"
+                    app:title="@{@string/make_suggestion}" />
+
+                <include
+                    android:id="@+id/btnReportProblem"
+                    layout="@layout/item_setting"
+                    app:icon="@{@drawable/ic_back}"
+                    app:title="@{@string/report_problem}" />
+
+                <!-- Privacy Section -->
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="32dp"
+                    android:layout_marginBottom="16dp"
+                    android:text="@string/privacy_and_safety"
+                    android:textColor="#FFFFFF"
+                    android:textSize="20sp"
+                    android:textStyle="bold" />
+
+                <include
+                    android:id="@+id/btnBlockedAccounts"
+                    layout="@layout/item_setting"
+                    app:icon="@{@drawable/ic_back}"
+                    app:title="@{@string/blocked_accounts}" />
+
+                <include
+                    android:id="@+id/btnPrivacyAndData"
+                    layout="@layout/item_setting"
+                    app:icon="@{@drawable/ic_back}"
+                    app:title="@{@string/privacy_and_data}" />
+
+                <!-- About Section -->
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="32dp"
+                    android:layout_marginBottom="16dp"
+                    android:text="@string/about"
+                    android:textColor="#FFFFFF"
+                    android:textSize="20sp"
+                    android:textStyle="bold" />
+
+                <include
+                    android:id="@+id/btnTikTok"
+                    layout="@layout/item_setting"
+                    app:icon="@{@drawable/ic_back}"
+                    app:title="@{@string/tiktok}" />
+
+                <include
+                    android:id="@+id/btnInstagram"
+                    layout="@layout/item_setting"
+                    app:icon="@{@drawable/ic_back}"
+                    app:title="@{@string/instagram}" />
+
+                <include
+                    android:id="@+id/btnXTwitter"
+                    layout="@layout/item_setting"
+                    app:icon="@{@drawable/ic_back}"
+                    app:title="@{@string/x_twitter}" />
+
+                <include
+                    android:id="@+id/btnShareLocket"
+                    layout="@layout/item_setting"
+                    app:icon="@{@drawable/ic_back}"
+                    app:title="@{@string/share_locket}" />
+
+                <include
+                    android:id="@+id/btnRateLocket"
+                    layout="@layout/item_setting"
+                    app:icon="@{@drawable/ic_back}"
+                    app:title="@{@string/rate_locket}" />
+
+                <include
+                    android:id="@+id/btnTermsOfService"
+                    layout="@layout/item_setting"
+                    app:icon="@{@drawable/ic_back}"
+                    app:title="@{@string/terms_of_service}" />
+
+                <include
+                    android:id="@+id/btnPrivacyPolicy"
+                    layout="@layout/item_setting"
+                    app:icon="@{@drawable/ic_back}"
+                    app:title="@{@string/privacy_policy}" />
+
+                <!-- Danger Zone Section -->
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="32dp"
+                    android:layout_marginBottom="16dp"
+                    android:text="@string/danger_zone"
+                    android:textColor="#FFFFFF"
+                    android:textSize="20sp"
+                    android:textStyle="bold" />
+
+                <include
+                    android:id="@+id/btnDeleteAccount"
+                    layout="@layout/item_setting"
+                    app:icon="@{@drawable/ic_back}"
+                    app:title="@{@string/delete_account}"
+                    app:titleColor="@{@color/red}"/>
+
+                <include
+                    android:id="@+id/btnSignOut"
+                    layout="@layout/item_setting"
+                    app:icon="@{@drawable/ic_back}"
+                    app:title="@{@string/sign_out}" />
+
+            </LinearLayout>
+        </ScrollView>
+    </LinearLayout>
+</layout>

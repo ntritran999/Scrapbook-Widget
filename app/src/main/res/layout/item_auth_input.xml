@@ -4,9 +4,12 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <data>
+        <import type="android.text.InputType" />
+        <import type="com.google.android.material.textfield.TextInputLayout" />
         <variable name="label" type="String"/>
         <variable name="text" type="String"/>
         <variable name="error" type="String"/>
+        <variable name="isPassword" type="boolean"/>
     </data>
 
     <com.google.android.material.textfield.TextInputLayout
@@ -17,13 +20,15 @@
         android:hint="@{label}"
         app:errorEnabled="@{error != null}"
         app:error="@{error}"
+        app:endIconMode='@{isPassword ? TextInputLayout.END_ICON_PASSWORD_TOGGLE : TextInputLayout.END_ICON_NONE}'
         tools:hint="Label">
 
         <com.google.android.material.textfield.TextInputEditText
             android:id="@+id/etInput"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@{text}" />
+            android:inputType='@{isPassword ? InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD : InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS}'
+            android:text="@={text}" />
 
     </com.google.android.material.textfield.TextInputLayout>
 

@@ -20,30 +20,20 @@ import java.util.concurrent.ExecutionException;
 
 public class PageBuilder {
     private static Map<String, Bitmap> bitmapCache;
-    public static PageResources buildPages(Context context, List<ScrapbookPageData> pagesData, int pageNum) throws ExecutionException, InterruptedException {
-        android.util.Log.d("PageBuilder", "buildPages: Starting build for pageNum=" + pageNum + ", totalPages=" + pagesData.size());
-        
+    public static PageResources buildPages(Context context, List<ScrapbookPageData> pagesData) throws ExecutionException, InterruptedException {
         PageResources pageResources = new PageResources();
-        bitmapCache = new HashMap<>();
 
-        ScrapbookPageData developingPageData = pagesData.get(pageNum);
-        
-        android.util.Log.d("PageBuilder", "buildPages: Building background");
-        buildBackground(context, pageResources, developingPageData.scrapbookPage);
-        
-        android.util.Log.d("PageBuilder", "buildPages: Building developing items, count=" + (developingPageData.scrapbookItems != null ? developingPageData.scrapbookItems.size() : 0));
-        buildDevelopingItems(context, pageResources, developingPageData.scrapbookItems);
-
-        android.util.Log.d("PageBuilder", "buildPages: Building all pages bitmaps");
-        buildPagesBitmaps(context, pageResources, pagesData);
-        
-        android.util.Log.d("PageBuilder", "buildPages: Completed successfully");
+        if (pagesData != null && !pagesData.isEmpty()) {
+            bitmapCache = new HashMap<>();
+            buildBackground(context, pageResources, pagesData.get(0).scrapbookPage);
+            buildPagesBitmaps(context, pageResources, pagesData);
+        }
         return pageResources;
     }
 
     private static void buildBackground(Context context, PageResources pageResources, ScrapbookPage page) throws ExecutionException, InterruptedException {
         android.util.Log.d("PageBuilder", "buildBackground: Loading background image: " + page.getBackgroundImage());
-        
+
         DisplayMetrics displayMetrics = context.getResources().getDisplayMetrics();
         int targetWidth = 1080;
         int targetHeight = (int) (targetWidth * ((float) displayMetrics.heightPixels / displayMetrics.widthPixels));
@@ -58,53 +48,18 @@ public class PageBuilder {
 
         pageResources.bitmapWidth = pageResources.backgroundBitmap.getWidth();
         pageResources.bitmapHeight = pageResources.backgroundBitmap.getHeight();
-        
+
         android.util.Log.d("PageBuilder", "buildBackground: Loaded, size=" + pageResources.bitmapWidth + "x" + pageResources.bitmapHeight);
     }
-
-    private static void buildDevelopingItems(Context context, PageResources pageResources, List<ScrapbookItem> items) throws ExecutionException, InterruptedException {
-        pageResources.developingPhotosBitmaps = new ArrayList<>();
-        pageResources.imageRects = new ArrayList<>();
-        
-        if (items == null || items.isEmpty()) {
-            android.util.Log.d("PageBuilder", "buildDevelopingItems: No items to build");
-            return;
-        }
-        
-        android.util.Log.d("PageBuilder", "buildDevelopingItems: Processing " + items.size() + " items");
-        for (var item: items) {
-            Layout layout = item.getLayout();
-            String photoUrl = item.getContent().photoUrl;
-            
-            android.util.Log.d("PageBuilder", "  Processing item: id=" + item.getId() + ", photoUrl=" + photoUrl);
-            
-            if (photoUrl == null || photoUrl.isEmpty()) {
-                android.util.Log.w("PageBuilder", "  WARNING: photoUrl is null or empty for item " + item.getId());
-                continue;
-            }
-            
-            Bitmap bm = getBitMapFromUrl(context, photoUrl, (int) layout.width, (int) layout.height);
-            if (bm == null) {
-                android.util.Log.e("PageBuilder", "  ERROR: Failed to load bitmap for item " + item.getId());
-                continue;
-            }
-            
-            pageResources.developingPhotosBitmaps.add(bm);
-            bitmapCache.put(item.getId(), bm);
-
-            pageResources.imageRects.add(getRectFromLayout(layout));
-            android.util.Log.d("PageBuilder", "  Added item to cache, bitmap size=" + bm.getWidth() + "x" + bm.getHeight());
-        }
-        
-        android.util.Log.d("PageBuilder", "buildDevelopingItems: Completed, loaded " + pageResources.developingPhotosBitmaps.size() + " photos");
-    }
-
     private static void buildPagesBitmaps(Context context, PageResources pageResources, List<ScrapbookPageData> pagesData) throws ExecutionException, InterruptedException {
         pageResources.pageBitmaps = new ArrayList<>();
-        
+
         android.util.Log.d("PageBuilder", "buildPagesBitmaps: Processing " + pagesData.size() + " pages");
-        
+
         for (var pageData: pagesData) {
+            if (pageResources.backgroundBitmap.isRecycled()) {
+                buildBackground(context, pageResources, pagesData.get(0).scrapbookPage);
+            }
             Bitmap background = pageResources.backgroundBitmap;
             Bitmap result = Bitmap.createBitmap(
                     background.getWidth(),
@@ -114,12 +69,12 @@ public class PageBuilder {
 
             Canvas canvas = new Canvas(result);
             canvas.drawBitmap(background, 0, 0, null);
-            
+
             int itemsDrawn = 0;
             for (var item: pageData.scrapbookItems) {
                 Layout layout = item.getLayout();
                 Bitmap photo = bitmapCache.get(item.getId());
-                
+
                 if (photo == null) {
                     String photoUrl = item.getContent().photoUrl;
                     android.util.Log.d("PageBuilder", "  Photo not in cache, loading from URL: " + photoUrl);
@@ -128,7 +83,7 @@ public class PageBuilder {
                         bitmapCache.put(item.getId(), photo);
                     }
                 }
-                
+
                 if (photo != null) {
                     Rect rect = getRectFromLayout(layout);
                     canvas.drawBitmap(photo, null, rect, null);
@@ -142,7 +97,7 @@ public class PageBuilder {
             pageResources.pageBitmaps.add(result);
             android.util.Log.d("PageBuilder", "  Page page completed, drew " + itemsDrawn + " items");
         }
-        
+
         android.util.Log.d("PageBuilder", "buildPagesBitmaps: Completed, created " + pageResources.pageBitmaps.size() + " page bitmaps");
     }
 

@@ -31,6 +31,14 @@ public class PageCurlView extends GLSurfaceView {
     public interface OnPhotoHitListener {
         void onPhotoHit(String pageId, String itemId);
     }
+    public interface OnPageChangedListener {
+        void onPageChanged(int newPageIndex);
+    }
+    private OnPageChangedListener pageChangedListener;
+
+    public void setOnPageChangedListener(OnPageChangedListener listener) {
+        this.pageChangedListener = listener;
+    }
     private final Context _context;
     private PageRenderer pageRenderer;
     private final float CURL_THRESHOLD = 0.5f;
@@ -126,6 +134,10 @@ public class PageCurlView extends GLSurfaceView {
                 if (prevPage != curPage) {
                     MediaPlayer mediaPlayer = MediaPlayer.create(_context, R.raw.page_turn_sound);
                     mediaPlayer.start();
+                    
+                    if (pageChangedListener != null) {
+                        pageChangedListener.onPageChanged(curPage - 1); 
+                    }
                 }
 
                 isCurling = false;

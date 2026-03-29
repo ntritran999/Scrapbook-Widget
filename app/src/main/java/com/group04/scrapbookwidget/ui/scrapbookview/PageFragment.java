@@ -66,6 +66,11 @@ public class PageFragment extends Fragment {
                     PhotoDialogFragment photoDialogFragment = PhotoDialogFragment.newInstance(scrapbookViewModel.getGroupId(), pageId, itemId);
                     photoDialogFragment.show(getChildFragmentManager(), PhotoDialogFragment.TAG);
                 });
+
+                pageCurlView.setOnPageChangedListener(newPageIndex -> {
+                    android.util.Log.d("PageFragment", "Page flipped by user to index: " + newPageIndex);
+                    scrapbookViewModel.setCurrentDisplayingPageIndex(newPageIndex);
+                });
             }
             else {
                 android.util.Log.w("PageFragment", "onViewCreated: Pages is null or empty");

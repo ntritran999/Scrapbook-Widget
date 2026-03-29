@@ -82,6 +82,10 @@ public class PageRenderer implements GLSurfaceView.Renderer {
     @Override
     public void onSurfaceCreated(GL10 gl, EGLConfig config) {
         GLES32.glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+
+        GLES32.glEnable(GLES32.GL_BLEND);
+        GLES32.glBlendFunc(GLES32.GL_SRC_ALPHA, GLES32.GL_ONE_MINUS_SRC_ALPHA);
+
         curlMesh = new CurlMesh();
     }
 
@@ -108,7 +112,16 @@ public class PageRenderer implements GLSurfaceView.Renderer {
 
         bmpW = pageResources.bitmapWidth;
         bmpH = pageResources.bitmapHeight;
+
+        if (!pageResources.backgroundBitmap.isRecycled()) {
+            pageResources.backgroundBitmap.recycle();
+        }
+        for (var bitmap: pageResources.pageBitmaps) {
+            if (bitmap != null && !bitmap.isRecycled()) bitmap.recycle();
+        }
+
         isLoaded = true;
+        android.util.Log.d("PageRenderer", "updatePageResources: Completed, isLoaded=true");
     }
 
     private void loadTex(Bitmap bitmap, int texId) {

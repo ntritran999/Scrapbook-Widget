@@ -127,9 +127,11 @@ public class SettingFragment extends Fragment {
     }
 
     private void clearSessionAndRestart() {
+        // Clear local session preferences
         SharedPreferences preferences = requireContext().getSharedPreferences("TMP_USER_SESSION", Context.MODE_PRIVATE);
         preferences.edit().clear().apply();
 
+        // Navigate back to Login screen and clear navigation stack
         NavHostFragment navHostFragment = (NavHostFragment) requireActivity().getSupportFragmentManager().findFragmentById(R.id.nav_host_fragment);
         if (navHostFragment != null) {
             NavController navController = navHostFragment.getNavController();
@@ -137,6 +139,7 @@ public class SettingFragment extends Fragment {
                     .setPopUpTo(R.id.app_nav, true)
                     .build());
         } else {
+            // Fallback: Restart Activity if NavHostFragment not found
             Intent intent = new Intent(requireContext(), MainActivity.class);
             intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
             startActivity(intent);

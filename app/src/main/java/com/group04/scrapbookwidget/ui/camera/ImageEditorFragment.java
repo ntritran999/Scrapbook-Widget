@@ -1,6 +1,6 @@
-package com.group04.scrapbookwidget.ui;
+package com.group04.scrapbookwidget.ui.camera;
 
-import android.app.AlertDialog;
+import android.app.Activity;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -29,6 +29,10 @@ public class ImageEditorFragment extends Fragment {
     private String photoPath;
     private boolean isMaskApplied = false;
     private boolean isDrawingMode = false;
+    private static final String PREF_NAME = "tmp_pref";
+    
+    private String groupId = "";
+    private String pageId = "";
 
     private boolean saveToGallery(String cachedPhotoPath) {
         if (cachedPhotoPath == null) {
@@ -72,6 +76,11 @@ public class ImageEditorFragment extends Fragment {
         if (getArguments() != null) {
             photoPath = getArguments().getString("PHOTO_PATH");
         }
+        
+        groupId = requireActivity().getSharedPreferences(PREF_NAME, Activity.MODE_PRIVATE)
+                .getString("CURRENT_GROUP_ID", "");
+        pageId = requireActivity().getSharedPreferences(PREF_NAME, Activity.MODE_PRIVATE)
+                .getString("CURRENT_PAGE_ID", "");
     }
 
     @Nullable
@@ -120,7 +129,10 @@ public class ImageEditorFragment extends Fragment {
                 
                 Bundle bundle = new Bundle();
                 bundle.putString("PASTED_IMAGE_PATH", imageFile.getAbsolutePath());
-                bundle.putString("GROUP_NAME", "Default Group");
+                bundle.putString("GROUP_ID", groupId);
+                bundle.putString("PAGE_ID", pageId);
+
+                android.util.Log.d("ImageEditorFragment", "Navigate with - groupId: " + groupId + ", pageId: " + pageId);
 
                 navController.navigate(R.id.action_imageEditorFragment_to_scrapbookViewFragment, bundle);
             } else {

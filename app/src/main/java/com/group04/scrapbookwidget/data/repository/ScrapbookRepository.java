@@ -1,21 +1,28 @@
 package com.group04.scrapbookwidget.data.repository;
 
+import com.google.gson.Gson;
 import com.group04.scrapbookwidget.data.model.ScrapbookItem;
 import com.group04.scrapbookwidget.data.model.ScrapbookPage;
 import com.group04.scrapbookwidget.data.service.GroupService;
 
+import java.io.File;
 import java.util.List;
 
 import javax.inject.Inject;
 
+import okhttp3.MediaType;
+import okhttp3.MultipartBody;
+import okhttp3.RequestBody;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
 public class ScrapbookRepository implements IScrapbookRepository {
     private GroupService groupService;
+    private Gson gson;
     @Inject
     ScrapbookRepository(GroupService groupService) {
+        this.gson = new Gson(); // for parsing json
         this.groupService = groupService;
     }
 
@@ -87,7 +94,63 @@ public class ScrapbookRepository implements IScrapbookRepository {
 
     @Override
     public void addItem(String groupId, String pageId, ScrapbookItem item, RepositoryCallback<String> callback) {
+        groupService.createItem(groupId, pageId, item).enqueue(new Callback<ScrapbookItem>() {
+            @Override
+            public void onResponse(Call<ScrapbookItem> call, Response<ScrapbookItem> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    callback.onSuccess(response.body().getId());
+                } else {
+                    callback.onError(new Exception("Failed to create item: " + response.code()));
+                }
+            }
 
+            @Override
+            public void onFailure(Call<ScrapbookItem> call, Throwable t) {
+                callback.onError(new Exception(t));
+            }
+        });
+    }
+
+    @Override
+    public void addItemWithFile(String groupId, String pageId, String imagePath, ScrapbookItem itemModel, RepositoryCallback<ScrapbookItem> callback) {
+        // logcat
+        android.util.Log.d("ScrapbookRepository", "addItemWithFile: start");
+
+        String jsonItem = gson.toJson(itemModel);
+        RequestBody payloadPart = RequestBody.create(MediaType.parse("application/json"), jsonItem);
+        // logcat
+        android.util.Log.d("ScrapbookRepository", "addItemWithFile: " + jsonItem);
+
+        File imageFile = new File(imagePath);
+        String mimeType = "image/jpeg";
+        if (imageFile.getName().toLowerCase().endsWith(".png")) {
+            mimeType = "image/png";
+        } else if (imageFile.getName().toLowerCase().endsWith(".webp")) {
+            mimeType = "image/webp";
+        }
+        RequestBody requestFile = RequestBody.create(MediaType.parse(mimeType), imageFile);
+        MultipartBody.Part filePart = MultipartBody.Part.createFormData("file", imageFile.getName(), requestFile);
+        // logcat
+        android.util.Log.d("ScrapbookRepository", "addItemWithFile: " + imageFile.getName());
+
+        groupService.createItemWithFile(groupId, pageId, filePart, payloadPart).enqueue(new retrofit2.Callback<ScrapbookItem>() {
+            @Override
+            public void onResponse(Call<ScrapbookItem> call, retrofit2.Response<ScrapbookItem> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    callback.onSuccess(response.body());
+                } else {
+                    callback.onError(new Exception("API Error: " + response.code()));
+                }
+            }
+
+            @Override
+            public void onFailure(Call<ScrapbookItem> call, Throwable t) {
+                callback.onError(new Exception(t.getMessage()));
+            }
+        });
+
+        // logcat
+        android.util.Log.d("ScrapbookRepository", "addItemWithFile: done");
     }
 
     @Override

@@ -1,4 +1,4 @@
-package com.group04.scrapbookwidget.ui;
+package com.group04.scrapbookwidget.ui.camera;
 
 import android.content.Context;
 import android.graphics.BlurMaskFilter;
@@ -9,8 +9,6 @@ import android.graphics.Path;
 import android.graphics.PointF;
 import android.util.AttributeSet;
 import android.widget.FrameLayout;
-
-import androidx.appcompat.widget.AppCompatImageView;
 
 import java.util.Random;
 

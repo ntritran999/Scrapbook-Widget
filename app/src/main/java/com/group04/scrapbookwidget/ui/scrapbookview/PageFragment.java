@@ -130,6 +130,8 @@ public class PageFragment extends Fragment {
         pageCurlView.setCurPage(page);
         isBitmapPreparing = true;
 
+        mainHandler.post(() -> scrapbookViewModel.getIsRendering().setValue(true));
+
         // Use single-threaded executor to avoid thread pile-up
         bitmapExecutor.execute(() -> {
             try {
@@ -144,11 +146,15 @@ public class PageFragment extends Fragment {
                     pageCurlView.requestRender();
                     android.util.Log.d("PageFragment", "prepareBitmaps: Render requested");
                     isBitmapPreparing = false;
+
+                    mainHandler.post(() -> scrapbookViewModel.getIsRendering().setValue(false));
                 });
             } catch (ExecutionException | InterruptedException e) {
                 android.util.Log.e("PageFragment", "prepareBitmaps: Exception - " + e.getMessage());
                 e.printStackTrace();
                 isBitmapPreparing = false;
+
+                mainHandler.post(() -> scrapbookViewModel.getIsRendering().setValue(false));
                 requireActivity().runOnUiThread(() -> {
                     Toast.makeText(getContext(), "Failed to load images", Toast.LENGTH_SHORT).show();
                 });

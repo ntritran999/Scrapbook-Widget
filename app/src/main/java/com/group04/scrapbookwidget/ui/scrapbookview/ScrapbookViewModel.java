@@ -42,6 +42,9 @@ public class ScrapbookViewModel extends ViewModel {
     private final MutableLiveData<Boolean> isSavingItem = new MutableLiveData<>(false);
     private final MutableLiveData<String> itemSaveError = new MutableLiveData<>();
     
+    private final MutableLiveData<Boolean> isRendering = new MutableLiveData<>(false);
+    public MutableLiveData<Boolean> getIsRendering() { return isRendering; }
+    
     // Debounce mechanism for reload
     private Runnable pendingReloadRunnable = null;
     private static final long RELOAD_DEBOUNCE_MS = 300;

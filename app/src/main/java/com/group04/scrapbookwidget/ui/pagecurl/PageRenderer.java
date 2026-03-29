@@ -122,6 +122,10 @@ public class PageRenderer implements GLSurfaceView.Renderer {
     public void onSurfaceCreated(GL10 gl, EGLConfig config) {
         startTime = System.currentTimeMillis();
         GLES32.glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+
+        GLES32.glEnable(GLES32.GL_BLEND);
+        GLES32.glBlendFunc(GLES32.GL_SRC_ALPHA, GLES32.GL_ONE_MINUS_SRC_ALPHA);
+        
         curlMesh = new CurlMesh();
         flatMesh = new SimpleMesh();
     }

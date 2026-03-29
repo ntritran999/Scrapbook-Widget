@@ -142,10 +142,23 @@ public class ScrapbookViewFragment extends Fragment {
     }
 
     private void setupObservers() {
-        scrapbookViewModel.getIsLoading().observe(getViewLifecycleOwner(), loading -> {
-            android.util.Log.d("ScrapbookViewFragment", "setupObservers: isLoading = " + loading);
+        androidx.lifecycle.Observer<Boolean> loaderObserver = state -> {
+            boolean isLoadingData = scrapbookViewModel.getIsLoading().getValue() != null && scrapbookViewModel.getIsLoading().getValue();
+            boolean isRenderingGL = scrapbookViewModel.getIsRendering().getValue() != null && scrapbookViewModel.getIsRendering().getValue();
+            
             if (binding != null) {
-                binding.loadingOverlay.setVisibility(loading ? View.VISIBLE : View.INVISIBLE);
+                binding.loadingOverlay.setVisibility((isLoadingData || isRenderingGL) ? View.VISIBLE : View.GONE);
+            }
+        };
+
+        scrapbookViewModel.getIsLoading().observe(getViewLifecycleOwner(), loaderObserver);
+
+        scrapbookViewModel.getIsRendering().observe(getViewLifecycleOwner(), rendering -> {
+            loaderObserver.onChanged(rendering);
+            
+            if (!rendering && currentPastingView != null && !isInPastingMode) {
+                android.util.Log.d("ScrapbookViewFragment", "Render complete. Removing temporary image safely.");
+                exitPastingMode();
             }
         });
 
@@ -175,7 +188,7 @@ public class ScrapbookViewFragment extends Fragment {
             // ONLY remove temporary image if user confirmed save (not during initial load)
             if (currentPastingView != null && !isInPastingMode) {
                 android.util.Log.d("ScrapbookViewFragment", "setupObservers: Removing temporary pasted image after render");
-                exitPastingMode();
+                // exitPastingMode();
             }
         });
     }

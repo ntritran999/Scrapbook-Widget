@@ -54,6 +54,7 @@
 
     <!-- New Settings strings -->
     <string name="edit_photo">Edit Photo</string>
+    <string name="edit_profile">Edit Profile</string>
     <string name="get_locket_gold">Get Scrapbook Premium</string>
     <string name="premium_plan">Get Scrapbook Premium</string>
     <string name="locket_gold_subtitle">Unlock the best of Scrapbook</string>

@@ -2,7 +2,9 @@ package com.group04.scrapbookwidget.data.repository;
 
 import com.group04.scrapbookwidget.data.model.Group;
 import com.group04.scrapbookwidget.data.model.User;
+import com.group04.scrapbookwidget.data.service.UserService;
 
+import java.io.File;
 import java.util.List;
 
 public interface IUserRepository {
@@ -19,4 +21,7 @@ public interface IUserRepository {
     void deleteUser(String userId, RepositoryCallback<Void> callback);
 
     void getUserGroups(String userId, RepositoryCallback<List<Group>> callback);
+    
+    void checkUsername(String username, RepositoryCallback<UserService.UsernameCheckResponse> callback);
+    void uploadAvatar(File imageFile, RepositoryCallback<String> callback);
 }

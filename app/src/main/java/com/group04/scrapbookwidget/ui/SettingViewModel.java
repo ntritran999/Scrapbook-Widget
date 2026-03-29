@@ -11,6 +11,8 @@ import com.group04.scrapbookwidget.data.model.User;
 import com.group04.scrapbookwidget.data.repository.IUserRepository;
 import com.group04.scrapbookwidget.data.repository.RepositoryCallback;
 
+import java.io.File;
+
 import javax.inject.Inject;
 
 import dagger.hilt.android.lifecycle.HiltViewModel;
@@ -27,17 +29,23 @@ public class SettingViewModel extends ViewModel {
     private final MutableLiveData<String> _errorMessage = new MutableLiveData<>(null);
     private final MutableLiveData<User> _currentUser = new MutableLiveData<>();
     private final MutableLiveData<Boolean> _streakEnabled = new MutableLiveData<>(true);
+    private final MutableLiveData<Boolean> _isUploading = new MutableLiveData<>(false);
 
     public LiveData<Boolean> getLoggedOut() { return _loggedOut; }
     public LiveData<Boolean> getAccountDeleted() { return _accountDeleted; }
     public LiveData<String> getErrorMessage() { return _errorMessage; }
     public LiveData<User> getCurrentUser() { return _currentUser; }
     public LiveData<Boolean> getStreakEnabled() { return _streakEnabled; }
+    public LiveData<Boolean> isUploading() { return _isUploading; }
 
     @Inject
     public SettingViewModel(IUserRepository userRepository, FirebaseAuth firebaseAuth) {
         this.userRepository = userRepository;
         this.firebaseAuth = firebaseAuth;
+        loadCurrentUser();
+    }
+
+    public void refresh() {
         loadCurrentUser();
     }
 
@@ -65,6 +73,35 @@ public class SettingViewModel extends ViewModel {
         } else {
             Log.w(TAG, "No Firebase user found");
         }
+    }
+
+    public void uploadAvatar(File file) {
+        if (firebaseAuth.getCurrentUser() == null) return;
+        _isUploading.setValue(true);
+        userRepository.uploadAvatar(file, new RepositoryCallback<String>() {
+            @Override
+            public void onSuccess(String avatarUrl) {
+                userRepository.updateAvatarUrl(firebaseAuth.getCurrentUser().getUid(), avatarUrl, new RepositoryCallback<Void>() {
+                    @Override
+                    public void onSuccess(Void result) {
+                        _isUploading.setValue(false);
+                        loadCurrentUser(); // Reload to update UI
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        _isUploading.setValue(false);
+                        _errorMessage.setValue("Failed to update avatar URL");
+                    }
+                });
+            }
+
+            @Override
+            public void onError(Exception e) {
+                _isUploading.setValue(false);
+                _errorMessage.setValue("Upload failed");
+            }
+        });
     }
 
     private void setDummyUser() {

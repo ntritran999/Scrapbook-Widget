@@ -22,6 +22,12 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.ScrapbookWidget"
         android:usesCleartextTraffic="true">
+
+        <activity
+            android:name="com.yalantis.ucrop.UCropActivity"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.UCrop"/>
+
         <receiver
             android:name=".ui.AppWidget"
             android:exported="false">

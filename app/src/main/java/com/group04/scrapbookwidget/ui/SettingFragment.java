@@ -1,6 +1,5 @@
 package com.group04.scrapbookwidget.ui;
 
-import android.app.AlertDialog;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -12,12 +11,14 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.NavController;
 import androidx.navigation.Navigation;
 import androidx.navigation.fragment.NavHostFragment;
 
+import com.bumptech.glide.Glide;
 import com.group04.scrapbookwidget.R;
 import com.group04.scrapbookwidget.databinding.FragmentSettingBinding;
 
@@ -42,6 +43,14 @@ public class SettingFragment extends Fragment {
         return binding.getRoot();
     }
 
+    @Override
+    public void onResume() {
+        super.onResume();
+        if (viewModel != null) {
+            viewModel.refresh();
+        }
+    }
+
     private void setupObservers() {
         viewModel.getLoggedOut().observe(getViewLifecycleOwner(), loggedOut -> {
             if (Boolean.TRUE.equals(loggedOut)) {
@@ -61,12 +70,46 @@ public class SettingFragment extends Fragment {
                 Toast.makeText(requireContext(), error, Toast.LENGTH_LONG).show();
             }
         });
+
+        viewModel.getCurrentUser().observe(getViewLifecycleOwner(), user -> {
+            if (user != null && user.getAvatarUrl() != null && !user.getAvatarUrl().isEmpty()) {
+                Glide.with(this)
+                        .load(user.getAvatarUrl())
+                        .placeholder(R.drawable.account_circle_24)
+                        .circleCrop()
+                        .into(binding.imgProfile);
+            }
+        });
     }
 
     private void setupClickListeners() {
         binding.btnBack.setOnClickListener(v -> Navigation.findNavController(v).navigateUp());
 
-        // Accessing the root view of the included layouts
+        // Avatar click -> Show full screen image using ConstraintLayout overlay
+        binding.imgProfile.setOnClickListener(v -> {
+            String url = (viewModel.getCurrentUser().getValue() != null) ? viewModel.getCurrentUser().getValue().getAvatarUrl() : null;
+            if (url != null && !url.isEmpty()) {
+                binding.fullScreenOverlay.setVisibility(View.VISIBLE);
+                Glide.with(this).load(url).into(binding.imgFullScreen);
+            }
+        });
+
+        // Hide overlay when clicked
+        binding.fullScreenOverlay.setOnClickListener(v -> {
+            binding.fullScreenOverlay.setVisibility(View.GONE);
+        });
+
+        // Edit Profile navigation
+        binding.btnEditProfile.setOnClickListener(v -> {
+            Navigation.findNavController(v).navigate(R.id.action_settingFragment_to_editProfileFragment);
+        });
+
+        if (binding.btnEditName != null) {
+            binding.btnEditName.getRoot().setOnClickListener(v -> {
+                Navigation.findNavController(v).navigate(R.id.action_settingFragment_to_editProfileFragment);
+            });
+        }
+
         if (binding.btnDeleteAccount != null) {
             binding.btnDeleteAccount.getRoot().setOnClickListener(v -> {
                 new AlertDialog.Builder(requireContext())

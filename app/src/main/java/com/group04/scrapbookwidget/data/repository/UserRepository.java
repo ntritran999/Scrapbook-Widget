@@ -1,6 +1,7 @@
 package com.group04.scrapbookwidget.data.repository;
 
 import android.util.Log;
+import android.webkit.MimeTypeMap;
 
 import androidx.annotation.NonNull;
 
@@ -10,10 +11,14 @@ import com.group04.scrapbookwidget.data.model.Group;
 import com.group04.scrapbookwidget.data.model.User;
 import com.group04.scrapbookwidget.data.service.UserService;
 
+import java.io.File;
 import java.util.List;
 
 import javax.inject.Inject;
 
+import okhttp3.MediaType;
+import okhttp3.MultipartBody;
+import okhttp3.RequestBody;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
@@ -81,14 +86,12 @@ public class UserRepository implements IUserRepository {
         userRequest.setEmail(email);
         userRequest.setPassword(password);
         userRequest.setDisplayName(name);
-        userRequest.setUsername(email.split("@")[0]); // Default username from email
+        userRequest.setUsername(email.split("@")[0]); 
         
         userService.register(userRequest).enqueue(new Callback<User>() {
             @Override
             public void onResponse(@NonNull Call<User> call, @NonNull Response<User> response) {
                 if (response.isSuccessful() && response.body() != null) {
-                    // After server registration, we should probably login with Firebase 
-                    // to get a valid session, or the server might return everything needed.
                     callback.onSuccess(response.body());
                 } else {
                     String errorMsg = "Registration failed";
@@ -112,10 +115,7 @@ public class UserRepository implements IUserRepository {
 
     @Override
     public void logout() {
-        // Sign out locally first so that the UI can react immediately and 
-        // navigation checks (like FirebaseAuth.getCurrentUser()) see the user as signed out.
         firebaseAuth.signOut();
-        
         userService.logout().enqueue(new Callback<Void>() {
             @Override
             public void onResponse(@NonNull Call<Void> call, @NonNull Response<Void> response) {
@@ -150,7 +150,6 @@ public class UserRepository implements IUserRepository {
 
     @Override
     public void getUserByUsername(String username, RepositoryCallback<User> callback) {
-        // Implementation could search or fetch by username
     }
 
     @Override
@@ -180,7 +179,15 @@ public class UserRepository implements IUserRepository {
                 if (response.isSuccessful()) {
                     callback.onSuccess(null);
                 } else {
-                    callback.onError(new Exception("Update user failed"));
+                    String errorMsg = "Update user failed";
+                    try {
+                        if (response.errorBody() != null) {
+                            errorMsg = response.errorBody().string();
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error parsing error body", e);
+                    }
+                    callback.onError(new Exception(errorMsg));
                 }
             }
 
@@ -252,5 +259,78 @@ public class UserRepository implements IUserRepository {
                 callback.onError(new Exception(t));
             }
         });
+    }
+
+    @Override
+    public void checkUsername(String username, RepositoryCallback<UserService.UsernameCheckResponse> callback) {
+        userService.checkUsername(username).enqueue(new Callback<UserService.UsernameCheckResponse>() {
+            @Override
+            public void onResponse(@NonNull Call<UserService.UsernameCheckResponse> call, @NonNull Response<UserService.UsernameCheckResponse> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    callback.onSuccess(response.body());
+                } else {
+                    callback.onError(new Exception("Check username failed"));
+                }
+            }
+
+            @Override
+            public void onFailure(@NonNull Call<UserService.UsernameCheckResponse> call, @NonNull Throwable t) {
+                callback.onError(new Exception(t));
+            }
+        });
+    }
+
+    @Override
+    public void uploadAvatar(File imageFile, RepositoryCallback<String> callback) {
+        Log.d(TAG, "Starting avatar upload. File size: " + imageFile.length() + " bytes");
+        
+        String mimeType = getMimeType(imageFile);
+        Log.d(TAG, "Detected MIME type: " + mimeType);
+
+        RequestBody requestFile = RequestBody.create(MediaType.parse(mimeType), imageFile);
+        MultipartBody.Part body = MultipartBody.Part.createFormData("file", imageFile.getName(), requestFile);
+
+        userService.uploadAvatar(body).enqueue(new Callback<UserService.AvatarUploadResponse>() {
+            @Override
+            public void onResponse(@NonNull Call<UserService.AvatarUploadResponse> call, @NonNull Response<UserService.AvatarUploadResponse> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    Log.d(TAG, "Avatar upload success. URL: " + response.body().avatarUrl);
+                    callback.onSuccess(response.body().avatarUrl);
+                } else {
+                    String errorMsg = "Avatar upload failed: " + response.code();
+                    try {
+                        if (response.errorBody() != null) {
+                            errorMsg += " - " + response.errorBody().string();
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error reading error body", e);
+                    }
+                    Log.e(TAG, errorMsg);
+                    callback.onError(new Exception(errorMsg));
+                }
+            }
+
+            @Override
+            public void onFailure(@NonNull Call<UserService.AvatarUploadResponse> call, @NonNull Throwable t) {
+                Log.e(TAG, "Avatar upload network failure", t);
+                callback.onError(new Exception(t));
+            }
+        });
+    }
+
+    private String getMimeType(File file) {
+        String extension = MimeTypeMap.getFileExtensionFromUrl(file.getPath());
+        if (extension == null || extension.isEmpty()) {
+            String fileName = file.getName();
+            int i = fileName.lastIndexOf('.');
+            if (i > 0) {
+                extension = fileName.substring(i + 1);
+            }
+        }
+        if (extension != null) {
+            String type = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension.toLowerCase());
+            if (type != null) return type;
+        }
+        return "image/jpeg"; // Default fallback
     }
 }

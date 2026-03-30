@@ -96,4 +96,7 @@ dependencies {
     implementation("androidx.work:work-runtime:2.11.1")
     implementation("androidx.hilt:hilt-work:1.0.0")
     annotationProcessor("androidx.hilt:hilt-compiler:1.0.0")
+
+    // uCrop
+    implementation("com.github.yalantis:ucrop:2.2.10")
 }

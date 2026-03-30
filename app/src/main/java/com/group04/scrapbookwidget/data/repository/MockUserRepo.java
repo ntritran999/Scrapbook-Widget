@@ -8,10 +8,14 @@ import com.group04.scrapbookwidget.data.model.Group;
 import com.group04.scrapbookwidget.data.model.User;
 import com.group04.scrapbookwidget.data.service.UserService;
 
+import java.io.File;
 import java.util.List;
 
 import javax.inject.Inject;
 
+import okhttp3.MediaType;
+import okhttp3.MultipartBody;
+import okhttp3.RequestBody;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
@@ -194,6 +198,47 @@ public class MockUserRepo implements IUserRepository {
 
             @Override
             public void onFailure(@NonNull Call<List<Group>> call, @NonNull Throwable t) {
+                callback.onError(new Exception(t));
+            }
+        });
+    }
+
+    @Override
+    public void checkUsername(String username, RepositoryCallback<UserService.UsernameCheckResponse> callback) {
+        userService.checkUsername(username).enqueue(new Callback<UserService.UsernameCheckResponse>() {
+            @Override
+            public void onResponse(@NonNull Call<UserService.UsernameCheckResponse> call, @NonNull Response<UserService.UsernameCheckResponse> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    callback.onSuccess(response.body());
+                } else {
+                    callback.onError(new Exception("Check username failed"));
+                }
+            }
+
+            @Override
+            public void onFailure(@NonNull Call<UserService.UsernameCheckResponse> call, @NonNull Throwable t) {
+                callback.onError(new Exception(t));
+            }
+        });
+    }
+
+    @Override
+    public void uploadAvatar(File imageFile, RepositoryCallback<String> callback) {
+        RequestBody requestFile = RequestBody.create(MediaType.parse("image/*"), imageFile);
+        MultipartBody.Part body = MultipartBody.Part.createFormData("file", imageFile.getName(), requestFile);
+
+        userService.uploadAvatar(body).enqueue(new Callback<UserService.AvatarUploadResponse>() {
+            @Override
+            public void onResponse(@NonNull Call<UserService.AvatarUploadResponse> call, @NonNull Response<UserService.AvatarUploadResponse> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    callback.onSuccess(response.body().avatarUrl);
+                } else {
+                    callback.onError(new Exception("Avatar upload failed"));
+                }
+            }
+
+            @Override
+            public void onFailure(@NonNull Call<UserService.AvatarUploadResponse> call, @NonNull Throwable t) {
                 callback.onError(new Exception(t));
             }
         });

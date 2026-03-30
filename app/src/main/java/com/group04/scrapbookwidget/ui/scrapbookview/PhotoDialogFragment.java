@@ -2,6 +2,7 @@ package com.group04.scrapbookwidget.ui.scrapbookview;
 
 import android.animation.AnimatorInflater;
 import android.animation.AnimatorSet;
+import android.app.Dialog;
 import android.os.Bundle;
 
 import androidx.annotation.NonNull;
@@ -10,9 +11,12 @@ import androidx.databinding.DataBindingUtil;
 import androidx.fragment.app.DialogFragment;
 import androidx.lifecycle.ViewModelProvider;
 
+import android.view.GestureDetector;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Toast;
 
 import com.bumptech.glide.Glide;
 import com.group04.scrapbookwidget.R;
@@ -20,6 +24,9 @@ import com.group04.scrapbookwidget.data.model.ItemContent;
 import com.group04.scrapbookwidget.databinding.FragmentPhotoDialogBinding;
 
 import dagger.hilt.android.AndroidEntryPoint;
+import android.graphics.drawable.ColorDrawable;
+import android.view.Window;
+import android.view.WindowManager;
 
 @AndroidEntryPoint
 public class PhotoDialogFragment extends DialogFragment {
@@ -27,6 +34,7 @@ public class PhotoDialogFragment extends DialogFragment {
     private boolean isFront = true;
     private FragmentPhotoDialogBinding binding;
     private PhotoViewModel photoViewModel;
+    private GestureDetector gestureDetector;
     private static final String GROUP_ID = "groupId";
     private static final String PAGE_ID = "pageId";
     private static final String ITEM_ID = "itemId";
@@ -65,7 +73,10 @@ public class PhotoDialogFragment extends DialogFragment {
             if (item != null) {
                 ItemContent content = item.getContent();
                 Glide.with(view).load(content.photoUrl).into(binding.zoomPhoto);
-                binding.hiddenText.setText(content.caption);
+                Glide.with(view).load(content.photoUrl).into(binding.backSilhouette);
+                binding.backSilhouette.setColorFilter(android.graphics.Color.WHITE, android.graphics.PorterDuff.Mode.SRC_IN);
+                String caption = content.caption != null ? content.caption : "No caption";
+                binding.hiddenText.setText(caption);
             }
         });
         photoViewModel.loadItem(groupId, pageId, itemId);
@@ -81,6 +92,22 @@ public class PhotoDialogFragment extends DialogFragment {
             flip_photo();
         });
         return binding.getRoot();
+    }
+
+    @Override
+    public void onStart() {
+        super.onStart();
+
+        Dialog dialog = getDialog();
+        if (dialog != null) {
+            Window window = dialog.getWindow();
+            if (window != null) {
+                window.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+                window.setBackgroundDrawable(new ColorDrawable(android.graphics.Color.TRANSPARENT));
+                window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+                window.setDimAmount(0.7f);
+            }
+        }
     }
 
     @Override

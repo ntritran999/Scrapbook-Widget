@@ -49,6 +49,7 @@ public class ScrapbookViewFragment extends Fragment {
     private float pastedImageRotation = 0;
     private float pastedImageScale = 1.0f;
     private float pastedImageZIndex = 10f;
+    private String pastedImageCaption = "";
 
     public ScrapbookViewFragment() {
     }
@@ -62,6 +63,7 @@ public class ScrapbookViewFragment extends Fragment {
             String bundleGroupId = bundle.getString("GROUP_ID", "");
             String bundlePageId = bundle.getString("PAGE_ID", "");
             String bundlePastedImagePath = bundle.getString("PASTED_IMAGE_PATH");
+            String bundleCaption = bundle.getString("CAPTION", "");
 
             // Only update if bundle has non-empty values (don't overwrite with empty strings)
             if (!bundleGroupId.isEmpty()) {
@@ -73,6 +75,9 @@ public class ScrapbookViewFragment extends Fragment {
             if (bundlePastedImagePath != null && !bundlePastedImagePath.isEmpty()) {
                 pastedImagePath = bundlePastedImagePath;
             }
+            if (bundleCaption != null) {
+                pastedImageCaption = bundleCaption;
+            }
 
             // Restore pasting mode flag
             isInPastingMode = bundle.getBoolean("IS_IN_PASTING_MODE", false);
@@ -80,7 +85,7 @@ public class ScrapbookViewFragment extends Fragment {
             // Debug log
             android.util.Log.d("ScrapbookViewFragment", "onCreate - groupId: " + groupId +
                     ", pageId: " + pageId + ", pastedImagePath: " + pastedImagePath +
-                    ", isInPastingMode: " + isInPastingMode);
+                    ", isInPastingMode: " + isInPastingMode + ", caption: " + pastedImageCaption);
 
             if (pastedImagePath != null && !pastedImagePath.isEmpty()) {
                 android.util.Log.d("ScrapbookViewFragment", "onCreate - FOUND pasted image from bundle: " + pastedImagePath);
@@ -405,13 +410,14 @@ public class ScrapbookViewFragment extends Fragment {
         android.util.Log.d("ScrapbookViewFragment", "confirmPastedImage: Saving item to server");
         android.util.Log.d("ScrapbookViewFragment", "  groupId=" + groupId + ", pageId=" + finalPageId + ", userId=" + userId);
         android.util.Log.d("ScrapbookViewFragment", "  imagePath=" + pastedImagePath);
+        android.util.Log.d("ScrapbookViewFragment", "  caption=" + pastedImageCaption);
 
         Toast.makeText(requireContext(), "Saving image", Toast.LENGTH_SHORT).show();
 
         scrapbookViewModel.saveScrapbookItem(
                 finalPageId, pastedImagePath, userId,
                 pastedImageX, pastedImageY, pastedImageWidth, pastedImageHeight,
-                pastedImageRotation, pastedImageScale, pastedImageZIndex
+                pastedImageRotation, pastedImageScale, pastedImageZIndex, pastedImageCaption
         );
     }
 
@@ -445,6 +451,7 @@ public class ScrapbookViewFragment extends Fragment {
         outState.putString("PAGE_ID", pageId);
         outState.putString("PASTED_IMAGE_PATH", pastedImagePath);
         outState.putBoolean("IS_IN_PASTING_MODE", isInPastingMode);
+        outState.putString("CAPTION", pastedImageCaption);
     }
 
     @Override

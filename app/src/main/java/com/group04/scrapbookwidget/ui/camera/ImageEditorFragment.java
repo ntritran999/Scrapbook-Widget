@@ -19,6 +19,7 @@ import androidx.navigation.fragment.NavHostFragment;
 
 import com.group04.scrapbookwidget.R;
 import com.group04.scrapbookwidget.databinding.FragmentImageEditorBinding;
+import com.group04.scrapbookwidget.ui.scrapbookview.CaptionInputDialogFragment;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -33,6 +34,8 @@ public class ImageEditorFragment extends Fragment {
     
     private String groupId = "";
     private String pageId = "";
+    private String currentCaption = "";
+    private String pendingImagePath = "";
 
     private boolean saveToGallery(String cachedPhotoPath) {
         if (cachedPhotoPath == null) {
@@ -122,26 +125,51 @@ public class ImageEditorFragment extends Fragment {
                 bitmap.compress(Bitmap.CompressFormat.PNG, 100, out);
             }
 
-            NavController navController = NavHostFragment.findNavController(this);
-            
-            if (navController.getCurrentDestination() != null && 
-                navController.getCurrentDestination().getId() == R.id.imageEditorFragment) {
-                
-                Bundle bundle = new Bundle();
-                bundle.putString("PASTED_IMAGE_PATH", imageFile.getAbsolutePath());
-                bundle.putString("GROUP_ID", groupId);
-                bundle.putString("PAGE_ID", pageId);
-
-                android.util.Log.d("ImageEditorFragment", "Navigate with - groupId: " + groupId + ", pageId: " + pageId);
-
-                navController.navigate(R.id.action_imageEditorFragment_to_scrapbookViewFragment, bundle);
-            } else {
-                Toast.makeText(getContext(), "NAVIGATION ERROR: ", Toast.LENGTH_SHORT).show();
-            }
+            // Store the image path and show caption dialog
+            pendingImagePath = imageFile.getAbsolutePath();
+            showCaptionInputDialog();
 
         } catch (Exception e) {
             e.printStackTrace();
             Toast.makeText(getContext(), "ERROR: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void showCaptionInputDialog() {
+        CaptionInputDialogFragment captionDialog = CaptionInputDialogFragment.newInstance();
+        captionDialog.setOnCaptionConfirmedListener(new CaptionInputDialogFragment.OnCaptionConfirmedListener() {
+            @Override
+            public void onCaptionConfirmed(String caption) {
+                currentCaption = caption;
+                navigateToScrapbook();
+            }
+
+            @Override
+            public void onCaptionCancelled() {
+                currentCaption = "";
+                navigateToScrapbook();
+            }
+        });
+        captionDialog.show(getChildFragmentManager(), "CaptionInputDialog");
+    }
+
+    private void navigateToScrapbook() {
+        NavController navController = NavHostFragment.findNavController(this);
+        
+        if (navController.getCurrentDestination() != null && 
+            navController.getCurrentDestination().getId() == R.id.imageEditorFragment) {
+            
+            Bundle bundle = new Bundle();
+            bundle.putString("PASTED_IMAGE_PATH", pendingImagePath);
+            bundle.putString("GROUP_ID", groupId);
+            bundle.putString("PAGE_ID", pageId);
+            bundle.putString("CAPTION", currentCaption);
+
+            android.util.Log.d("ImageEditorFragment", "Navigate with - groupId: " + groupId + ", pageId: " + pageId + ", caption: " + currentCaption);
+
+            navController.navigate(R.id.action_imageEditorFragment_to_scrapbookViewFragment, bundle);
+        } else {
+            Toast.makeText(getContext(), "NAVIGATION ERROR: ", Toast.LENGTH_SHORT).show();
         }
     }
 

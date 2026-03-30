@@ -307,7 +307,7 @@ public class ScrapbookViewModel extends ViewModel {
      */
     public void saveScrapbookItem(String pageId, String photoUrl, String userId,
                                    float x, float y, float width, float height,
-                                   float rotation, float scale, float zIndex) {
+                                   float rotation, float scale, float zIndex, String caption) {
         if (groupId == null || groupId.isEmpty() || pageId == null || pageId.isEmpty()) {
             itemSaveError.setValue("Invalid page or group ID");
             android.util.Log.e("ScrapbookViewModel", "saveScrapbookItem: Invalid page or group ID. groupId=" + groupId + ", pageId=" + pageId);
@@ -318,12 +318,13 @@ public class ScrapbookViewModel extends ViewModel {
         android.util.Log.d("ScrapbookViewModel", "  pageId=" + pageId + ", photoUrl=" + photoUrl + ", userId=" + userId);
         android.util.Log.d("ScrapbookViewModel", "  x=" + x + ", y=" + y + ", width=" + width + ", height=" + height);
         android.util.Log.d("ScrapbookViewModel", "  rotation=" + rotation + ", scale=" + scale + ", zIndex=" + zIndex);
+        android.util.Log.d("ScrapbookViewModel", "  caption=" + caption);
 
         isSavingItem.setValue(true);
         itemSaveError.setValue(null);
 
-        // Create the item with provided data
-        ItemContent itemContent = new ItemContent(photoUrl);  // FIXED: Use actual photoUrl instead of empty string
+        // Create the item with provided data and caption
+        ItemContent itemContent = new ItemContent(photoUrl, caption);
         Layout layout = new Layout(x, y, width, height, rotation, scale, zIndex);
         ScrapbookItem scrapbookItem = new ScrapbookItem("photo", userId, itemContent, layout);
 

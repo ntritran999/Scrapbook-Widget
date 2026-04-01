@@ -105,19 +105,30 @@ public class ScrapbookViewModel extends ViewModel {
         }
 
         isLoading.setValue(true);
-
-        List<ScrapbookPageData> data = pagesLiveData.getValue();
-        if (data != null && !data.isEmpty()) {
-            isLoading.setValue(false);
-            return;
-        }
+        this.groupId = groupId;
 
         scrapbookRepository.getAllPages(groupId, new RepositoryCallback<List<ScrapbookPage>>() {
             @Override
             public void onSuccess(List<ScrapbookPage> pages) {
                 if (pages == null || pages.isEmpty()) {
-                    pagesLiveData.setValue(new ArrayList<>());
-                    isLoading.setValue(false);
+                    // Automatically create first page for a new group
+                    scrapbookRepository.createPage(groupId, new RepositoryCallback<ScrapbookPage>() {
+                        @Override
+                        public void onSuccess(ScrapbookPage newPage) {
+                            List<ScrapbookPageData> scrapbookData = new ArrayList<>();
+                            scrapbookData.add(new ScrapbookPageData(newPage, new ArrayList<>()));
+                            pagesLiveData.setValue(scrapbookData);
+                            pageIndex = 0;
+                            isLoading.setValue(false);
+                        }
+
+                        @Override
+                        public void onError(Exception e) {
+                            pagesLiveData.setValue(new ArrayList<>());
+                            errorMessage.setValue("Failed to create initial page: " + e.getMessage());
+                            isLoading.setValue(false);
+                        }
+                    });
                     return;
                 }
 
@@ -141,8 +152,6 @@ public class ScrapbookViewModel extends ViewModel {
                                     }
                                 }
                                 pagesLiveData.setValue(scrapbookData);
-                                ScrapbookViewModel.this.groupId = groupId;
-
                                 isLoading.setValue(false);
                             }
                         }

@@ -47,7 +47,41 @@
         <action
             android:id="@+id/action_chatFragment_to_homeFragment"
             app:destination="@id/homeFragment" />
+        <action
+            android:id="@+id/action_chatFragment_to_chatDetailFragment"
+            app:destination="@id/chatDetailFragment" />
     </fragment>
+    <fragment
+        android:id="@+id/chatDetailFragment"
+        android:name="com.group04.scrapbookwidget.ui.group.GroupFragment"
+        android:label="fragment_group"
+        tools:layout="@layout/fragment_group" >
+        <action
+            android:id="@+id/action_chatDetailFragment_to_groupSettingsFragment"
+            app:destination="@id/groupSettingsFragment" />
+    </fragment>
+    <fragment
+        android:id="@+id/groupSettingsFragment"
+        android:name="com.group04.scrapbookwidget.ui.group.GroupSettingsFragment"
+        android:label="GroupSettingsFragment"
+        tools:layout="@layout/fragment_group_settings" >
+        <action
+            android:id="@+id/action_groupSettingsFragment_to_memberListFragment"
+            app:destination="@id/memberListFragment" />
+        <action
+            android:id="@+id/action_groupSettingsFragment_to_inviteUserFragment"
+            app:destination="@id/inviteUserFragment" />
+    </fragment>
+    <fragment
+        android:id="@+id/memberListFragment"
+        android:name="com.group04.scrapbookwidget.ui.group.MemberListFragment"
+        android:label="MemberListFragment"
+        tools:layout="@layout/fragment_member_list" />
+    <fragment
+        android:id="@+id/inviteUserFragment"
+        android:name="com.group04.scrapbookwidget.ui.group.InviteUserFragment"
+        android:label="InviteUserFragment"
+        tools:layout="@layout/fragment_invite_user" />
     <fragment
         android:id="@+id/settingFragment"
         android:name="com.group04.scrapbookwidget.ui.SettingFragment"
@@ -56,10 +90,18 @@
         <action
             android:id="@+id/action_settingFragment_to_editProfileFragment"
             app:destination="@id/editProfileFragment" />
+        <action
+            android:id="@+id/action_settingFragment_to_createGroupFragment"
+            app:destination="@id/createGroupFragment" />
     </fragment>
     <fragment
         android:id="@+id/editProfileFragment"
         android:name="com.group04.scrapbookwidget.ui.profile.EditProfileFragment"
         android:label="EditProfileFragment"
         tools:layout="@layout/fragment_edit_profile" />
+    <fragment
+        android:id="@+id/createGroupFragment"
+        android:name="com.group04.scrapbookwidget.ui.group.create.CreateGroupFragment"
+        android:label="CreateGroupFragment"
+        tools:layout="@layout/fragment_create_group" />
 </navigation>

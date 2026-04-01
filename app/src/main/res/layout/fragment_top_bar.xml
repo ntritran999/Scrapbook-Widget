@@ -8,6 +8,7 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
+        android:background="#1A1A1A"
         android:padding="8dp">
 
         <com.google.android.material.imageview.ShapeableImageView
@@ -33,14 +34,16 @@
         <com.google.android.material.textfield.TextInputLayout
             style="@style/Widget.Material3.TextInputLayout.FilledBox.ExposedDropdownMenu"
             android:layout_width="wrap_content"
-            android:layout_height="match_parent"
-            app:hintEnabled="false">
+            android:layout_height="wrap_content"
+            app:hintEnabled="false"
+            app:boxBackgroundColor="#2C2C2C">
             <com.google.android.material.textfield.MaterialAutoCompleteTextView
                 android:id="@+id/group_list"
                 android:layout_width="wrap_content"
-                android:layout_height="match_parent"
+                android:layout_height="wrap_content"
                 android:inputType="none"
                 android:paddingTop="8dp"
+                android:textColor="@android:color/white"
                 android:text="Scrapbooks"/>
         </com.google.android.material.textfield.TextInputLayout>
 
@@ -49,12 +52,13 @@
             android:layout_height="match_parent"
             android:layout_weight="1"/>
 
-        <Button
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/btnChat"
-            style="?attr/materialIconButtonFilledStyle"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            style="@style/Widget.Material3.Button.IconButton"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
             android:contentDescription="Chat messages"
-            app:icon="@drawable/chat_bubble_24"/>
+            app:icon="@drawable/chat_bubble_24"
+            app:iconTint="@android:color/white"/>
     </LinearLayout>
 </layout>

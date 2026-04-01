@@ -19,7 +19,6 @@ import android.widget.Toast;
 
 import com.bumptech.glide.Glide;
 import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.auth.FirebaseUser;
 import com.group04.scrapbookwidget.R;
 import com.group04.scrapbookwidget.databinding.FragmentTopBarBinding;
 import com.group04.scrapbookwidget.ui.adapter.CompactGroupListAdapter;
@@ -98,8 +97,6 @@ public class TopBarFragment extends Fragment {
                         }
                     }
                 });
-            } else {
-                // Toast.makeText(getContext(), "No groups available.", Toast.LENGTH_SHORT).show();
             }
         });
 
@@ -134,6 +131,9 @@ public class TopBarFragment extends Fragment {
         super.onResume();
         if (settingViewModel != null) {
             settingViewModel.refresh();
+        }
+        if (groupListViewModel != null) {
+            groupListViewModel.refresh();
         }
     }
 

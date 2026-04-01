@@ -38,6 +38,8 @@ public class ScrapbookRepository implements IScrapbookRepository {
             public void onResponse(Call<List<ScrapbookPage>> call, Response<List<ScrapbookPage>> response) {
                 if (response.isSuccessful()) {
                     callback.onSuccess(response.body());
+                } else {
+                    callback.onError(new Exception("Failed to load pages: " + response.code()));
                 }
             }
 
@@ -49,8 +51,22 @@ public class ScrapbookRepository implements IScrapbookRepository {
     }
 
     @Override
-    public void createPage(String groupId, ScrapbookPage page, RepositoryCallback<String> callback) {
+    public void createPage(String groupId, RepositoryCallback<ScrapbookPage> callback) {
+        groupService.createScrapbookPage(groupId).enqueue(new Callback<ScrapbookPage>() {
+            @Override
+            public void onResponse(Call<ScrapbookPage> call, Response<ScrapbookPage> response) {
+                if (response.isSuccessful()) {
+                    callback.onSuccess(response.body());
+                } else {
+                    callback.onError(new Exception("Failed to create page: " + response.code()));
+                }
+            }
 
+            @Override
+            public void onFailure(Call<ScrapbookPage> call, Throwable t) {
+                callback.onError(new Exception(t));
+            }
+        });
     }
 
     @Override

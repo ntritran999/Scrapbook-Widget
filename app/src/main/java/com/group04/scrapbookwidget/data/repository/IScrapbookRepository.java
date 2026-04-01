@@ -1,5 +1,6 @@
 package com.group04.scrapbookwidget.data.repository;
 
+import com.group04.scrapbookwidget.data.model.Reaction;
 import com.group04.scrapbookwidget.data.model.ScrapbookItem;
 import com.group04.scrapbookwidget.data.model.ScrapbookPage;
 
@@ -16,4 +17,8 @@ public interface IScrapbookRepository {
     void addItem(String groupId, String pageId, ScrapbookItem item, RepositoryCallback<String> callback);
     void addItemWithFile(String groupId, String pageId, String imagePath, ScrapbookItem itemModel, RepositoryCallback<ScrapbookItem> callback);
     void updateItem(String groupId, String pageId, String itemId, ScrapbookItem updatedItem, RepositoryCallback<Void> callback);
+
+    void getReactions(String groupId, String pageId, String itemId, RepositoryCallback<List<Reaction>> callback);
+    void addReaction(String groupId, String pageId, String itemId, Reaction reaction, RepositoryCallback<Reaction> callback);
+    void removeReaction(String groupId, String pageId, String itemId, String userId, RepositoryCallback<Boolean> callback);
 }

@@ -4,6 +4,7 @@ import com.group04.scrapbookwidget.data.model.Group;
 import com.group04.scrapbookwidget.data.model.Invitation;
 import com.group04.scrapbookwidget.data.model.LeaveGroupResponse;
 import com.group04.scrapbookwidget.data.model.Message;
+import com.group04.scrapbookwidget.data.model.Reaction;
 import com.group04.scrapbookwidget.data.model.ScrapbookItem;
 import com.group04.scrapbookwidget.data.model.ScrapbookPage;
 import com.group04.scrapbookwidget.data.model.User;
@@ -110,4 +111,13 @@ public interface GroupService {
     @Streaming
     @GET("groups/{groupId}/messages/stream")
     Call<ResponseBody> streamMessages(@Path("groupId") String groupId, @Header("Authorization") String bearerToken);
+
+    @GET("groups/{groupId}/scrapbook-pages/{pageId}/{itemId}/reactions")
+    Call<List<Reaction>> getReactions(@Path("groupId") String groupId, @Path("pageId") String pageId, @Path("itemId") String itemId);
+
+    @POST("groups/{groupId}/scrapbook-pages/{pageId}/{itemId}/reactions")
+    Call<Reaction> addReaction(@Path("groupId") String groupId, @Path("pageId") String pageId, @Path("itemId") String itemId, @Body Reaction reaction);
+
+    @DELETE("groups/{groupId}/scrapbook-pages/{pageId}/{itemId}/{userId}")
+    Call<Boolean> removeReaction(@Path("groupId") String groupId, @Path("pageId") String pageId, @Path("itemId") String itemId, @Path("userId") String userId);
 }

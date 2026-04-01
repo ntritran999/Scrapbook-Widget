@@ -1,0 +1,338 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <data>
+        <variable
+            name="viewModel"
+            type="com.group04.scrapbookwidget.ui.group.GroupSettingsViewModel" />
+    </data>
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#000000">
+
+        <LinearLayout
+            android:id="@+id/mainContent"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical">
+
+            <!-- Toolbar area with back button -->
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="?attr/actionBarSize"
+                android:paddingHorizontal="8dp">
+
+                <ImageButton
+                    android:id="@+id/btnBack"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:layout_gravity="start|center_vertical"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/back"
+                    android:src="@drawable/ic_back"
+                    app:tint="#FFFFFF" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:text="@string/group_settings"
+                    android:textColor="#FFFFFF"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
+            </FrameLayout>
+
+            <ScrollView
+                android:layout_width="match_parent"
+                android:layout_height="match_parent">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_horizontal"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <!-- Group Avatar Section -->
+                    <FrameLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content">
+
+                        <com.google.android.material.imageview.ShapeableImageView
+                            android:id="@+id/imgGroupAvatar"
+                            android:layout_width="120dp"
+                            android:layout_height="120dp"
+                            android:padding="4dp"
+                            android:scaleType="centerCrop"
+                            android:src="@drawable/account_circle_24"
+                            app:shapeAppearanceOverlay="@style/CircleAppearance"
+                            app:strokeColor="#FFD700"
+                            app:strokeWidth="3dp" />
+
+                        <ProgressBar
+                            android:layout_width="40dp"
+                            android:layout_height="40dp"
+                            android:layout_gravity="center"
+                            android:visibility="@{viewModel.isLoading ? android.view.View.VISIBLE : android.view.View.GONE}" />
+                    </FrameLayout>
+
+                    <TextView
+                        android:id="@+id/tvGroupName"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:text="@{viewModel.group.groupName}"
+                        android:textColor="#FFFFFF"
+                        android:textSize="24sp"
+                        android:textStyle="bold"
+                        tools:text="Group Name" />
+
+                    <TextView
+                        android:id="@+id/tvMyRole"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@{viewModel.myRole}"
+                        android:textColor="#888888"
+                        android:textSize="14sp"
+                        tools:text="Owner" />
+
+                    <!-- Members Section -->
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="32dp"
+                        android:layout_marginBottom="16dp"
+                        android:text="@string/members"
+                        android:textColor="#FFFFFF"
+                        android:textSize="20sp"
+                        android:textStyle="bold" />
+
+                    <include
+                        android:id="@+id/btnMemberList"
+                        layout="@layout/item_setting"
+                        app:icon="@{@drawable/account_circle_24}"
+                        app:subtitle="@{viewModel.memberCountText}"
+                        app:title="@{@string/view_member_list}" />
+
+                    <!-- Edit Group Section -->
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="32dp"
+                        android:layout_marginBottom="16dp"
+                        android:text="@string/edit_group"
+                        android:textColor="#FFFFFF"
+                        android:textSize="20sp"
+                        android:textStyle="bold"
+                        android:visibility="@{viewModel.isAdmin ? android.view.View.VISIBLE : android.view.View.GONE}"/>
+
+                    <include
+                        android:id="@+id/btnChangeGroupName"
+                        layout="@layout/item_setting"
+                        app:icon="@{@drawable/ic_add}"
+                        app:title="@{@string/change_group_name}"
+                        android:visibility="@{viewModel.isAdmin ? android.view.View.VISIBLE : android.view.View.GONE}"/>
+
+                    <include
+                        android:id="@+id/btnChangeGroupAvatar"
+                        layout="@layout/item_setting"
+                        app:icon="@{@drawable/photo_camera_24}"
+                        app:title="@{@string/change_group_avatar}"
+                        android:visibility="@{viewModel.isAdmin ? android.view.View.VISIBLE : android.view.View.GONE}"/>
+
+                    <!-- Invitations Section -->
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="32dp"
+                        android:layout_marginBottom="16dp"
+                        android:text="@string/invitations"
+                        android:textColor="#FFFFFF"
+                        android:textSize="20sp"
+                        android:textStyle="bold" />
+
+                    <include
+                        android:id="@+id/btnInviteUsers"
+                        layout="@layout/item_setting"
+                        app:icon="@{@drawable/ic_add}"
+                        app:title="@{@string/invite_users}" />
+
+                    <include
+                        android:id="@+id/btnManageInvitations"
+                        layout="@layout/item_setting"
+                        app:icon="@{@drawable/ic_email}"
+                        app:title="@{@string/manage_invitations}" />
+
+                    <!-- Danger Zone Section -->
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="32dp"
+                        android:layout_marginBottom="16dp"
+                        android:text="@string/danger_zone"
+                        android:textColor="#FFFFFF"
+                        android:textSize="20sp"
+                        android:textStyle="bold" />
+
+                    <include
+                        android:id="@+id/btnLeaveGroup"
+                        layout="@layout/item_setting"
+                        app:icon="@{@drawable/ic_back}"
+                        app:title="@{@string/leave_group}"
+                        app:titleColor="@{@color/red}" />
+
+                </LinearLayout>
+            </ScrollView>
+        </LinearLayout>
+
+        <!-- Edit Popups Overlay -->
+        <FrameLayout
+            android:id="@+id/overlayLayout"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="#AA000000"
+            android:visibility="gone"
+            android:clickable="true"
+            android:focusable="true">
+
+            <androidx.cardview.widget.CardView
+                android:id="@+id/cardEditName"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:layout_margin="32dp"
+                android:visibility="gone"
+                app:cardBackgroundColor="#222222"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="8dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="24dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/change_group_name"
+                        android:textColor="#FFFFFF"
+                        android:textSize="20sp"
+                        android:textStyle="bold" />
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        app:hintTextColor="#888888"
+                        app:boxStrokeColor="#FFD700">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etGroupName"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:hint="Group Name"
+                            android:textColor="#FFFFFF"
+                            android:inputType="text" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="24dp"
+                        android:gravity="end">
+
+                        <Button
+                            android:id="@+id/btnCancelName"
+                            style="@style/Widget.MaterialComponents.Button.TextButton"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Cancel"
+                            android:textColor="#888888" />
+
+                        <Button
+                            android:id="@+id/btnUpdateName"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:backgroundTint="#FFD700"
+                            android:text="Update"
+                            android:textColor="#000000" />
+                    </LinearLayout>
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+            <androidx.cardview.widget.CardView
+                android:id="@+id/cardEditAvatar"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:layout_margin="32dp"
+                android:visibility="gone"
+                app:cardBackgroundColor="#222222"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="8dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="24dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/change_group_avatar"
+                        android:textColor="#FFFFFF"
+                        android:textSize="20sp"
+                        android:textStyle="bold" />
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        app:hintTextColor="#888888"
+                        app:boxStrokeColor="#FFD700">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etAvatarUrl"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:hint="Avatar URL"
+                            android:textColor="#FFFFFF"
+                            android:inputType="textUri" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="24dp"
+                        android:gravity="end">
+
+                        <Button
+                            android:id="@+id/btnCancelAvatar"
+                            style="@style/Widget.MaterialComponents.Button.TextButton"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Cancel"
+                            android:textColor="#888888" />
+
+                        <Button
+                            android:id="@+id/btnUpdateAvatar"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:backgroundTint="#FFD700"
+                            android:text="Update"
+                            android:textColor="#000000" />
+                    </LinearLayout>
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+        </FrameLayout>
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</layout>

@@ -3,6 +3,7 @@ package com.group04.scrapbookwidget.ui.pagecurl;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.Rect;
 import android.util.DisplayMetrics;
 
@@ -37,20 +38,46 @@ public class PageBuilder {
         DisplayMetrics displayMetrics = context.getResources().getDisplayMetrics();
         int targetWidth = 1080;
         int targetHeight = (int) (targetWidth * ((float) displayMetrics.heightPixels / displayMetrics.widthPixels));
-        pageResources.backgroundBitmap = Glide.with(context)
-                .asBitmap()
-                .load(page.getBackgroundImage())
-                .skipMemoryCache(true)
-                .override(targetWidth, targetHeight)
-                .centerCrop()
-                .submit()
-                .get();
+        
+        String bgImage = page.getBackgroundImage();
+        if (bgImage != null && !bgImage.isEmpty()) {
+            try {
+                pageResources.backgroundBitmap = Glide.with(context)
+                        .asBitmap()
+                        .load(bgImage)
+                        .skipMemoryCache(true)
+                        .override(targetWidth, targetHeight)
+                        .centerCrop()
+                        .submit()
+                        .get();
+            } catch (Exception e) {
+                android.util.Log.e("PageBuilder", "Failed to load background image: " + bgImage, e);
+                pageResources.backgroundBitmap = createSolidColorBitmap(targetWidth, targetHeight, page.getBackgroundColor());
+            }
+        } else {
+            pageResources.backgroundBitmap = createSolidColorBitmap(targetWidth, targetHeight, page.getBackgroundColor());
+        }
 
         pageResources.bitmapWidth = pageResources.backgroundBitmap.getWidth();
         pageResources.bitmapHeight = pageResources.backgroundBitmap.getHeight();
 
         android.util.Log.d("PageBuilder", "buildBackground: Loaded, size=" + pageResources.bitmapWidth + "x" + pageResources.bitmapHeight);
     }
+
+    private static Bitmap createSolidColorBitmap(int width, int height, String colorHex) {
+        Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+        int color = Color.WHITE;
+        if (colorHex != null && !colorHex.isEmpty()) {
+            try {
+                color = Color.parseColor(colorHex);
+            } catch (Exception e) {
+                android.util.Log.e("PageBuilder", "Failed to parse color: " + colorHex, e);
+            }
+        }
+        bitmap.eraseColor(color);
+        return bitmap;
+    }
+
     private static void buildPagesBitmaps(Context context, PageResources pageResources, List<ScrapbookPageData> pagesData) throws ExecutionException, InterruptedException {
         pageResources.pageBitmaps = new ArrayList<>();
 
@@ -111,13 +138,19 @@ public class PageBuilder {
     }
 
     private static Bitmap getBitMapFromUrl(Context context, String url, int w, int h) throws ExecutionException, InterruptedException {
+        if (url == null || url.isEmpty()) return null;
         int size = Math.max(w, h);
-        return Glide.with(context)
-                .asBitmap()
-                .load(url)
-                .skipMemoryCache(true)
-                .override(size, size)
-                .submit()
-                .get();
+        try {
+            return Glide.with(context)
+                    .asBitmap()
+                    .load(url)
+                    .skipMemoryCache(true)
+                    .override(size, size)
+                    .submit()
+                    .get();
+        } catch (Exception e) {
+            android.util.Log.e("PageBuilder", "Failed to load image from URL: " + url, e);
+            return null;
+        }
     }
 }

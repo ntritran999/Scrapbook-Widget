@@ -7,15 +7,22 @@ import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.ViewModel;
 
 import com.google.firebase.auth.FirebaseAuth;
+import com.group04.scrapbookwidget.data.model.Invitation;
 import com.group04.scrapbookwidget.data.model.User;
 import com.group04.scrapbookwidget.data.repository.IUserRepository;
 import com.group04.scrapbookwidget.data.repository.RepositoryCallback;
+import com.group04.scrapbookwidget.data.service.GroupService;
 
 import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 
 import javax.inject.Inject;
 
 import dagger.hilt.android.lifecycle.HiltViewModel;
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
 
 @HiltViewModel
 public class SettingViewModel extends ViewModel {
@@ -23,6 +30,7 @@ public class SettingViewModel extends ViewModel {
     private static final String TAG = "SettingViewModel";
     private final IUserRepository userRepository;
     private final FirebaseAuth firebaseAuth;
+    private final GroupService groupService;
 
     private final MutableLiveData<Boolean> _loggedOut = new MutableLiveData<>(false);
     private final MutableLiveData<Boolean> _accountDeleted = new MutableLiveData<>(false);
@@ -30,23 +38,29 @@ public class SettingViewModel extends ViewModel {
     private final MutableLiveData<User> _currentUser = new MutableLiveData<>();
     private final MutableLiveData<Boolean> _streakEnabled = new MutableLiveData<>(true);
     private final MutableLiveData<Boolean> _isUploading = new MutableLiveData<>(false);
+    
+    private final MutableLiveData<List<Invitation>> _invitations = new MutableLiveData<>(new ArrayList<>());
 
+    public LiveData<List<Invitation>> getInvitations() { return _invitations; }
+    public LiveData<User> getCurrentUser() { return _currentUser; }
     public LiveData<Boolean> getLoggedOut() { return _loggedOut; }
     public LiveData<Boolean> getAccountDeleted() { return _accountDeleted; }
     public LiveData<String> getErrorMessage() { return _errorMessage; }
-    public LiveData<User> getCurrentUser() { return _currentUser; }
     public LiveData<Boolean> getStreakEnabled() { return _streakEnabled; }
     public LiveData<Boolean> isUploading() { return _isUploading; }
 
     @Inject
-    public SettingViewModel(IUserRepository userRepository, FirebaseAuth firebaseAuth) {
+    public SettingViewModel(IUserRepository userRepository, FirebaseAuth firebaseAuth, GroupService groupService) {
         this.userRepository = userRepository;
         this.firebaseAuth = firebaseAuth;
+        this.groupService = groupService;
         loadCurrentUser();
+        loadInvitations();
     }
 
     public void refresh() {
         loadCurrentUser();
+        loadInvitations();
     }
 
     private void loadCurrentUser() {
@@ -73,6 +87,59 @@ public class SettingViewModel extends ViewModel {
         } else {
             Log.w(TAG, "No Firebase user found");
         }
+    }
+
+    public void loadInvitations() {
+        groupService.getMyInvitations().enqueue(new Callback<List<Invitation>>() {
+            @Override
+            public void onResponse(Call<List<Invitation>> call, Response<List<Invitation>> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    _invitations.setValue(response.body());
+                }
+            }
+
+            @Override
+            public void onFailure(Call<List<Invitation>> call, Throwable t) {
+                Log.e(TAG, "Failed to load invitations", t);
+            }
+        });
+    }
+
+    public void acceptInvitation(String groupId) {
+        groupService.acceptInvitation(groupId).enqueue(new Callback<Void>() {
+            @Override
+            public void onResponse(Call<Void> call, Response<Void> response) {
+                if (response.isSuccessful()) {
+                    loadInvitations(); // Refresh invitations list
+                    // You might want to refresh groups list here too if it was displayed
+                } else {
+                    _errorMessage.setValue("Failed to accept invitation");
+                }
+            }
+
+            @Override
+            public void onFailure(Call<Void> call, Throwable t) {
+                _errorMessage.setValue(t.getMessage());
+            }
+        });
+    }
+
+    public void declineInvitation(String groupId) {
+        groupService.declineInvitation(groupId).enqueue(new Callback<Void>() {
+            @Override
+            public void onResponse(Call<Void> call, Response<Void> response) {
+                if (response.isSuccessful()) {
+                    loadInvitations();
+                } else {
+                    _errorMessage.setValue("Failed to decline invitation");
+                }
+            }
+
+            @Override
+            public void onFailure(Call<Void> call, Throwable t) {
+                _errorMessage.setValue(t.getMessage());
+            }
+        });
     }
 
     public void uploadAvatar(File file) {

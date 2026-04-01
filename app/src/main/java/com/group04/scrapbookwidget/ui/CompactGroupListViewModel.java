@@ -4,6 +4,7 @@ import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.ViewModel;
 
+import com.google.firebase.auth.FirebaseAuth;
 import com.group04.scrapbookwidget.data.model.Group;
 import com.group04.scrapbookwidget.data.repository.IUserRepository;
 import com.group04.scrapbookwidget.data.repository.RepositoryCallback;
@@ -17,13 +18,16 @@ import dagger.hilt.android.lifecycle.HiltViewModel;
 
 @HiltViewModel
 public class CompactGroupListViewModel extends ViewModel {
-    private IUserRepository userRepository;
+    private final IUserRepository userRepository;
+    private final FirebaseAuth auth;
 
     private final MutableLiveData<List<Group>> groupsLiveData = new MutableLiveData<>();
     private final MutableLiveData<String> errorMessage = new MutableLiveData<>();
+
     @Inject
-    public CompactGroupListViewModel(IUserRepository userRepository) {
+    public CompactGroupListViewModel(IUserRepository userRepository, FirebaseAuth auth) {
         this.userRepository = userRepository;
+        this.auth = auth;
     }
 
     public LiveData<List<Group>> getGroupsLiveData() {
@@ -35,11 +39,6 @@ public class CompactGroupListViewModel extends ViewModel {
     }
 
     public void loadGroupList(String userId) {
-        List<Group> data = groupsLiveData.getValue();
-        if (data != null && !data.isEmpty()) {
-            return;
-        }
-
         userRepository.getUserGroups(userId, new RepositoryCallback<List<Group>>() {
             @Override
             public void onSuccess(List<Group> groups) {
@@ -55,5 +54,11 @@ public class CompactGroupListViewModel extends ViewModel {
                 errorMessage.setValue("Failed to load groups");
             }
         });
+    }
+
+    public void refresh() {
+        if (auth.getCurrentUser() != null) {
+            loadGroupList(auth.getCurrentUser().getUid());
+        }
     }
 }

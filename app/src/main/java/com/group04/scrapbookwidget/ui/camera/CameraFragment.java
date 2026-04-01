@@ -22,6 +22,7 @@ import androidx.camera.core.ImageCapture;
 import androidx.camera.core.ImageCaptureException;
 import androidx.camera.core.Preview;
 import androidx.camera.lifecycle.ProcessCameraProvider;
+import androidx.camera.view.PreviewView;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.navigation.Navigation;
@@ -64,6 +65,9 @@ public class CameraFragment extends Fragment {
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         binding = FragmentCameraBinding.inflate(inflater, container, false);
+        
+        // Use COMPATIBLE mode to use TextureView, which is more reliable for UI overlays on some devices
+        binding.viewFinder.setImplementationMode(PreviewView.ImplementationMode.COMPATIBLE);
 
         // Check if this app is granted CAMERA permission
         if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
@@ -117,7 +121,7 @@ public class CameraFragment extends Fragment {
                     .requireLensFacing(lensFacing)
                     .build();
 
-                cameraProvider.unbindAll(); // avoid memory leak
+                cameraProvider.unbindAll();
                 camera = cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageCapture);
 
                 // pinch listener

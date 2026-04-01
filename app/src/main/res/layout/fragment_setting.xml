@@ -4,6 +4,7 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <data>
+        <import type="android.view.View" />
         <variable
             name="viewModel"
             type="com.group04.scrapbookwidget.ui.SettingViewModel" />
@@ -69,7 +70,7 @@
                             android:layout_width="40dp"
                             android:layout_height="40dp"
                             android:layout_gravity="center"
-                            android:visibility="@{viewModel.isUploading ? android.view.View.VISIBLE : android.view.View.GONE}" />
+                            android:visibility="@{viewModel.isUploading ? View.VISIBLE : View.GONE}" />
                     </FrameLayout>
 
                     <TextView
@@ -102,6 +103,33 @@
                         android:textColor="#FFD700"
                         android:textSize="14sp"
                         android:textStyle="bold" />
+
+                    <!-- Group Invitations Section (Added at the top) -->
+                    <LinearLayout
+                        android:id="@+id/layoutInvitations"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="24dp"
+                        android:orientation="vertical"
+                        android:visibility="@{viewModel.invitations.empty ? View.GONE : View.VISIBLE}">
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginBottom="12dp"
+                            android:text="Group Invitations"
+                            android:textColor="#FFFFFF"
+                            android:textSize="20sp"
+                            android:textStyle="bold" />
+
+                        <androidx.recyclerview.widget.RecyclerView
+                            android:id="@+id/rvInvitations"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:nestedScrollingEnabled="false"
+                            tools:itemCount="1"
+                            tools:listitem="@layout/item_group_invitation" />
+                    </LinearLayout>
 
                     <!-- Gold Card -->
                     <LinearLayout
@@ -144,8 +172,9 @@
                         </LinearLayout>
                     </LinearLayout>
 
-                    <!-- Rollcall Card -->
+                    <!-- Create Group Card (Replaced Rollcall) -->
                     <LinearLayout
+                        android:id="@+id/btnCreateGroup"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="12dp"
@@ -153,13 +182,15 @@
                         android:backgroundTint="#1A1A1A"
                         android:gravity="center_vertical"
                         android:orientation="horizontal"
-                        android:padding="16dp">
+                        android:padding="16dp"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:foreground="?attr/selectableItemBackground">
 
                         <ImageView
                             android:layout_width="24dp"
                             android:layout_height="24dp"
-                            android:src="@drawable/ic_send"
-                            android:rotation="-45"
+                            android:src="@drawable/ic_add"
                             android:contentDescription="@null"
                             app:tint="#FFFFFF" />
 
@@ -173,7 +204,7 @@
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="@string/rollcall"
+                                android:text="@string/create_group"
                                 android:textColor="#FFFFFF"
                                 android:textSize="16sp"
                                 android:textStyle="bold" />
@@ -181,21 +212,11 @@
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="@string/rollcall_subtitle"
+                                android:text="Start a new scrapbook with friends"
                                 android:textColor="#AAAAAA"
                                 android:textSize="12sp" />
                         </LinearLayout>
 
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:background="@drawable/bg_palette"
-                            android:paddingHorizontal="12dp"
-                            android:paddingVertical="6dp"
-                            android:text="@string/pick_yours"
-                            android:textColor="#FFD700"
-                            android:textSize="12sp"
-                            android:textStyle="bold" />
                     </LinearLayout>
 
                     <!-- Invite Card -->

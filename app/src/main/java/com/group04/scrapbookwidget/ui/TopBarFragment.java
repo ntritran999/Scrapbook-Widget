@@ -18,6 +18,7 @@ import android.widget.AdapterView;
 import android.widget.Toast;
 
 import com.bumptech.glide.Glide;
+import com.google.android.material.snackbar.Snackbar;
 import com.google.firebase.auth.FirebaseAuth;
 import com.group04.scrapbookwidget.R;
 import com.group04.scrapbookwidget.databinding.FragmentTopBarBinding;
@@ -102,7 +103,7 @@ public class TopBarFragment extends Fragment {
 
         groupListViewModel.getErrorMessage().observe(getViewLifecycleOwner(), error -> {
             if (error != null) {
-                Toast.makeText(getContext(), "Error loading groups", Toast.LENGTH_SHORT).show();
+                Snackbar.make(binding.container, "Không thể tải danh sách nhóm. Vui lòng kiểm tra kết nối Internet.", Snackbar.LENGTH_SHORT).show();
             }
         });
     }

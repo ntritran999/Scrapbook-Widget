@@ -25,7 +25,6 @@ import dagger.hilt.android.AndroidEntryPoint;
 @AndroidEntryPoint
 public class MainActivity extends AppCompatActivity {
 
-    private final String PREF_NAME = "widget_metadata";
     private final String TMP_PREF_NAME = "TMP_USER_SESSION";
 
     @Override
@@ -58,12 +57,16 @@ public class MainActivity extends AppCompatActivity {
             // Đã đăng nhập: sync session và ép buộc điều hướng tới Home
             syncUserSession(currentUser.getUid());
             navController.setGraph(R.navigation.app_nav);
-            navController.navigate(R.id.homeFragment);
+            navController.navigate(R.id.homeFragment, getIntent().getExtras());
         }
     }
 
     private void syncUserSession(String userId) {
         SharedPreferences preferences = getSharedPreferences(TMP_PREF_NAME, Activity.MODE_PRIVATE);
+        String currentUser = preferences.getString("USER_ID", "");
+        if (currentUser.isEmpty()) {
+            AppWidget.updateWidgetNow(this);
+        }
         preferences.edit().putString("USER_ID", userId).apply();
     }
 
@@ -72,13 +75,5 @@ public class MainActivity extends AppCompatActivity {
         super.onNewIntent(intent);
         setIntent(intent);
         checkAuthAndNavigate();
-    }
-
-    // Các hàm dummy giữ nguyên để tránh lỗi compile nếu có gọi ở đâu đó
-    private void saveDummyWidgetMetadata() {
-        SharedPreferences preferences = getSharedPreferences(PREF_NAME, Activity.MODE_PRIVATE);
-        SharedPreferences.Editor editor = preferences.edit();
-        editor.putString("USER_ID", "test_user1");
-        editor.commit();
     }
 }

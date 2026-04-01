@@ -13,7 +13,6 @@ public abstract class RepositoryModule {
     @Singleton
     @Binds
     public abstract IScrapbookRepository bindScrapbookRepository(ScrapbookRepository scrapbookRepository);
-//    public abstract IScrapbookRepository bindScrapbookRepository(MockScrapbookRepository mockScrapbookRepository);
 
     @Singleton
     @Binds

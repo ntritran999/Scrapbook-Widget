@@ -15,8 +15,10 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.navigation.NavController;
+import androidx.navigation.Navigation;
 import androidx.navigation.fragment.NavHostFragment;
 
+import com.google.android.material.snackbar.Snackbar;
 import com.group04.scrapbookwidget.R;
 import com.group04.scrapbookwidget.databinding.FragmentImageEditorBinding;
 import com.group04.scrapbookwidget.ui.scrapbookview.CaptionInputDialogFragment;
@@ -64,6 +66,7 @@ public class ImageEditorFragment extends Fragment {
                 while ((length = fis.read(buffer)) > 0) {
                     os.write(buffer, 0, length);
                 }
+                Snackbar.make(binding.container, "Ảnh đã được lưu xuống máy", Snackbar.LENGTH_SHORT).show();
                 return true;
             } catch (Exception e) {
                 e.printStackTrace();
@@ -86,6 +89,11 @@ public class ImageEditorFragment extends Fragment {
                 .getString("CURRENT_PAGE_ID", "");
     }
 
+    @Override
+    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
+    }
+
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
@@ -95,13 +103,53 @@ public class ImageEditorFragment extends Fragment {
             binding.imgPreview.setImageURI(Uri.parse(photoPath));
         }
 
+        binding.imagePreviewOverlay.setBackgroundColor(Color.BLACK);
+
+        boolean[] isDevelopingPolaroid = {true};
+        new Thread(() -> {
+            int duration = 2_000;
+            int steps = 10;
+            int interval = duration / steps;
+            float alpha = 1.0f / steps;
+            for (int i = 0; i < steps; i++) {
+                int color = Color.argb(1 - alpha, 1, 1, 1);
+                requireActivity().runOnUiThread(() -> {
+                    if (binding != null) {
+                        binding.imagePreviewOverlay.setBackgroundColor(color);
+                    }
+                });
+
+                alpha += 1.0f / steps;
+                try {
+                    Thread.sleep(interval);
+                } catch (InterruptedException e) {
+                    if (binding != null) {
+                        Snackbar.make(binding.container, "Vui lòng thử lại sau.", Snackbar.LENGTH_SHORT).show();
+                    }
+                }
+            }
+            isDevelopingPolaroid[0] = false;
+        }).start();
+
         setupMainTools();
         setupBrushTools();
         setupColorPalette();
 
-        binding.btnSave.setOnClickListener(view -> saveToGallery(photoPath));
+        binding.btnSave.setOnClickListener(view -> {
+            if (!isDevelopingPolaroid[0]) {
+                saveToGallery(photoPath);
+            }
+        });
         
-        binding.btnPaste.setOnClickListener(view -> handlePasteToScrapbook());
+        binding.btnPaste.setOnClickListener(view -> {
+            if (!isDevelopingPolaroid[0]) {
+                handlePasteToScrapbook();
+            }
+        });
+
+        binding.btnBack.setOnClickListener(view -> {
+            Navigation.findNavController(requireView()).navigate(R.id.cameraFragment);
+        });
 
         return binding.getRoot();
     }

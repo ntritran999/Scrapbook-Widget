@@ -28,7 +28,7 @@ import java.util.concurrent.TimeUnit;
 @Module
 @InstallIn(SingletonComponent.class)
 public class ServiceModule {
-    private final String BASE_URL = "http://10.120.7.125:3000/api/v1/";
+    private final String BASE_URL = "http://192.168.1.8:3000/api/v1/";
 
     @Singleton
     @Provides

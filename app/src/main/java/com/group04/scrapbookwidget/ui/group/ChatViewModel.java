@@ -11,6 +11,7 @@ import androidx.lifecycle.ViewModel;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.gson.Gson;
 import com.group04.scrapbookwidget.data.model.Message;
+import com.group04.scrapbookwidget.data.model.TodayMemory;
 import com.group04.scrapbookwidget.data.service.GroupService;
 
 import java.io.BufferedReader;
@@ -32,6 +33,7 @@ import retrofit2.Response;
 @HiltViewModel
 public class ChatViewModel extends ViewModel {
     private static final String TAG = "ChatViewModel";
+    private static final String MEMORY_TAG = "MemoryDebug";
     private final GroupService groupService;
     private final FirebaseAuth auth;
     private final Gson gson = new Gson();
@@ -46,6 +48,9 @@ public class ChatViewModel extends ViewModel {
     private final MutableLiveData<String> _error = new MutableLiveData<>();
     public LiveData<String> getError() { return _error; }
 
+    private final MutableLiveData<List<TodayMemory>> _todayMemories = new MutableLiveData<>(new ArrayList<>());
+    public LiveData<List<TodayMemory>> getTodayMemories() { return _todayMemories; }
+
     private String currentGroupId;
     private Thread streamThread;
     private boolean isStreaming = false;
@@ -58,7 +63,77 @@ public class ChatViewModel extends ViewModel {
 
     public void initChat(String groupId) {
         this.currentGroupId = groupId;
+        Log.d(MEMORY_TAG, "[INIT_CHAT] groupId=" + groupId + ", authUid=" + auth.getUid());
         startMessageStream();
+        loadTodayMemories();
+    }
+
+    private void loadTodayMemories() {
+        Log.d(MEMORY_TAG, "[LOAD_START] groupId=" + currentGroupId + ", authUid=" + auth.getUid());
+        if (currentGroupId == null) {
+            Log.w(MEMORY_TAG, "[LOAD_ABORT] currentGroupId is null");
+            _todayMemories.setValue(new ArrayList<>());
+            return;
+        }
+
+        Call<List<TodayMemory>> call = groupService.getTodayMemory(currentGroupId);
+        Log.d(MEMORY_TAG, "[API_REQUEST] GET " + call.request().method() + " " + call.request().url());
+        call.enqueue(new Callback<List<TodayMemory>>() {
+            @Override
+            public void onResponse(Call<List<TodayMemory>> call, Response<List<TodayMemory>> response) {
+                if (response.isSuccessful()) {
+                    List<TodayMemory> memories = response.body();
+                    int count = memories != null ? memories.size() : 0;
+                    Log.d(MEMORY_TAG, "[API_SUCCESS] code=" + response.code() + ", memoryCount=" + count);
+                    if (count == 0) {
+                        Log.w(MEMORY_TAG,
+                                "[API_EMPTY] Backend returned no memories. Checklist: " +
+                                        "1) current user must be a member of groups/" + currentGroupId + "/members/{uid}; " +
+                                        "2) scrapbook items must belong to this group; " +
+                                        "3) item.type must equal 'photo'; " +
+                                        "4) taggedUserIds must be non-empty; " +
+                                        "5) joined users for taggedUserIds must still exist and not be deleted."
+                        );
+                    } else {
+                        for (int i = 0; i < memories.size(); i++) {
+                            TodayMemory memory = memories.get(i);
+                            Log.d(MEMORY_TAG,
+                                    "[API_ITEM_" + i + "] photoUrl=" + safe(memory != null ? memory.getPhotoUrl() : null) +
+                                            ", taggedUsernames=" + (memory != null ? memory.getTaggedUsernames() : null));
+                        }
+                    }
+                    _todayMemories.setValue(memories != null ? memories : new ArrayList<>());
+                } else {
+                    String errorBody = null;
+                    try {
+                        errorBody = response.errorBody() != null ? response.errorBody().string() : null;
+                    } catch (Exception e) {
+                        errorBody = "[unable to read error body: " + e.getMessage() + "]";
+                    }
+                    Log.e(MEMORY_TAG,
+                            "[API_FAILED] code=" + response.code() +
+                                    ", message=" + response.message() +
+                                    ", errorBody=" + errorBody);
+                    if (response.code() == 403) {
+                        Log.w(MEMORY_TAG, "[API_FAILED_HINT] User is likely not a member of this group on backend yet.");
+                    } else if (response.code() == 404) {
+                        Log.w(MEMORY_TAG, "[API_FAILED_HINT] groupId may not exist on backend: " + currentGroupId);
+                    }
+                    _todayMemories.setValue(new ArrayList<>());
+                    Log.w(TAG, "Failed to load today memories: " + response.code());
+                }
+            }
+
+            @Override
+            public void onFailure(Call<List<TodayMemory>> call, Throwable t) {
+                Log.e(MEMORY_TAG,
+                        "[API_ERROR] url=" + call.request().url() +
+                                ", exception=" + t.getClass().getSimpleName() +
+                                ", message=" + t.getMessage(), t);
+                _todayMemories.postValue(new ArrayList<>());
+                Log.w(TAG, "Failed to load today memories", t);
+            }
+        });
     }
 
     public void sendMessage(String content) {
@@ -298,5 +373,9 @@ public class ChatViewModel extends ViewModel {
     protected void onCleared() {
         super.onCleared();
         stopMessageStream();
+    }
+
+    private String safe(String value) {
+        return value == null || value.trim().isEmpty() ? "<empty>" : value;
     }
 }

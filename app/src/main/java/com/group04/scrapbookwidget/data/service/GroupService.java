@@ -7,6 +7,7 @@ import com.group04.scrapbookwidget.data.model.Message;
 import com.group04.scrapbookwidget.data.model.Reaction;
 import com.group04.scrapbookwidget.data.model.ScrapbookItem;
 import com.group04.scrapbookwidget.data.model.ScrapbookPage;
+import com.group04.scrapbookwidget.data.model.TodayMemory;
 import com.group04.scrapbookwidget.data.model.User;
 
 import java.util.List;
@@ -101,6 +102,9 @@ public interface GroupService {
 
     @GET("groups/{groupId}/messages")
     Call<List<Message>> getMessages(@Path("groupId") String groupId);
+
+    @GET("groups/{groupId}/today-memory")
+    Call<List<TodayMemory>> getTodayMemory(@Path("groupId") String groupId);
 
     @POST("groups/{groupId}/messages")
     Call<Message> sendMessage(@Path("groupId") String groupId, @Body Map<String, String> body);

@@ -4,11 +4,11 @@ import android.os.Handler;
 import android.os.Looper;
 import android.widget.Toast;
 
+import androidx.annotation.Nullable;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.ViewModel;
 
-import com.google.gson.Gson;
 import com.group04.scrapbookwidget.data.model.ItemContent;
 import com.group04.scrapbookwidget.data.model.Layout;
 import com.group04.scrapbookwidget.data.model.ScrapbookItem;
@@ -16,7 +16,6 @@ import com.group04.scrapbookwidget.data.model.ScrapbookPage;
 import com.group04.scrapbookwidget.data.repository.IScrapbookRepository;
 import com.group04.scrapbookwidget.data.repository.RepositoryCallback;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -24,10 +23,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import javax.inject.Inject;
 
 import dagger.hilt.android.lifecycle.HiltViewModel;
-import okhttp3.MediaType;
-import okhttp3.MultipartBody;
-import okhttp3.RequestBody;
-
 @HiltViewModel
 public class ScrapbookViewModel extends ViewModel {
     private final IScrapbookRepository scrapbookRepository;
@@ -307,7 +302,8 @@ public class ScrapbookViewModel extends ViewModel {
      */
     public void saveScrapbookItem(String pageId, String photoUrl, String userId,
                                    float x, float y, float width, float height,
-                                   float rotation, float scale, float zIndex, String caption) {
+                                   float rotation, float scale, float zIndex, String caption,
+                                   @Nullable List<List<Double>> faceEmbeddings) {
         if (groupId == null || groupId.isEmpty() || pageId == null || pageId.isEmpty()) {
             itemSaveError.setValue("Invalid page or group ID");
             android.util.Log.e("ScrapbookViewModel", "saveScrapbookItem: Invalid page or group ID. groupId=" + groupId + ", pageId=" + pageId);
@@ -319,6 +315,7 @@ public class ScrapbookViewModel extends ViewModel {
         android.util.Log.d("ScrapbookViewModel", "  x=" + x + ", y=" + y + ", width=" + width + ", height=" + height);
         android.util.Log.d("ScrapbookViewModel", "  rotation=" + rotation + ", scale=" + scale + ", zIndex=" + zIndex);
         android.util.Log.d("ScrapbookViewModel", "  caption=" + caption);
+        android.util.Log.d("ScrapbookViewModel", "  faceEmbeddingsCount=" + (faceEmbeddings != null ? faceEmbeddings.size() : 0));
 
         isSavingItem.setValue(true);
         itemSaveError.setValue(null);
@@ -326,27 +323,10 @@ public class ScrapbookViewModel extends ViewModel {
         // Create the item with provided data and caption
         ItemContent itemContent = new ItemContent(photoUrl, caption);
         Layout layout = new Layout(x, y, width, height, rotation, scale, zIndex);
-        ScrapbookItem scrapbookItem = new ScrapbookItem("photo", userId, itemContent, layout);
-
-        // parse the item to JSON
-        Gson gson = new Gson();
-        String jsonItem = gson.toJson(scrapbookItem);
-        RequestBody payloadPart = RequestBody.create(MediaType.parse("application/json"), jsonItem);
-
-        // create the file part
-        File imageFile = new File(photoUrl);
-        if (!imageFile.exists()) {
-            android.util.Log.e("ScrapbookViewModel", "saveScrapbookItem: Image file does not exist at: " + photoUrl);
-            itemSaveError.setValue("Image file not found");
-            isSavingItem.setValue(false);
-            return;
-        }
-
-        RequestBody requestFile = RequestBody.create(MediaType.parse("image/*"), imageFile);
-        MultipartBody.Part filePart = MultipartBody.Part.createFormData("file", imageFile.getName(), requestFile);
+        ScrapbookItem scrapbookItem = new ScrapbookItem("photo", userId, itemContent, layout, faceEmbeddings);
 
         android.util.Log.d("ScrapbookViewModel", "saveScrapbookItem: Calling repository.addItemWithFile");
-        scrapbookRepository.addItemWithFile(groupId, pageId, photoUrl, scrapbookItem, new RepositoryCallback<ScrapbookItem>() {
+        scrapbookRepository.addItemWithFile(groupId, pageId, photoUrl, scrapbookItem, faceEmbeddings, new RepositoryCallback<ScrapbookItem>() {
             @Override
             public void onSuccess(ScrapbookItem savedItem) {
                 android.util.Log.d("ScrapbookViewModel", "saveScrapbookItem: Repository callback onSuccess");

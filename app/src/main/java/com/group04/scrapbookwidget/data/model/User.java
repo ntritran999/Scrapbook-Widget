@@ -1,6 +1,7 @@
 package com.group04.scrapbookwidget.data.model;
 
 import com.google.gson.annotations.SerializedName;
+import java.util.List;
 
 public class User {
     @SerializedName("id")
@@ -27,6 +28,8 @@ public class User {
     private String token;
     @SerializedName("idToken")
     private String idToken;
+    @SerializedName("faceVector")
+    private List<Double> faceVector;
 
     public User() {}
 
@@ -75,4 +78,7 @@ public class User {
 
     public String getIdToken() { return idToken; }
     public void setIdToken(String idToken) { this.idToken = idToken; }
+
+    public List<Double> getFaceVector() { return faceVector; }
+    public void setFaceVector(List<Double> faceVector) { this.faceVector = faceVector; }
 }

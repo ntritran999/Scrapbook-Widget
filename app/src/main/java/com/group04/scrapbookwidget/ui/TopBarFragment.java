@@ -11,6 +11,7 @@ import androidx.navigation.NavController;
 import androidx.navigation.Navigation;
 import androidx.navigation.fragment.NavHostFragment;
 
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -106,6 +107,8 @@ public class TopBarFragment extends Fragment {
         groupListViewModel.getErrorMessage().observe(getViewLifecycleOwner(), error -> {
             if (error != null) {
                 Toast.makeText(getContext(), "Error loading groups", Toast.LENGTH_SHORT).show();
+                // logcat
+                Log.e("TopBarFragment", "Error loading groups: " + error);
             }
         });
     }

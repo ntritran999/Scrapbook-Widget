@@ -97,6 +97,9 @@ dependencies {
     implementation("androidx.hilt:hilt-work:1.0.0")
     annotationProcessor("androidx.hilt:hilt-compiler:1.0.0")
 
+    // liteRT
+    implementation("com.google.ai.edge.litert:litert:2.1.0")
+
     // uCrop
     implementation("com.github.yalantis:ucrop:2.2.10")
 }

@@ -2,6 +2,7 @@ package com.group04.scrapbookwidget.ui.camera;
 
 import android.app.Activity;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.net.Uri;
@@ -19,12 +20,17 @@ import androidx.navigation.fragment.NavHostFragment;
 
 import com.group04.scrapbookwidget.R;
 import com.group04.scrapbookwidget.databinding.FragmentImageEditorBinding;
+import com.group04.scrapbookwidget.ml.FaceEmbeddingManager;
 import com.group04.scrapbookwidget.ui.scrapbookview.CaptionInputDialogFragment;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
 
 public class ImageEditorFragment extends Fragment {
+    private static final String FACE_EMBEDDINGS_KEY = "FACE_EMBEDDINGS";
 
     private FragmentImageEditorBinding binding;
     private String photoPath;
@@ -36,6 +42,11 @@ public class ImageEditorFragment extends Fragment {
     private String pageId = "";
     private String currentCaption = "";
     private String pendingImagePath = "";
+    private FaceEmbeddingManager faceEmbeddingManager;
+    private boolean isExtractingFaces = false;
+    private boolean hasStartedFaceExtraction = false;
+    private boolean shouldNavigateAfterFaceExtraction = false;
+    private ArrayList<ArrayList<Double>> pendingFaceEmbeddings;
 
     private boolean saveToGallery(String cachedPhotoPath) {
         if (cachedPhotoPath == null) {
@@ -79,11 +90,23 @@ public class ImageEditorFragment extends Fragment {
         if (getArguments() != null) {
             photoPath = getArguments().getString("PHOTO_PATH");
         }
+        if (savedInstanceState != null) {
+            pendingImagePath = savedInstanceState.getString("PASTED_IMAGE_PATH", "");
+            currentCaption = savedInstanceState.getString("CAPTION", "");
+            Serializable serializedEmbeddings = savedInstanceState.getSerializable(FACE_EMBEDDINGS_KEY);
+            if (serializedEmbeddings instanceof ArrayList<?>) {
+                //noinspection unchecked
+                pendingFaceEmbeddings = (ArrayList<ArrayList<Double>>) serializedEmbeddings;
+            }
+        }
         
         groupId = requireActivity().getSharedPreferences(PREF_NAME, Activity.MODE_PRIVATE)
                 .getString("CURRENT_GROUP_ID", "");
         pageId = requireActivity().getSharedPreferences(PREF_NAME, Activity.MODE_PRIVATE)
                 .getString("CURRENT_PAGE_ID", "");
+
+        faceEmbeddingManager = new FaceEmbeddingManager(requireContext());
+        faceEmbeddingManager.initialize();
     }
 
     @Nullable
@@ -102,6 +125,8 @@ public class ImageEditorFragment extends Fragment {
         binding.btnSave.setOnClickListener(view -> saveToGallery(photoPath));
         
         binding.btnPaste.setOnClickListener(view -> handlePasteToScrapbook());
+
+        startFaceExtractionIfNeeded();
 
         return binding.getRoot();
     }
@@ -141,16 +166,74 @@ public class ImageEditorFragment extends Fragment {
             @Override
             public void onCaptionConfirmed(String caption) {
                 currentCaption = caption;
-                navigateToScrapbook();
+                continueToScrapbookWhenFaceExtractionReady();
             }
 
             @Override
             public void onCaptionCancelled() {
                 currentCaption = "";
-                navigateToScrapbook();
+                continueToScrapbookWhenFaceExtractionReady();
             }
         });
         captionDialog.show(getChildFragmentManager(), "CaptionInputDialog");
+    }
+
+    private void startFaceExtractionIfNeeded() {
+        if (hasStartedFaceExtraction || pendingFaceEmbeddings != null) {
+            return;
+        }
+
+        if (photoPath == null || photoPath.isEmpty()) {
+            return;
+        }
+
+        Bitmap sourceBitmap = BitmapFactory.decodeFile(photoPath);
+        if (sourceBitmap == null) {
+            android.util.Log.e("ImageEditorFragment", "Could not decode source photo for face extraction");
+            return;
+        }
+
+        hasStartedFaceExtraction = true;
+        isExtractingFaces = true;
+
+        faceEmbeddingManager.extractFacesFromPhoto(sourceBitmap, new FaceEmbeddingManager.GroupPhotoCallback() {
+            @Override
+            public void onFacesExtracted(List<List<Double>> embeddings) {
+                sourceBitmap.recycle();
+                pendingFaceEmbeddings = toSerializableEmbeddings(embeddings);
+                finishFaceExtraction();
+            }
+
+            @Override
+            public void onExtractionError(String error) {
+                sourceBitmap.recycle();
+                pendingFaceEmbeddings = null;
+                android.util.Log.e("ImageEditorFragment", "extractFacesFromPhoto failed: " + error);
+                finishFaceExtraction();
+            }
+        });
+    }
+
+    private void continueToScrapbookWhenFaceExtractionReady() {
+        if (!hasStartedFaceExtraction) {
+            startFaceExtractionIfNeeded();
+        }
+
+        if (isExtractingFaces) {
+            shouldNavigateAfterFaceExtraction = true;
+            Toast.makeText(getContext(), "Analyzing faces...", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        navigateToScrapbook();
+    }
+
+    private void finishFaceExtraction() {
+        isExtractingFaces = false;
+        if (shouldNavigateAfterFaceExtraction) {
+            shouldNavigateAfterFaceExtraction = false;
+            navigateToScrapbook();
+        }
     }
 
     private void navigateToScrapbook() {
@@ -164,6 +247,7 @@ public class ImageEditorFragment extends Fragment {
             bundle.putString("GROUP_ID", groupId);
             bundle.putString("PAGE_ID", pageId);
             bundle.putString("CAPTION", currentCaption);
+            bundle.putSerializable(FACE_EMBEDDINGS_KEY, pendingFaceEmbeddings);
 
             android.util.Log.d("ImageEditorFragment", "Navigate with - groupId: " + groupId + ", pageId: " + pageId + ", caption: " + currentCaption);
 
@@ -245,9 +329,38 @@ public class ImageEditorFragment extends Fragment {
         binding.colorBlack.setOnClickListener(v -> binding.drawView.changeColor(Color.BLACK));
     }
 
+    @Nullable
+    private ArrayList<ArrayList<Double>> toSerializableEmbeddings(@Nullable List<List<Double>> embeddings) {
+        if (embeddings == null) {
+            return null;
+        }
+
+        ArrayList<ArrayList<Double>> serializableEmbeddings = new ArrayList<>();
+        for (List<Double> embedding : embeddings) {
+            serializableEmbeddings.add(embedding != null ? new ArrayList<>(embedding) : new ArrayList<>());
+        }
+        return serializableEmbeddings;
+    }
+
+    @Override
+    public void onSaveInstanceState(@NonNull Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putString("PASTED_IMAGE_PATH", pendingImagePath);
+        outState.putString("CAPTION", currentCaption);
+        outState.putSerializable(FACE_EMBEDDINGS_KEY, pendingFaceEmbeddings);
+    }
+
     @Override
     public void onDestroyView() {
         super.onDestroyView();
         binding = null;
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        if (faceEmbeddingManager != null) {
+            faceEmbeddingManager.release();
+        }
     }
 }

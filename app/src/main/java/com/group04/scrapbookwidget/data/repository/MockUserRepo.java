@@ -223,6 +223,9 @@ public class MockUserRepo implements IUserRepository {
     }
 
     @Override
+    public void hasUserEnrolledFace(String userId, RepositoryCallback<Boolean> callback) {}
+
+    @Override
     public void uploadAvatar(File imageFile, RepositoryCallback<String> callback) {
         RequestBody requestFile = RequestBody.create(MediaType.parse("image/*"), imageFile);
         MultipartBody.Part body = MultipartBody.Part.createFormData("file", imageFile.getName(), requestFile);

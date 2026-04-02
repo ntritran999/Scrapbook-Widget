@@ -52,8 +52,10 @@ public class EnrollFaceBottomSheetFragment extends BottomSheetDialogFragment {
     private ProgressBar progressBar;
     private TextView descriptionText;
     
-    private FaceEmbeddingManager faceEmbeddingManager;
     private OnEnrollmentCompleteListener enrollmentListener;
+    
+    @Inject
+    FaceEmbeddingManager faceEmbeddingManager;
     
     @Inject
     UserRepository userRepository;
@@ -102,19 +104,40 @@ public class EnrollFaceBottomSheetFragment extends BottomSheetDialogFragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         
+        Log.d(TAG, "[ENROLL_UI_START] onViewCreated called");
+        
         // Initialize views
         takeSelfieButton = view.findViewById(R.id.btn_take_selfie);
         skipButton = view.findViewById(R.id.btn_skip);
         progressBar = view.findViewById(R.id.progress_enrollment);
         descriptionText = view.findViewById(R.id.text_description);
         
-        // Initialize FaceEmbeddingManager
-        faceEmbeddingManager = new FaceEmbeddingManager(requireContext());
-        faceEmbeddingManager.initialize();
+        // FaceEmbeddingManager is now injected by Hilt and already initialized
+        // Check if injection was successful
+        if (faceEmbeddingManager == null) {
+            Log.e(TAG, "[ENROLL_UI_ERROR] FaceEmbeddingManager injection failed");
+            showError("Failed to initialize face recognition. Please try again.");
+            dismiss();
+            return;
+        }
+
+        if (!faceEmbeddingManager.initialize()) {
+            String initializationError = faceEmbeddingManager.getInitializationError();
+            Log.e(TAG, "[ENROLL_UI_ERROR] " + initializationError);
+            showError(initializationError);
+            setUIBusy(true);
+            return;
+        }
+        
+        Log.d(TAG, "[ENROLL_UI_READY] FaceEmbeddingManager injected successfully");
         
         // Set up button listeners
-        takeSelfieButton.setOnClickListener(v -> launchCameraForSelfie());
+        takeSelfieButton.setOnClickListener(v -> {
+            Log.d(TAG, "[CAMERA_BUTTON_CLICKED] User clicked take selfie button");
+            launchCameraForSelfie();
+        });
         skipButton.setOnClickListener(v -> {
+            Log.d(TAG, "[ENROLL_SKIPPED] User clicked skip button");
             if (enrollmentListener != null) {
                 enrollmentListener.onEnrollmentSkipped();
             }
@@ -128,11 +151,13 @@ public class EnrollFaceBottomSheetFragment extends BottomSheetDialogFragment {
      */
     private void launchCameraForSelfie() {
         // Check camera permission
-        if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.CAMERA)
-                != PackageManager.PERMISSION_GRANTED) {
+        int permissionCheck = ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.CAMERA);
+        if (permissionCheck != PackageManager.PERMISSION_GRANTED) {
+            Log.d(TAG, "[CAMERA_PERMISSION_DENIED] Requesting camera permission...");
             // Request permission
             requestPermissionLauncher.launch(Manifest.permission.CAMERA);
         } else {
+            Log.d(TAG, "[CAMERA_PERMISSION_GRANTED] Starting camera");
             startCameraIntent();
         }
     }
@@ -141,6 +166,7 @@ public class EnrollFaceBottomSheetFragment extends BottomSheetDialogFragment {
      * Start camera intent to capture selfie.
      */
     private void startCameraIntent() {
+        Log.d(TAG, "[CAMERA_INTENT_START] Launching camera intent");
         Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
         cameraResultLauncher.launch(takePictureIntent);
     }
@@ -167,8 +193,10 @@ public class EnrollFaceBottomSheetFragment extends BottomSheetDialogFragment {
             new ActivityResultContracts.RequestPermission(),
             isGranted -> {
                 if (isGranted) {
+                    Log.d(TAG, "[PERMISSION_RESULT] Camera permission granted");
                     startCameraIntent();
                 } else {
+                    Log.d(TAG, "[PERMISSION_RESULT] Camera permission denied");
                     showError("Camera permission denied");
                 }
             }
@@ -178,12 +206,26 @@ public class EnrollFaceBottomSheetFragment extends BottomSheetDialogFragment {
         cameraResultLauncher = registerForActivityResult(
             new ActivityResultContracts.StartActivityForResult(),
             result -> {
-                if (result.getResultCode() == getActivity().RESULT_OK) {
+                int resultCode = result.getResultCode();
+                Log.d(TAG, "[CAMERA_RESULT] Result code: " + resultCode);
+                
+                if (resultCode == getActivity().RESULT_OK) {
                     Intent data = result.getData();
                     if (data != null && data.getExtras() != null) {
                         Bitmap portrait = (Bitmap) data.getExtras().get("data");
-                        processSelfieImage(portrait);
+                        if (portrait != null) {
+                            Log.d(TAG, "[CAMERA_RESULT_SUCCESS] Captured selfie: " + portrait.getWidth() + "x" + portrait.getHeight());
+                            processSelfieImage(portrait);
+                        } else {
+                            Log.e(TAG, "[CAMERA_RESULT_ERROR] Portrait bitmap is null");
+                            showError("Failed to capture selfie");
+                        }
+                    } else {
+                        Log.e(TAG, "[CAMERA_RESULT_ERROR] No data returned from camera");
+                        showError("Failed to capture selfie");
                     }
+                } else {
+                    Log.d(TAG, "[CAMERA_RESULT_CANCELLED] User cancelled camera");
                 }
             }
         );
@@ -194,25 +236,43 @@ public class EnrollFaceBottomSheetFragment extends BottomSheetDialogFragment {
      */
     private void processSelfieImage(@Nullable Bitmap portrait) {
         if (portrait == null) {
+            Log.e(TAG, "[PROCESS_ERROR] Portrait is null");
             showError("Failed to capture image");
+            return;
+        }
+        
+        Log.d(TAG, "[PROCESS_START] Processing selfie: " + portrait.getWidth() + "x" + portrait.getHeight());
+
+        if (!faceEmbeddingManager.initialize()) {
+            String initializationError = faceEmbeddingManager.getInitializationError();
+            Log.e(TAG, "[PROCESS_INIT_ERROR] " + initializationError);
+            showError(initializationError);
+            if (enrollmentListener != null) {
+                enrollmentListener.onEnrollmentFailed(initializationError);
+            }
             return;
         }
         
         // Show progress
         setUIBusy(true);
         
+        String userId = getCurrentUserId();
+        Log.d(TAG, "[PROCESS_USER] User ID: " + userId);
+        
         // Call FaceEmbeddingManager to extract and save embedding
-        faceEmbeddingManager.enrollUserFace(portrait, getCurrentUserId(),
+        faceEmbeddingManager.enrollUserFace(portrait, userId,
             new FaceEmbeddingManager.FaceEmbeddingCallback() {
                 @Override
                 public void onEnrollmentSuccess(List<Double> embedding) {
                     setUIBusy(false);
+                    Log.d(TAG, "[PROCESS_ML_SUCCESS] Embedding extracted, size: " + (embedding != null ? embedding.size() : 0));
                     saveEmbeddingToFirestore(embedding);
                 }
                 
                 @Override
                 public void onEnrollmentError(String error) {
                     setUIBusy(false);
+                    Log.e(TAG, "[PROCESS_ML_ERROR] " + error);
                     showError(error);
                     if (enrollmentListener != null) {
                         enrollmentListener.onEnrollmentFailed(error);
@@ -230,6 +290,7 @@ public class EnrollFaceBottomSheetFragment extends BottomSheetDialogFragment {
     private void saveEmbeddingToFirestore(@NonNull List<Double> faceEmbedding) {
         String userId = getCurrentUserId();
         if (userId == null) {
+            Log.e(TAG, "[UPLOAD_ERROR] User ID not available");
             showError("User ID not available");
             if (enrollmentListener != null) {
                 enrollmentListener.onEnrollmentFailed("User not authenticated");
@@ -238,7 +299,7 @@ public class EnrollFaceBottomSheetFragment extends BottomSheetDialogFragment {
         }
         
         setUIBusy(true);
-        Log.d(TAG, "Sending face embedding to server for user: " + userId);
+        Log.d(TAG, "[UPLOAD_START] Sending face embedding to server for user: " + userId + ", embedding size: " + faceEmbedding.size());
         
         // Send embedding to server via dedicated endpoint
         userRepository.saveFaceEmbedding(userId, faceEmbedding,
@@ -246,7 +307,7 @@ public class EnrollFaceBottomSheetFragment extends BottomSheetDialogFragment {
                 @Override
                 public void onSuccess(Void result) {
                     setUIBusy(false);
-                    Log.d(TAG, "Face embedding saved to server successfully");
+                    Log.d(TAG, "[UPLOAD_SUCCESS] Face embedding saved to server successfully for user: " + userId);
                     Toast.makeText(requireContext(), 
                         "Face enrollment complete!", 
                         Toast.LENGTH_SHORT).show();
@@ -262,7 +323,7 @@ public class EnrollFaceBottomSheetFragment extends BottomSheetDialogFragment {
                 @Override
                 public void onError(Exception error) {
                     setUIBusy(false);
-                    Log.e(TAG, "Failed to save embedding to server", error);
+                    Log.e(TAG, "[UPLOAD_ERROR] Failed to save embedding to server: " + error.getMessage(), error);
                     showError("Failed to save enrollment: " + error.getMessage());
                     if (enrollmentListener != null) {
                         enrollmentListener.onEnrollmentFailed(error.getMessage());
@@ -300,13 +361,5 @@ public class EnrollFaceBottomSheetFragment extends BottomSheetDialogFragment {
      */
     private void showError(@NonNull String message) {
         Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show();
-    }
-    
-    @Override
-    public void onDestroy() {
-        super.onDestroy();
-        if (faceEmbeddingManager != null) {
-            faceEmbeddingManager.release();
-        }
     }
 }

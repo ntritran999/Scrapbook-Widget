@@ -1,12 +1,10 @@
 package com.group04.scrapbookwidget.ml;
 
 import android.content.Context;
+import android.content.res.AssetFileDescriptor;
 import android.graphics.Bitmap;
-import android.graphics.Canvas;
-import android.graphics.Color;
-import android.graphics.Paint;
+import android.graphics.Matrix;
 import android.graphics.Rect;
-import android.graphics.RectF;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
@@ -24,13 +22,13 @@ import com.google.mlkit.vision.face.FaceDetectorOptions;
 
 import org.tensorflow.lite.Interpreter;
 
-import java.io.BufferedInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.nio.MappedByteBuffer;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.channels.FileChannel;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -46,12 +44,14 @@ import javax.inject.Singleton;
 public class FaceEmbeddingManager {
     
     private static final String TAG = "FaceEmbeddingManager";
+    private static final String MODEL_FILE_NAME = "MobileFaceNet.tflite";
     
     // TFLite model configuration
     private static final int INPUT_SIZE = 112; // MobileFaceNet expects 112x112
     private static final int EMBEDDING_SIZE = 192; // MobileFaceNet outputs 192-dim embeddings
     private static final float MEAN_RGB = 128f;
     private static final float STD_RGB = 128f;
+    private static final int[] ROTATION_FALLBACKS = new int[]{0, 90, 270, 180};
     
     private Context context;
     private ExecutorService executorService;
@@ -59,6 +59,19 @@ public class FaceEmbeddingManager {
     private FaceDetector faceDetector;
     private Interpreter tfliteInterpreter;
     private boolean isInitialized = false;
+    @Nullable
+    private String initializationError;
+
+    private static final class DetectionResult {
+        @NonNull
+        final List<Face> faces;
+        final int rotation;
+
+        DetectionResult(@NonNull List<Face> faces, int rotation) {
+            this.faces = faces;
+            this.rotation = rotation;
+        }
+    }
     
     public interface FaceEmbeddingCallback {
         void onEnrollmentSuccess(List<Double> embedding);
@@ -82,13 +95,17 @@ public class FaceEmbeddingManager {
      * Initialize ML Kit face detector and TFLite interpreter.
      * This must be called before using the manager.
      */
-    public void initialize() {
+    public synchronized boolean initialize() {
         if (isInitialized) {
-            return;
+            Log.d(TAG, "[INIT_SKIP] FaceEmbeddingManager already initialized");
+            return true;
         }
+        
+        Log.d(TAG, "[INIT_START] Initializing FaceEmbeddingManager...");
         
         try {
             // Initialize ML Kit Face Detector with high accuracy
+            Log.d(TAG, "[INIT_FACE_DETECTOR] Setting up ML Kit Face Detector with high accuracy");
             FaceDetectorOptions highAccuracyOpts = 
                 new FaceDetectorOptions.Builder()
                     .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_ACCURATE)
@@ -96,16 +113,23 @@ public class FaceEmbeddingManager {
                     .build();
             
             this.faceDetector = FaceDetection.getClient(highAccuracyOpts);
+            Log.d(TAG, "[INIT_FACE_DETECTOR_OK] Face Detector initialized successfully");
             
             // Initialize TFLite Interpreter
+            Log.d(TAG, "[INIT_TFLITE] Loading TFLite model...");
             initializeTFLite();
+            Log.d(TAG, "[INIT_TFLITE_OK] TFLite Interpreter initialized successfully");
             
+            initializationError = null;
             isInitialized = true;
-            Log.d(TAG, "FaceEmbeddingManager initialized successfully");
+            Log.d(TAG, "[INIT_SUCCESS] FaceEmbeddingManager initialized successfully");
+            return true;
             
         } catch (Exception e) {
-            Log.e(TAG, "Failed to initialize FaceEmbeddingManager", e);
+            initializationError = buildInitializationErrorMessage(e);
+            Log.e(TAG, "[INIT_ERROR] Failed to initialize FaceEmbeddingManager: " + initializationError, e);
             isInitialized = false;
+            return false;
         }
     }
     
@@ -116,7 +140,7 @@ public class FaceEmbeddingManager {
     private void initializeTFLite() throws IOException {
         try {
             // Load model from assets
-            ByteBuffer modelBuffer = loadModelFile("MobileFaceNet.tflite");
+            ByteBuffer modelBuffer = loadModelFile(MODEL_FILE_NAME);
             this.tfliteInterpreter = new Interpreter(modelBuffer);
             Log.d(TAG, "TFLite Interpreter initialized");
         } catch (IOException e) {
@@ -128,17 +152,15 @@ public class FaceEmbeddingManager {
     /**
      * Load model file from assets into a ByteBuffer.
      */
-    private ByteBuffer loadModelFile(String modelName) throws IOException {
-        try (BufferedInputStream bis = new BufferedInputStream(
-                context.getAssets().open(modelName))) {
-            
-            byte[] modelData = new byte[bis.available()];
-            bis.read(modelData);
-            
-            ByteBuffer buffer = ByteBuffer.allocateDirect(modelData.length);
-            buffer.put(modelData);
-            buffer.rewind();
-            return buffer;
+    private MappedByteBuffer loadModelFile(String modelName) throws IOException {
+        try (AssetFileDescriptor fileDescriptor = context.getAssets().openFd(modelName);
+             FileInputStream inputStream = new FileInputStream(fileDescriptor.getFileDescriptor());
+             FileChannel fileChannel = inputStream.getChannel()) {
+            return fileChannel.map(
+                    FileChannel.MapMode.READ_ONLY,
+                    fileDescriptor.getStartOffset(),
+                    fileDescriptor.getDeclaredLength()
+            );
         }
     }
     
@@ -150,34 +172,44 @@ public class FaceEmbeddingManager {
     public void enrollUserFace(@Nullable Bitmap portrait, @NonNull String userId,
                                @NonNull FaceEmbeddingCallback callback) {
         
-        if (!isInitialized) {
-            mainHandler.post(() -> callback.onEnrollmentError("FaceEmbeddingManager not initialized"));
+        Log.d(TAG, "[ENROLL_START] User: " + userId + ", Portrait size: " + (portrait != null ? portrait.getWidth() + "x" + portrait.getHeight() : "null"));
+        
+        if (!initialize()) {
+            String errorMessage = getInitializationError();
+            Log.e(TAG, "[ENROLL_ERROR] " + errorMessage);
+            mainHandler.post(() -> callback.onEnrollmentError(errorMessage));
             return;
         }
         
         if (portrait == null) {
+            Log.e(TAG, "[ENROLL_ERROR] Portrait bitmap is null");
             mainHandler.post(() -> callback.onEnrollmentError("Portrait bitmap is null"));
             return;
         }
         
         executorService.execute(() -> {
             try {
-                // Detect faces in portrait
-                InputImage inputImage = InputImage.fromBitmap(portrait, 0);
-                Task<List<Face>> detectionTask = faceDetector.process(inputImage);
-                
-                // Block on Tasks.await() inside background thread to get detection results
-                List<Face> detectedFaces = Tasks.await(detectionTask);
+                long detectionStartTime = System.currentTimeMillis();
+                Log.d(TAG, "[DETECT_START] Starting face detection...");
+
+                DetectionResult detectionResult = detectFacesWithRotationFallback(portrait);
+                List<Face> detectedFaces = detectionResult.faces;
+                long detectionDuration = System.currentTimeMillis() - detectionStartTime;
+                Log.d(TAG, "[DETECT_COMPLETE] Detection took " + detectionDuration + "ms, rotation=" + detectionResult.rotation);
 
                 // Validate exactly 1 face is detected
                 if (detectedFaces == null || detectedFaces.isEmpty()) {
+                    Log.e(TAG, "[DETECT_ERROR] No face detected in the photo");
                     mainHandler.post(() -> 
                         callback.onEnrollmentError("No face detected in the photo")
                     );
                     return;
                 }
                 
+                Log.d(TAG, "[DETECT_SUCCESS] Found " + detectedFaces.size() + " face(s)");
+                
                 if (detectedFaces.size() > 1) {
+                    Log.e(TAG, "[DETECT_ERROR] Multiple faces detected: " + detectedFaces.size());
                     mainHandler.post(() -> 
                         callback.onEnrollmentError("Multiple faces detected. Please provide a clear single selfie")
                     );
@@ -186,38 +218,63 @@ public class FaceEmbeddingManager {
                 
                 // Crop the detected face
                 Face detectedFace = detectedFaces.get(0);
-                Bitmap croppedFace = cropFace(portrait, detectedFace);
+                Log.d(TAG, "[CROP_START] Cropping detected face...");
+                Bitmap portraitForExtraction = detectionResult.rotation == 0
+                        ? portrait
+                        : rotateBitmap(portrait, detectionResult.rotation);
+                Bitmap croppedFace = cropFace(portraitForExtraction, detectedFace);
                 
                 if (croppedFace == null) {
+                    if (portraitForExtraction != portrait) {
+                        portraitForExtraction.recycle();
+                    }
+                    Log.e(TAG, "[CROP_ERROR] Failed to crop face from image");
                     mainHandler.post(() -> 
                         callback.onEnrollmentError("Failed to crop face from image")
                     );
                     return;
                 }
                 
-                // Extract embedding from cropped face
-                float[] embedding = extractEmbedding(croppedFace);
-                croppedFace.recycle(); // Clean up
+                Log.d(TAG, "[CROP_SUCCESS] Face cropped successfully: " + croppedFace.getWidth() + "x" + croppedFace.getHeight());
                 
-                if (embedding == null || embedding.length == 0) {
+                // Extract embedding from cropped face
+                Log.d(TAG, "[EMBEDDING_START] Extracting face embedding...");
+                long embeddingStartTime = System.currentTimeMillis();
+                float[] embedding = extractEmbedding(croppedFace);
+                if (portraitForExtraction != portrait) {
+                    portraitForExtraction.recycle();
+                }
+                long embeddingDuration = System.currentTimeMillis() - embeddingStartTime;
+                croppedFace.recycle(); // Clean up
+                Log.d(TAG, "[EMBEDDING_COMPLETE] Embedding extraction took " + embeddingDuration + "ms");
+                
+                if (!isEmbeddingValid(embedding)) {
+                    Log.e(TAG, "[EMBEDDING_ERROR] Failed to extract face embedding");
                     mainHandler.post(() -> 
                         callback.onEnrollmentError("Failed to extract face embedding")
                     );
                     return;
                 }
                 
-                // Convert float[] to List<Double> for Firestore compatibility
-                List<Double> embeddingList = floatArrayToDoubleList(embedding);
+                Log.d(TAG, "[EMBEDDING_SUCCESS] Extracted embedding with dimension: " + embedding.length);
                 
+                // Convert float[] to List<Double> for Firestore compatibility
+                Log.d(TAG, "[CONVERT_START] Converting embedding to List<Double>...");
+                List<Double> embeddingList = floatArrayToDoubleList(embedding);
+                Log.d(TAG, "[CONVERT_SUCCESS] Converted to List<Double> size: " + embeddingList.size());
+                
+                Log.d(TAG, "[ENROLL_SUCCESS] Face enrollment successful for user: " + userId);
                 mainHandler.post(() -> 
                     callback.onEnrollmentSuccess(embeddingList)
                 );
                 
             } catch (Exception e) {
-                Log.e(TAG, "Error during face enrollment", e);
-                mainHandler.post(() -> 
-                    callback.onEnrollmentError("Enrollment failed: " + e.getMessage())
-                );
+                Log.e(TAG, "[ENROLL_EXCEPTION] Error during face enrollment: " + e.getMessage(), e);
+                mainHandler.post(() -> {
+                    String errorMsg = "Enrollment failed: " + e.getMessage();
+                    Log.e(TAG, "[ENROLL_CALLBACK_ERROR] " + errorMsg);
+                    callback.onEnrollmentError(errorMsg);
+                });
             }
         });
     }
@@ -229,8 +286,9 @@ public class FaceEmbeddingManager {
     public void extractFacesFromPhoto(@NonNull Bitmap groupPhoto,
                                        @NonNull GroupPhotoCallback callback) {
         
-        if (!isInitialized) {
-            mainHandler.post(() -> callback.onExtractionError("FaceEmbeddingManager not initialized"));
+        if (!initialize()) {
+            String errorMessage = getInitializationError();
+            mainHandler.post(() -> callback.onExtractionError(errorMessage));
             return;
         }
         
@@ -241,12 +299,8 @@ public class FaceEmbeddingManager {
         
         executorService.execute(() -> {
             try {
-                // Detect all faces in group photo
-                InputImage inputImage = InputImage.fromBitmap(groupPhoto, 0);
-                Task<List<Face>> detectionTask = faceDetector.process(inputImage);
-                
-                // Block on Tasks.await() inside background thread
-                List<Face> detectedFaces = Tasks.await(detectionTask);
+                DetectionResult detectionResult = detectFacesWithRotationFallback(groupPhoto);
+                List<Face> detectedFaces = detectionResult.faces;
 
                 if (detectedFaces == null || detectedFaces.isEmpty()) {
                     mainHandler.post(() -> 
@@ -257,23 +311,44 @@ public class FaceEmbeddingManager {
                 
                 // Extract embedding for each detected face
                 List<List<Double>> allEmbeddings = new ArrayList<>();
+                Bitmap extractionBitmap = detectionResult.rotation == 0
+                        ? groupPhoto
+                        : rotateBitmap(groupPhoto, detectionResult.rotation);
+                int skippedFaces = 0;
                 
                 for (Face face : detectedFaces) {
                     try {
-                        Bitmap croppedFace = cropFace(groupPhoto, face);
+                        Bitmap croppedFace = cropFace(extractionBitmap, face);
                         
                         if (croppedFace != null) {
                             float[] embedding = extractEmbedding(croppedFace);
                             croppedFace.recycle();
                             
-                            if (embedding != null && embedding.length > 0) {
+                            if (isEmbeddingValid(embedding)) {
                                 allEmbeddings.add(floatArrayToDoubleList(embedding));
+                            } else {
+                                skippedFaces++;
+                                Log.w(TAG, "[GROUP_EMBEDDING_SKIP] Invalid embedding for one detected face");
                             }
+                        } else {
+                            skippedFaces++;
+                            Log.w(TAG, "[GROUP_CROP_SKIP] Failed to crop one detected face");
                         }
                     } catch (Exception e) {
+                        skippedFaces++;
                         Log.w(TAG, "Failed to extract embedding for one face, continuing", e);
-                        // Continue with next face
                     }
+                }
+
+                if (extractionBitmap != groupPhoto) {
+                    extractionBitmap.recycle();
+                }
+
+                if (allEmbeddings.isEmpty() && !detectedFaces.isEmpty()) {
+                    String errorMessage = "Faces were detected, but embedding extraction failed for all of them.";
+                    Log.e(TAG, "[GROUP_EMBEDDING_ERROR] " + errorMessage + " skippedFaces=" + skippedFaces);
+                    mainHandler.post(() -> callback.onExtractionError(errorMessage));
+                    return;
                 }
                 
                 mainHandler.post(() -> 
@@ -287,6 +362,28 @@ public class FaceEmbeddingManager {
                 );
             }
         });
+    }
+
+    @NonNull
+    private DetectionResult detectFacesWithRotationFallback(@NonNull Bitmap sourceBitmap) throws Exception {
+        for (int rotation : ROTATION_FALLBACKS) {
+            Bitmap workingBitmap = rotation == 0 ? sourceBitmap : rotateBitmap(sourceBitmap, rotation);
+            try {
+                InputImage inputImage = InputImage.fromBitmap(workingBitmap, 0);
+                Task<List<Face>> detectionTask = faceDetector.process(inputImage);
+                List<Face> detectedFaces = Tasks.await(detectionTask);
+                if (detectedFaces != null && !detectedFaces.isEmpty()) {
+                    Log.d(TAG, "[DETECT_ROTATION_SUCCESS] rotation=" + rotation + ", faces=" + detectedFaces.size());
+                    return new DetectionResult(detectedFaces, rotation);
+                }
+                Log.d(TAG, "[DETECT_ROTATION_EMPTY] rotation=" + rotation);
+            } finally {
+                if (workingBitmap != sourceBitmap) {
+                    workingBitmap.recycle();
+                }
+            }
+        }
+        return new DetectionResult(new ArrayList<>(), 0);
     }
     
     /**
@@ -344,8 +441,20 @@ public class FaceEmbeddingManager {
     @Nullable
     private float[] extractEmbedding(@NonNull Bitmap faceBitmap) {
         try {
+            if (tfliteInterpreter == null) {
+                Log.e(TAG, "[EMBEDDING_ERROR] TFLite interpreter is null");
+                return null;
+            }
+
+            Bitmap inputBitmap = faceBitmap.getConfig() == Bitmap.Config.ARGB_8888
+                    ? faceBitmap
+                    : faceBitmap.copy(Bitmap.Config.ARGB_8888, false);
+
             // Preprocess: resize and normalize
-            Bitmap resizedBitmap = Bitmap.createScaledBitmap(faceBitmap, INPUT_SIZE, INPUT_SIZE, true);
+            Bitmap resizedBitmap = Bitmap.createScaledBitmap(inputBitmap, INPUT_SIZE, INPUT_SIZE, true);
+            if (inputBitmap != faceBitmap) {
+                inputBitmap.recycle();
+            }
             
             // Create ByteBuffer for TFLite input (FLOAT32 format)
             ByteBuffer inputBuffer = ByteBuffer.allocateDirect(
@@ -378,7 +487,8 @@ public class FaceEmbeddingManager {
             // Run TFLite inference
             tfliteInterpreter.run(inputBuffer, outputEmbedding);
             
-            return outputEmbedding[0];
+            float[] normalizedEmbedding = l2Normalize(outputEmbedding[0]);
+            return isEmbeddingValid(normalizedEmbedding) ? normalizedEmbedding : null;
             
         } catch (Exception e) {
             Log.e(TAG, "Error extracting embedding from face bitmap", e);
@@ -416,6 +526,7 @@ public class FaceEmbeddingManager {
                 executorService.shutdown();
             }
             isInitialized = false;
+            initializationError = null;
             Log.d(TAG, "FaceEmbeddingManager released");
         } catch (Exception e) {
             Log.e(TAG, "Error releasing FaceEmbeddingManager", e);
@@ -427,5 +538,80 @@ public class FaceEmbeddingManager {
      */
     public boolean isReady() {
         return isInitialized;
+    }
+
+    private boolean isEmbeddingValid(@Nullable float[] embedding) {
+        if (embedding == null || embedding.length != EMBEDDING_SIZE) {
+            return false;
+        }
+
+        boolean hasNonZeroValue = false;
+        for (float value : embedding) {
+            if (!Float.isFinite(value)) {
+                return false;
+            }
+            if (Math.abs(value) > 1e-6f) {
+                hasNonZeroValue = true;
+            }
+        }
+        return hasNonZeroValue;
+    }
+
+    @NonNull
+    private float[] l2Normalize(@NonNull float[] embedding) {
+        float magnitude = 0f;
+        for (float value : embedding) {
+            magnitude += value * value;
+        }
+        magnitude = (float) Math.sqrt(magnitude);
+
+        if (magnitude <= 1e-12f) {
+            return embedding;
+        }
+
+        float[] normalized = new float[embedding.length];
+        for (int i = 0; i < embedding.length; i++) {
+            normalized[i] = embedding[i] / magnitude;
+        }
+        return normalized;
+    }
+
+    @NonNull
+    private Bitmap rotateBitmap(@NonNull Bitmap sourceBitmap, int degrees) {
+        if (degrees == 0) {
+            return sourceBitmap;
+        }
+
+        Matrix matrix = new Matrix();
+        matrix.postRotate(degrees);
+        return Bitmap.createBitmap(
+                sourceBitmap,
+                0,
+                0,
+                sourceBitmap.getWidth(),
+                sourceBitmap.getHeight(),
+                matrix,
+                true
+        );
+    }
+
+    @NonNull
+    public String getInitializationError() {
+        return initializationError != null
+                ? initializationError
+                : "Face embedding is unavailable right now.";
+    }
+
+    @NonNull
+    private String buildInitializationErrorMessage(@NonNull Exception exception) {
+        if (exception instanceof IOException) {
+            return "Face embedding model not found. Add " + MODEL_FILE_NAME + " to app/src/main/assets.";
+        }
+
+        String detail = exception.getMessage();
+        if (detail == null || detail.trim().isEmpty()) {
+            return "Failed to initialize face embedding.";
+        }
+        return "Failed to initialize face embedding: " + detail;
     }
 }

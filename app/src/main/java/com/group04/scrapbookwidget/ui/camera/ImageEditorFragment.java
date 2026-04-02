@@ -5,6 +5,7 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Matrix;
 import android.net.Uri;
 import android.os.Bundle;
 import android.view.LayoutInflater;
@@ -14,6 +15,7 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.exifinterface.media.ExifInterface;
 import androidx.fragment.app.Fragment;
 import androidx.navigation.NavController;
 import androidx.navigation.fragment.NavHostFragment;
@@ -24,11 +26,18 @@ import com.group04.scrapbookwidget.ml.FaceEmbeddingManager;
 import com.group04.scrapbookwidget.ui.scrapbookview.CaptionInputDialogFragment;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.InputStream;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
+import javax.inject.Inject;
+
+import dagger.hilt.android.AndroidEntryPoint;
+
+@AndroidEntryPoint
 public class ImageEditorFragment extends Fragment {
     private static final String FACE_EMBEDDINGS_KEY = "FACE_EMBEDDINGS";
 
@@ -42,7 +51,10 @@ public class ImageEditorFragment extends Fragment {
     private String pageId = "";
     private String currentCaption = "";
     private String pendingImagePath = "";
-    private FaceEmbeddingManager faceEmbeddingManager;
+    
+    @Inject
+    FaceEmbeddingManager faceEmbeddingManager;
+    
     private boolean isExtractingFaces = false;
     private boolean hasStartedFaceExtraction = false;
     private boolean shouldNavigateAfterFaceExtraction = false;
@@ -105,8 +117,7 @@ public class ImageEditorFragment extends Fragment {
         pageId = requireActivity().getSharedPreferences(PREF_NAME, Activity.MODE_PRIVATE)
                 .getString("CURRENT_PAGE_ID", "");
 
-        faceEmbeddingManager = new FaceEmbeddingManager(requireContext());
-        faceEmbeddingManager.initialize();
+        // FaceEmbeddingManager is injected by Hilt and already initialized
     }
 
     @Nullable
@@ -187,7 +198,7 @@ public class ImageEditorFragment extends Fragment {
             return;
         }
 
-        Bitmap sourceBitmap = BitmapFactory.decodeFile(photoPath);
+        Bitmap sourceBitmap = loadBitmapForFaceExtraction(photoPath);
         if (sourceBitmap == null) {
             android.util.Log.e("ImageEditorFragment", "Could not decode source photo for face extraction");
             return;
@@ -201,6 +212,7 @@ public class ImageEditorFragment extends Fragment {
             public void onFacesExtracted(List<List<Double>> embeddings) {
                 sourceBitmap.recycle();
                 pendingFaceEmbeddings = toSerializableEmbeddings(embeddings);
+                android.util.Log.d("ImageEditorFragment", "onFacesExtracted: faces=" + (embeddings != null ? embeddings.size() : "null"));
                 finishFaceExtraction();
             }
 
@@ -330,6 +342,94 @@ public class ImageEditorFragment extends Fragment {
     }
 
     @Nullable
+    private Bitmap loadBitmapForFaceExtraction(@Nullable String path) {
+        if (path == null || path.isEmpty()) {
+            return null;
+        }
+
+        try {
+            BitmapFactory.Options options = new BitmapFactory.Options();
+            options.inPreferredConfig = Bitmap.Config.ARGB_8888;
+
+            Uri uri = Uri.parse(path);
+            Bitmap bitmap;
+            if (uri.getScheme() != null) {
+                try (InputStream inputStream = requireContext().getContentResolver().openInputStream(uri)) {
+                    bitmap = inputStream != null ? BitmapFactory.decodeStream(inputStream, null, options) : null;
+                }
+            } else {
+                bitmap = BitmapFactory.decodeFile(path, options);
+            }
+
+            if (bitmap == null) {
+                return null;
+            }
+
+            int exifRotation = readExifRotation(path);
+            return exifRotation == 0 ? bitmap : rotateBitmap(bitmap, exifRotation);
+        } catch (Exception e) {
+            android.util.Log.e("ImageEditorFragment", "loadBitmapForFaceExtraction failed: " + e.getMessage(), e);
+            return null;
+        }
+    }
+
+    private int readExifRotation(@NonNull String path) {
+        try {
+            Uri uri = Uri.parse(path);
+            ExifInterface exifInterface;
+            if (uri.getScheme() != null) {
+                try (InputStream inputStream = requireContext().getContentResolver().openInputStream(uri)) {
+                    if (inputStream == null) {
+                        return 0;
+                    }
+                    exifInterface = new ExifInterface(inputStream);
+                }
+            } else {
+                try (InputStream inputStream = new FileInputStream(path)) {
+                    exifInterface = new ExifInterface(inputStream);
+                }
+            }
+
+            int orientation = exifInterface.getAttributeInt(
+                    ExifInterface.TAG_ORIENTATION,
+                    ExifInterface.ORIENTATION_NORMAL
+            );
+            switch (orientation) {
+                case ExifInterface.ORIENTATION_ROTATE_90:
+                    return 90;
+                case ExifInterface.ORIENTATION_ROTATE_180:
+                    return 180;
+                case ExifInterface.ORIENTATION_ROTATE_270:
+                    return 270;
+                default:
+                    return 0;
+            }
+        } catch (Exception e) {
+            android.util.Log.w("ImageEditorFragment", "Could not read EXIF rotation for face extraction", e);
+            return 0;
+        }
+    }
+
+    @NonNull
+    private Bitmap rotateBitmap(@NonNull Bitmap bitmap, int rotation) {
+        Matrix matrix = new Matrix();
+        matrix.postRotate(rotation);
+        Bitmap rotatedBitmap = Bitmap.createBitmap(
+                bitmap,
+                0,
+                0,
+                bitmap.getWidth(),
+                bitmap.getHeight(),
+                matrix,
+                true
+        );
+        if (rotatedBitmap != bitmap) {
+            bitmap.recycle();
+        }
+        return rotatedBitmap;
+    }
+
+    @Nullable
     private ArrayList<ArrayList<Double>> toSerializableEmbeddings(@Nullable List<List<Double>> embeddings) {
         if (embeddings == null) {
             return null;
@@ -354,13 +454,5 @@ public class ImageEditorFragment extends Fragment {
     public void onDestroyView() {
         super.onDestroyView();
         binding = null;
-    }
-
-    @Override
-    public void onDestroy() {
-        super.onDestroy();
-        if (faceEmbeddingManager != null) {
-            faceEmbeddingManager.release();
-        }
     }
 }

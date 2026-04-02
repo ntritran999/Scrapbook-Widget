@@ -17,9 +17,11 @@ import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.NavController;
 import androidx.navigation.Navigation;
 import androidx.navigation.fragment.NavHostFragment;
+import androidx.recyclerview.widget.LinearLayoutManager;
 
 import com.bumptech.glide.Glide;
 import com.group04.scrapbookwidget.R;
+import com.group04.scrapbookwidget.data.model.Invitation;
 import com.group04.scrapbookwidget.databinding.FragmentSettingBinding;
 
 import dagger.hilt.android.AndroidEntryPoint;
@@ -29,6 +31,7 @@ public class SettingFragment extends Fragment {
 
     private FragmentSettingBinding binding;
     private SettingViewModel viewModel;
+    private GroupInvitationAdapter invitationAdapter;
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
@@ -37,10 +40,27 @@ public class SettingFragment extends Fragment {
         binding.setViewModel(viewModel);
         binding.setLifecycleOwner(getViewLifecycleOwner());
 
+        setupRecyclerView();
         setupObservers();
         setupClickListeners();
 
         return binding.getRoot();
+    }
+
+    private void setupRecyclerView() {
+        invitationAdapter = new GroupInvitationAdapter(new GroupInvitationAdapter.OnInvitationActionListener() {
+            @Override
+            public void onAccept(Invitation invitation) {
+                viewModel.acceptInvitation(invitation.getGroupId());
+            }
+
+            @Override
+            public void onDecline(Invitation invitation) {
+                viewModel.declineInvitation(invitation.getGroupId());
+            }
+        });
+        binding.rvInvitations.setLayoutManager(new LinearLayoutManager(getContext()));
+        binding.rvInvitations.setAdapter(invitationAdapter);
     }
 
     @Override
@@ -80,6 +100,10 @@ public class SettingFragment extends Fragment {
                         .into(binding.imgProfile);
             }
         });
+
+        viewModel.getInvitations().observe(getViewLifecycleOwner(), invitations -> {
+            invitationAdapter.setInvitations(invitations);
+        });
     }
 
     private void setupClickListeners() {
@@ -102,6 +126,11 @@ public class SettingFragment extends Fragment {
         // Edit Profile navigation
         binding.btnEditProfile.setOnClickListener(v -> {
             Navigation.findNavController(v).navigate(R.id.action_settingFragment_to_editProfileFragment);
+        });
+
+        // Create Group navigation (Replaced Rollcall)
+        binding.btnCreateGroup.setOnClickListener(v -> {
+            Navigation.findNavController(v).navigate(R.id.action_settingFragment_to_createGroupFragment);
         });
 
         if (binding.btnEditName != null) {
@@ -130,6 +159,9 @@ public class SettingFragment extends Fragment {
         // Clear local session preferences
         SharedPreferences preferences = requireContext().getSharedPreferences("TMP_USER_SESSION", Context.MODE_PRIVATE);
         preferences.edit().clear().apply();
+
+        // Update widget
+        AppWidget.updateWidgetNow(requireContext());
 
         // Navigate back to Login screen and clear navigation stack
         NavHostFragment navHostFragment = (NavHostFragment) requireActivity().getSupportFragmentManager().findFragmentById(R.id.nav_host_fragment);

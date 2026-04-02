@@ -3,6 +3,7 @@ package com.group04.scrapbookwidget.data.repository;
 import androidx.annotation.Nullable;
 
 import com.google.gson.Gson;
+import com.group04.scrapbookwidget.data.model.Reaction;
 import com.group04.scrapbookwidget.data.model.ScrapbookItem;
 import com.group04.scrapbookwidget.data.model.ScrapbookPage;
 import com.group04.scrapbookwidget.data.service.GroupService;
@@ -40,6 +41,8 @@ public class ScrapbookRepository implements IScrapbookRepository {
             public void onResponse(Call<List<ScrapbookPage>> call, Response<List<ScrapbookPage>> response) {
                 if (response.isSuccessful()) {
                     callback.onSuccess(response.body());
+                } else {
+                    callback.onError(new Exception("Failed to load pages: " + response.code()));
                 }
             }
 
@@ -51,8 +54,22 @@ public class ScrapbookRepository implements IScrapbookRepository {
     }
 
     @Override
-    public void createPage(String groupId, ScrapbookPage page, RepositoryCallback<String> callback) {
+    public void createPage(String groupId, RepositoryCallback<ScrapbookPage> callback) {
+        groupService.createScrapbookPage(groupId).enqueue(new Callback<ScrapbookPage>() {
+            @Override
+            public void onResponse(Call<ScrapbookPage> call, Response<ScrapbookPage> response) {
+                if (response.isSuccessful()) {
+                    callback.onSuccess(response.body());
+                } else {
+                    callback.onError(new Exception("Failed to create page: " + response.code()));
+                }
+            }
 
+            @Override
+            public void onFailure(Call<ScrapbookPage> call, Throwable t) {
+                callback.onError(new Exception(t));
+            }
+        });
     }
 
     @Override
@@ -167,5 +184,65 @@ public class ScrapbookRepository implements IScrapbookRepository {
     @Override
     public void updateItem(String groupId, String pageId, String itemId, ScrapbookItem updatedItem, RepositoryCallback<Void> callback) {
 
+    }
+
+    @Override
+    public void getReactions(String groupId, String pageId, String itemId, RepositoryCallback<List<Reaction>> callback) {
+        groupService.getReactions(groupId, pageId, itemId).enqueue(new Callback<List<Reaction>>() {
+            @Override
+            public void onResponse(Call<List<Reaction>> call, Response<List<Reaction>> response) {
+                if (response.isSuccessful()) {
+                    callback.onSuccess(response.body());
+                }
+                else {
+                    callback.onError(new Exception("Failed to load reactions."));
+                }
+            }
+
+            @Override
+            public void onFailure(Call<List<Reaction>> call, Throwable t) {
+                callback.onError(new Exception(t));
+            }
+        });
+    }
+
+    @Override
+    public void addReaction(String groupId, String pageId, String itemId, Reaction reaction, RepositoryCallback<Reaction> callback) {
+        groupService.addReaction(groupId, pageId, itemId, reaction).enqueue(new Callback<Reaction>() {
+            @Override
+            public void onResponse(Call<Reaction> call, Response<Reaction> response) {
+                if (response.isSuccessful()) {
+                    callback.onSuccess(response.body());
+                }
+                else {
+                    callback.onError(new Exception("Failed to add reaction."));
+                }
+            }
+
+            @Override
+            public void onFailure(Call<Reaction> call, Throwable t) {
+                callback.onError(new Exception(t));
+            }
+        });
+    }
+
+    @Override
+    public void removeReaction(String groupId, String pageId, String itemId, String userId, RepositoryCallback<Boolean> callback) {
+        groupService.removeReaction(groupId, pageId, itemId, userId).enqueue(new Callback<Boolean>() {
+            @Override
+            public void onResponse(Call<Boolean> call, Response<Boolean> response) {
+                if (response.isSuccessful()) {
+                    callback.onSuccess(response.body());
+                }
+                else {
+                    callback.onError(new Exception("Failed to remove reaction."));
+                }
+            }
+
+            @Override
+            public void onFailure(Call<Boolean> call, Throwable t) {
+                callback.onError(new Exception(t));
+            }
+        });
     }
 }

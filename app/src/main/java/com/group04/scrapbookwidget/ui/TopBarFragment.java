@@ -11,7 +11,6 @@ import androidx.navigation.NavController;
 import androidx.navigation.Navigation;
 import androidx.navigation.fragment.NavHostFragment;
 
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -19,8 +18,8 @@ import android.widget.AdapterView;
 import android.widget.Toast;
 
 import com.bumptech.glide.Glide;
+import com.google.android.material.snackbar.Snackbar;
 import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.auth.FirebaseUser;
 import com.group04.scrapbookwidget.R;
 import com.group04.scrapbookwidget.databinding.FragmentTopBarBinding;
 import com.group04.scrapbookwidget.ui.adapter.CompactGroupListAdapter;
@@ -99,16 +98,12 @@ public class TopBarFragment extends Fragment {
                         }
                     }
                 });
-            } else {
-                // Toast.makeText(getContext(), "No groups available.", Toast.LENGTH_SHORT).show();
             }
         });
 
         groupListViewModel.getErrorMessage().observe(getViewLifecycleOwner(), error -> {
             if (error != null) {
-                Toast.makeText(getContext(), "Error loading groups", Toast.LENGTH_SHORT).show();
-                // logcat
-                Log.e("TopBarFragment", "Error loading groups: " + error);
+                Snackbar.make(binding.container, "Không thể tải danh sách nhóm. Vui lòng kiểm tra kết nối Internet.", Snackbar.LENGTH_SHORT).show();
             }
         });
     }
@@ -137,6 +132,9 @@ public class TopBarFragment extends Fragment {
         super.onResume();
         if (settingViewModel != null) {
             settingViewModel.refresh();
+        }
+        if (groupListViewModel != null) {
+            groupListViewModel.refresh();
         }
     }
 

@@ -2,11 +2,15 @@ package com.group04.scrapbookwidget.ui.scrapbookview;
 
 import android.animation.AnimatorInflater;
 import android.animation.AnimatorSet;
+import android.app.Activity;
 import android.app.Dialog;
+import android.content.DialogInterface;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.OptIn;
 import androidx.databinding.DataBindingUtil;
 import androidx.fragment.app.DialogFragment;
 import androidx.lifecycle.ViewModelProvider;
@@ -19,8 +23,12 @@ import android.view.ViewGroup;
 import android.widget.Toast;
 
 import com.bumptech.glide.Glide;
+import com.google.android.material.badge.BadgeDrawable;
+import com.google.android.material.badge.BadgeUtils;
+import com.google.android.material.badge.ExperimentalBadgeUtils;
 import com.group04.scrapbookwidget.R;
 import com.group04.scrapbookwidget.data.model.ItemContent;
+import com.group04.scrapbookwidget.data.model.Reaction;
 import com.group04.scrapbookwidget.databinding.FragmentPhotoDialogBinding;
 
 import dagger.hilt.android.AndroidEntryPoint;
@@ -38,6 +46,9 @@ public class PhotoDialogFragment extends DialogFragment {
     private static final String GROUP_ID = "groupId";
     private static final String PAGE_ID = "pageId";
     private static final String ITEM_ID = "itemId";
+
+    private static final String USER_SESSION_PREF = "TMP_USER_SESSION";
+    private String userId = "";
     private String groupId, pageId, itemId;
     public static String TAG = "PhotoDialog";
     public PhotoDialogFragment() {
@@ -63,12 +74,19 @@ public class PhotoDialogFragment extends DialogFragment {
             pageId = bundle.getString(PAGE_ID);
             itemId = bundle.getString(ITEM_ID);
         }
+
+        SharedPreferences preferences = requireContext().getSharedPreferences(USER_SESSION_PREF, Activity.MODE_PRIVATE);
+        userId = preferences.getString("USER_ID", "");
     }
 
+    @OptIn(markerClass = ExperimentalBadgeUtils.class)
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
+
         photoViewModel =  new ViewModelProvider(this).get(PhotoViewModel.class);
+        binding.setViewmodel(photoViewModel);
+        binding.setLifecycleOwner(getViewLifecycleOwner());
         photoViewModel.getItemLiveData().observe(getViewLifecycleOwner(), item -> {
             if (item != null) {
                 ItemContent content = item.getContent();
@@ -79,7 +97,16 @@ public class PhotoDialogFragment extends DialogFragment {
                 binding.hiddenText.setText(caption);
             }
         });
+        photoViewModel.getReactionCountLiveData().observe(getViewLifecycleOwner(), count -> {
+            if (count != null) {
+                BadgeDrawable badgeDrawable = BadgeDrawable.create(requireContext());
+                badgeDrawable.setVisible(true);
+                badgeDrawable.setNumber(count);
+                BadgeUtils.attachBadgeDrawable(badgeDrawable, binding.btnReact);
+            }
+        });
         photoViewModel.loadItem(groupId, pageId, itemId);
+        photoViewModel.loadReactions(groupId, pageId, itemId, userId);
     }
 
     @Override
@@ -114,6 +141,22 @@ public class PhotoDialogFragment extends DialogFragment {
     public void onDestroyView() {
         super.onDestroyView();
         binding = null;
+    }
+
+    @Override
+    public void onDismiss(@NonNull DialogInterface dialog) {
+        super.onDismiss(dialog);
+
+        Integer countStart = photoViewModel.getOriginalReactionCountLiveData().getValue();
+        Integer countNow = photoViewModel.getReactionCountLiveData().getValue();
+        if (countStart != null && countNow != null) {
+            if (countNow > countStart) {
+                photoViewModel.addReaction(groupId, pageId, itemId, new Reaction(userId));
+            }
+            else if (countNow < countStart) {
+                photoViewModel.removeReaction(groupId, pageId, itemId, new Reaction(userId));
+            }
+        }
     }
 
     private void flip_photo() {

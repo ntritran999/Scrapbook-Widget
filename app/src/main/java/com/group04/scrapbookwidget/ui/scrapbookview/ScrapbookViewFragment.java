@@ -162,6 +162,7 @@ public class ScrapbookViewFragment extends Fragment {
             // Load scrapbook with current groupId
             android.util.Log.d("ScrapbookViewFragment", "onViewCreated - Loading scrapbook normally");
             scrapbookViewModel.loadScrapbook(groupId, pageId);
+            binding.btnSwitchGroup.setVisibility(View.INVISIBLE);
         }
     }
 
@@ -439,6 +440,7 @@ public class ScrapbookViewFragment extends Fragment {
                 pastedImageRotation, pastedImageScale, pastedImageZIndex, pastedImageCaption,
                 pastedFaceEmbeddings
         );
+        binding.btnSwitchGroup.setVisibility(View.INVISIBLE);
     }
 
     /**

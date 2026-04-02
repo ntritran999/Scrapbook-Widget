@@ -6,12 +6,9 @@
     android:orientation="vertical"
     tools:context=".ui.group.ChatFragment">
 
-    <androidx.fragment.app.FragmentContainerView
-        android:id="@+id/top_bar"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:name="com.group04.scrapbookwidget.ui.group.ChatTopBarFragment"
-        tools:layout="@layout/fragment_chat_top_bar"/>
+    <include
+        android:id="@+id/chatTopBar"
+        layout="@layout/fragment_chat_top_bar" />
 
     <androidx.fragment.app.FragmentContainerView
         android:id="@+id/mainContent"

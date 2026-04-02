@@ -4,6 +4,11 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     tools:context=".ui.scrapbookview.PhotoDialogFragment">
 
+    <data>
+        <variable
+            name="viewmodel"
+            type="com.group04.scrapbookwidget.ui.scrapbookview.PhotoViewModel" />
+    </data>
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/container"
         android:layout_width="match_parent"
@@ -33,11 +38,14 @@
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
                 android:layout_gravity="bottom|end">
-                <Button
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnReact"
                     style="?attr/materialIconButtonOutlinedStyle"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:checkable="true"
+                    app:checked="@{viewmodel.isCheckedLiveData}"
+                    android:onClick="@{() -> viewmodel.isCheckedChanged()}"
                     app:icon="@drawable/toggle_heart_icon_button_selector"/>
             </LinearLayout>
 

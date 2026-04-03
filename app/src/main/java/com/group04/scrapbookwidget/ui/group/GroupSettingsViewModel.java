@@ -9,6 +9,7 @@ import androidx.lifecycle.ViewModel;
 
 import com.google.firebase.auth.FirebaseAuth;
 import com.group04.scrapbookwidget.data.model.Group;
+import com.group04.scrapbookwidget.data.model.InviteLinkResponse;
 import com.group04.scrapbookwidget.data.model.LeaveGroupResponse;
 import com.group04.scrapbookwidget.data.model.User;
 import com.group04.scrapbookwidget.data.service.GroupService;
@@ -61,6 +62,11 @@ public class GroupSettingsViewModel extends ViewModel {
 
     private final MutableLiveData<String> _error = new MutableLiveData<>();
     public LiveData<String> getError() { return _error; }
+
+    public interface InviteLinkCallback {
+        void onSuccess(String inviteLink);
+        void onError(String message);
+    }
 
     @Inject
     public GroupSettingsViewModel(GroupService groupService, FirebaseAuth auth) {
@@ -285,6 +291,32 @@ public class GroupSettingsViewModel extends ViewModel {
             public void onFailure(Call<Void> call, Throwable t) {
                 _isLoading.setValue(false);
                 _error.setValue(t.getMessage());
+            }
+        });
+    }
+
+    public void getInviteLink(String groupId, InviteLinkCallback callback) {
+        _isLoading.setValue(true);
+        groupService.getInviteLink(groupId).enqueue(new Callback<InviteLinkResponse>() {
+            @Override
+            public void onResponse(Call<InviteLinkResponse> call, Response<InviteLinkResponse> response) {
+                _isLoading.setValue(false);
+                if (response.isSuccessful() && response.body() != null && response.body().getInviteLink() != null
+                        && !response.body().getInviteLink().trim().isEmpty()) {
+                    callback.onSuccess(response.body().getInviteLink().trim());
+                } else {
+                    String message = "Failed to get invite link";
+                    _error.setValue(message);
+                    callback.onError(message);
+                }
+            }
+
+            @Override
+            public void onFailure(Call<InviteLinkResponse> call, Throwable t) {
+                _isLoading.setValue(false);
+                String message = t.getMessage() != null ? t.getMessage() : "Failed to get invite link";
+                _error.setValue(message);
+                callback.onError(message);
             }
         });
     }

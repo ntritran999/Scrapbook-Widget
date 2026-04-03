@@ -162,6 +162,12 @@
                         app:title="@{@string/invite_users}" />
 
                     <include
+                        android:id="@+id/btnShareInviteLink"
+                        layout="@layout/item_setting"
+                        app:icon="@{@drawable/ic_send}"
+                        app:title="@{@string/share_invite_link}" />
+
+                    <include
                         android:id="@+id/btnManageInvitations"
                         layout="@layout/item_setting"
                         app:icon="@{@drawable/ic_email}"

@@ -95,6 +95,10 @@
     <string name="change_group_avatar">Change group avatar</string>
     <string name="view_member_list">View member list</string>
     <string name="invite_users">Invite users</string>
+    <string name="share_invite_link">Share Invite Link</string>
     <string name="manage_invitations">Manage invitations</string>
     <string name="leave_group_warning">Are you sure you want to leave this group?</string>
+    <string name="invite_link_share_message">Let\'s make memory with me! Click here: %1$s</string>
+    <string name="invite_link_login_required">Please log in to join this group</string>
+    <string name="joining_group">Joining group...</string>
 </resources>

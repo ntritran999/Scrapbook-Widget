@@ -48,6 +48,8 @@ public class ScrapbookViewFragment extends Fragment {
     IUserRepository userRepository;
     
     private boolean hasCheckedFaceEnrollment = false;
+    private boolean shouldPromptEnrollmentAfterGroupSelection = false;
+    private boolean hasShownEnrollPrompt = false;
     private float dX, dY;
     private ImageView currentPastingView;
     private String pastedImagePath;
@@ -129,7 +131,6 @@ public class ScrapbookViewFragment extends Fragment {
 
         scrapbookViewModel = new ViewModelProvider(this).get(ScrapbookViewModel.class);
 
-        checkFaceEnrollmentStatus();
 
         // Lưu GROUP_ID, PAGE_ID vào SharedPreferences để ImageEditorFragment dùng
         if (!groupId.isEmpty() && !pageId.isEmpty()) {
@@ -151,18 +152,21 @@ public class ScrapbookViewFragment extends Fragment {
             android.util.Log.d("ScrapbookViewFragment", "onViewCreated - LOADING PASTED IMAGE: " + pastedImagePath);
             android.util.Log.d("ScrapbookViewFragment", "onViewCreated - Forcing group selection dialog for pasting mode");
             // Always show group selection dialog when pasting - user must select group each time
+            shouldPromptEnrollmentAfterGroupSelection = true;
             showGroupSelectionDialog();
             return;  // Don't load anything until group is selected
         }
         // If no pasted image, load scrapbook with current group (or show dialog if empty)
         else if (groupId.isEmpty()) {
             android.util.Log.d("ScrapbookViewFragment", "GroupId is empty, showing group selection dialog");
+            shouldPromptEnrollmentAfterGroupSelection = true;
             showGroupSelectionDialog();
         } else {
             // Load scrapbook with current groupId
             android.util.Log.d("ScrapbookViewFragment", "onViewCreated - Loading scrapbook normally");
             scrapbookViewModel.loadScrapbook(groupId, pageId);
             binding.btnSwitchGroup.setVisibility(View.INVISIBLE);
+            maybeCheckFaceEnrollment(false);
         }
     }
 
@@ -262,6 +266,8 @@ public class ScrapbookViewFragment extends Fragment {
                 android.util.Log.d("ScrapbookViewFragment", "Group selected - Loading scrapbook normally");
                 scrapbookViewModel.loadScrapbook(groupId, "");
             }
+
+            maybeCheckFaceEnrollment(true);
         });
         dialog.setCancelable(false); // Force user to select a group
         dialog.show(getChildFragmentManager(), "GroupSelectionDialog");
@@ -474,10 +480,27 @@ public class ScrapbookViewFragment extends Fragment {
         });
     }
 
+    private void maybeCheckFaceEnrollment(boolean completedGroupSelection) {
+        if (completedGroupSelection) {
+            shouldPromptEnrollmentAfterGroupSelection = false;
+            checkFaceEnrollmentStatus();
+            return;
+        }
+
+        if (!groupId.isEmpty() && !shouldPromptEnrollmentAfterGroupSelection) {
+            checkFaceEnrollmentStatus();
+        }
+    }
+
     /**
      * Display Bottom Sheet to enroll user's face.
      */
     private void showEnrollFacePrompt() {
+        if (hasShownEnrollPrompt || !isAdded()) {
+            return;
+        }
+
+        hasShownEnrollPrompt = true;
         EnrollFaceBottomSheetFragment enrollBottomSheet = EnrollFaceBottomSheetFragment.newInstance();
 
         enrollBottomSheet.setEnrollmentListener(new EnrollFaceBottomSheetFragment.OnEnrollmentCompleteListener() {
@@ -488,11 +511,13 @@ public class ScrapbookViewFragment extends Fragment {
 
             @Override
             public void onEnrollmentSkipped() {
+                hasShownEnrollPrompt = false;
                 android.util.Log.d("ScrapbookViewFragment", "User skipped face enrollment.");
             }
 
             @Override
             public void onEnrollmentFailed(String errorMessage) {
+                hasShownEnrollPrompt = false;
                 android.util.Log.e("ScrapbookViewFragment", "Face enrollment failed: " + errorMessage);
             }
         });

@@ -1,74 +1,113 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
+    android:background="@android:color/transparent"
     android:orientation="vertical"
-    android:padding="24dp"
-    android:background="@drawable/ic_launcher_background">
+    android:paddingHorizontal="20dp"
+    android:paddingTop="12dp"
+    android:paddingBottom="24dp">
 
-    <!-- Title -->
-    <TextView
-        android:id="@+id/text_title"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Enable Group Memories"
-        android:textSize="20sp"
-        android:textStyle="bold"
-        android:textColor="@android:color/black"
-        android:gravity="center"
-        android:layout_marginBottom="12dp" />
+    <View
+        android:layout_width="44dp"
+        android:layout_height="4dp"
+        android:layout_gravity="center_horizontal"
+        android:background="@drawable/bg_dark_outline_button"
+        android:backgroundTint="#40FFFFFF" />
 
-    <!-- Description -->
-    <TextView
-        android:id="@+id/text_description"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Please provide a clear selfie to automatically tag your moments in group photos."
-        android:textSize="14sp"
-        android:textColor="@android:color/darker_gray"
-        android:gravity="center"
-        android:layout_marginBottom="24dp"
-        android:lineSpacingExtra="4dp" />
-
-    <!-- Progress Bar -->
-    <ProgressBar
-        android:id="@+id/progress_enrollment"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:visibility="gone"
-        android:layout_marginBottom="16dp" />
-
-    <!-- Button Container -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:spacing="12dp">
+        android:layout_marginTop="16dp"
+        android:background="@drawable/bg_dark_surface_card"
+        android:gravity="center_horizontal"
+        android:orientation="vertical"
+        android:padding="24dp">
 
-        <!-- Take Selfie Button -->
+        <FrameLayout
+            android:layout_width="72dp"
+            android:layout_height="72dp"
+            android:background="@drawable/bg_gold_card"
+            android:foregroundGravity="center">
+
+            <ImageView
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:layout_gravity="center"
+                android:contentDescription="@null"
+                android:src="@drawable/account_circle_24"
+                app:tint="@android:color/white" />
+        </FrameLayout>
+
+        <TextView
+            android:id="@+id/text_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:gravity="center"
+            android:text="Enable Group Memories"
+            android:textColor="@android:color/white"
+            android:textSize="22sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/text_description"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:gravity="center"
+            android:lineSpacingExtra="4dp"
+            android:text="Take a clear selfie once so we can automatically recognize you in shared group memories."
+            android:textColor="#B3FFFFFF"
+            android:textSize="14sp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:background="@drawable/bg_dark_surface_panel"
+            android:gravity="center"
+            android:paddingHorizontal="16dp"
+            android:paddingVertical="12dp"
+            android:text="Your selfie is only used to create a face vector for memory tagging."
+            android:textColor="#FFE38A"
+            android:textSize="13sp" />
+
+        <ProgressBar
+            android:id="@+id/progress_enrollment"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="8dp"
+            android:layout_marginTop="20dp"
+            android:indeterminate="true"
+            android:progressTint="@color/locket_yellow"
+            android:visibility="gone" />
+
         <Button
             android:id="@+id/btn_take_selfie"
-            android:layout_width="0dp"
-            android:layout_height="48dp"
-            android:layout_weight="1"
-            android:layout_marginEnd="8dp"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="22dp"
+            android:background="@drawable/bg_gold_gradient_button"
+            app:backgroundTint="@null"
             android:text="Take Selfie"
-            android:backgroundTint="@android:color/holo_blue_dark"
-            android:textColor="@android:color/white"
+            android:textAllCaps="false"
+            android:textColor="@android:color/black"
+            android:textSize="15sp"
             android:textStyle="bold" />
 
-        <!-- Skip Button -->
         <Button
             android:id="@+id/btn_skip"
-            android:layout_width="0dp"
-            android:layout_height="48dp"
-            android:layout_weight="1"
-            android:layout_marginStart="8dp"
-            android:text="Skip"
-            android:backgroundTint="@android:color/darker_gray"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="12dp"
+            android:background="@drawable/bg_dark_outline_button"
+            android:text="Maybe Later"
+            android:textAllCaps="false"
             android:textColor="@android:color/white"
+            android:textSize="15sp"
             android:textStyle="bold" />
-
     </LinearLayout>
 
 </LinearLayout>

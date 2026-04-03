@@ -361,7 +361,10 @@ public class UserRepository implements IUserRepository {
                                       @NonNull Response<UserService.FaceEnrollmentResponse> response) {
                     if (response.isSuccessful() && response.body() != null) {
                         UserService.FaceEnrollmentResponse enrollmentResponse = response.body();
-                        if (enrollmentResponse.success) {
+                        boolean enrollmentSucceeded = enrollmentResponse.success
+                                || enrollmentResponse.enrolledAt > 0
+                                || looksLikeSuccessfulEnrollmentMessage(enrollmentResponse.message);
+                        if (enrollmentSucceeded) {
                             Log.d(TAG, "Face embedding saved successfully for user: " + userId + 
                                   " at: " + enrollmentResponse.enrolledAt);
                             callback.onSuccess(null);
@@ -390,6 +393,19 @@ public class UserRepository implements IUserRepository {
                     callback.onError(new Exception("Network error: " + t.getMessage()));
                 }
             });
+    }
+
+    private boolean looksLikeSuccessfulEnrollmentMessage(String message) {
+        if (message == null) {
+            return false;
+        }
+
+        String normalizedMessage = message.trim().toLowerCase();
+        return normalizedMessage.contains("success")
+                || normalizedMessage.contains("successful")
+                || normalizedMessage.contains("thanh cong")
+                || normalizedMessage.contains("thành công")
+                || normalizedMessage.contains("enroll complete");
     }
 
     /**

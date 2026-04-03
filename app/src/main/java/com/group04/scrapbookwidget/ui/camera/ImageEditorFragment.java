@@ -15,6 +15,7 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.content.ContextCompat;
 import androidx.exifinterface.media.ExifInterface;
 import androidx.fragment.app.Fragment;
 import androidx.navigation.NavController;
@@ -347,11 +348,11 @@ public class ImageEditorFragment extends Fragment {
 
     private void selectPencil() {
         binding.drawView.setBrushType(ScrapbookDrawView.BrushType.PENCIL);
-        binding.btnBrushPencil.setBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.parseColor("#4CAF50")));
-        binding.btnBrushPencil.setTextColor(Color.WHITE);
+        binding.btnBrushPencil.setBackgroundResource(R.drawable.bg_editor_chip_active);
+        binding.btnBrushPencil.setTextColor(ContextCompat.getColor(requireContext(), android.R.color.white));
         
-        binding.btnBrushEraser.setBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.parseColor("#EEEEEE")));
-        binding.btnBrushEraser.setTextColor(Color.BLACK);
+        binding.btnBrushEraser.setBackgroundResource(R.drawable.bg_editor_chip);
+        binding.btnBrushEraser.setTextColor(ContextCompat.getColor(requireContext(), android.R.color.white));
         
         binding.colorPaletteLayout.setAlpha(1.0f);
         enableColorPalette(true);
@@ -359,11 +360,11 @@ public class ImageEditorFragment extends Fragment {
 
     private void selectEraser() {
         binding.drawView.setBrushType(ScrapbookDrawView.BrushType.ERASER);
-        binding.btnBrushEraser.setBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.parseColor("#F44336")));
-        binding.btnBrushEraser.setTextColor(Color.WHITE);
+        binding.btnBrushEraser.setBackgroundResource(R.drawable.bg_editor_chip_active);
+        binding.btnBrushEraser.setTextColor(ContextCompat.getColor(requireContext(), android.R.color.white));
         
-        binding.btnBrushPencil.setBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.parseColor("#EEEEEE")));
-        binding.btnBrushPencil.setTextColor(Color.BLACK);
+        binding.btnBrushPencil.setBackgroundResource(R.drawable.bg_editor_chip);
+        binding.btnBrushPencil.setTextColor(ContextCompat.getColor(requireContext(), android.R.color.white));
 
         binding.colorPaletteLayout.setAlpha(0.3f);
         enableColorPalette(false);
@@ -376,8 +377,14 @@ public class ImageEditorFragment extends Fragment {
     }
 
     private void updateToolButtonStyles() {
-        binding.btnToolMask.setBackgroundColor(isMaskApplied ? Color.parseColor("#4CAF50") : Color.parseColor("#222222"));
-        binding.btnToolDraw.setBackgroundColor(isDrawingMode ? Color.parseColor("#4CAF50") : Color.parseColor("#222222"));
+        binding.btnToolMask.setBackgroundResource(isMaskApplied
+                ? R.drawable.bg_editor_chip_active
+                : R.drawable.bg_editor_chip);
+        binding.btnToolDraw.setBackgroundResource(isDrawingMode
+                ? R.drawable.bg_editor_chip_active
+                : R.drawable.bg_editor_chip);
+        binding.btnToolMask.setTextColor(ContextCompat.getColor(requireContext(), android.R.color.white));
+        binding.btnToolDraw.setTextColor(ContextCompat.getColor(requireContext(), android.R.color.white));
     }
 
     private void setupColorPalette() {

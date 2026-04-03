@@ -30,6 +30,7 @@ import java.util.Locale;
 
 public class MemoryStoryDialogFragment extends DialogFragment {
     private static final String ARG_DATE_TEXT = "date_text";
+    private static final String ARG_CREATED_ATS = "created_ats";
     private static final String ARG_PHOTO_URLS = "photo_urls";
     private static final String ARG_TAGGED_NAMES = "tagged_names";
     private static final long STORY_INTERVAL_MS = 3000L;
@@ -37,6 +38,7 @@ public class MemoryStoryDialogFragment extends DialogFragment {
     private FragmentMemoryStoryDialogBinding binding;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Runnable advanceRunnable = this::advanceStory;
+    private ArrayList<String> createdAts;
     private ArrayList<String> photoUrls;
     private ArrayList<String> taggedNames;
     private String dateText;
@@ -45,16 +47,19 @@ public class MemoryStoryDialogFragment extends DialogFragment {
     public static MemoryStoryDialogFragment newInstance(@NonNull List<TodayMemory> memories, @NonNull String dateText) {
         MemoryStoryDialogFragment fragment = new MemoryStoryDialogFragment();
         Bundle args = new Bundle();
+        ArrayList<String> createdAts = new ArrayList<>();
         ArrayList<String> photoUrls = new ArrayList<>();
         ArrayList<String> taggedNames = new ArrayList<>();
         for (TodayMemory memory : memories) {
             if (memory == null || memory.getPhotoUrl() == null || memory.getPhotoUrl().trim().isEmpty()) {
                 continue;
             }
+            createdAts.add(normalize(memory.getCreatedAt()));
             photoUrls.add(memory.getPhotoUrl());
             taggedNames.add(joinNames(memory.getTaggedUsernames()));
         }
         args.putString(ARG_DATE_TEXT, dateText);
+        args.putStringArrayList(ARG_CREATED_ATS, createdAts);
         args.putStringArrayList(ARG_PHOTO_URLS, photoUrls);
         args.putStringArrayList(ARG_TAGGED_NAMES, taggedNames);
         fragment.setArguments(args);
@@ -72,6 +77,7 @@ public class MemoryStoryDialogFragment extends DialogFragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         Bundle args = getArguments();
+        createdAts = args != null ? args.getStringArrayList(ARG_CREATED_ATS) : new ArrayList<>();
         photoUrls = args != null ? args.getStringArrayList(ARG_PHOTO_URLS) : new ArrayList<>();
         taggedNames = args != null ? args.getStringArrayList(ARG_TAGGED_NAMES) : new ArrayList<>();
         dateText = args != null ? args.getString(ARG_DATE_TEXT) : DateFormat.getDateInstance(DateFormat.MEDIUM, Locale.getDefault()).format(new Date());
@@ -165,7 +171,11 @@ public class MemoryStoryDialogFragment extends DialogFragment {
         if (TextUtils.isEmpty(tagged)) {
             tagged = getString(R.string.memory_story_tagged_empty);
         }
-        binding.tvStoryHeader.setText(getString(R.string.memory_story_meta, dateText, tagged));
+        String storyCreatedAt = createdAts != null && index < createdAts.size() ? createdAts.get(index) : "";
+        if (TextUtils.isEmpty(storyCreatedAt)) {
+            storyCreatedAt = dateText;
+        }
+        binding.tvStoryHeader.setText(getString(R.string.memory_story_meta, storyCreatedAt, tagged));
         binding.tvStoryCounter.setText(String.format(Locale.getDefault(), "%d / %d", index + 1, photoUrls.size()));
         updateProgressIndicators(index);
         scheduleAdvance();
@@ -213,5 +223,9 @@ public class MemoryStoryDialogFragment extends DialogFragment {
             }
         }
         return TextUtils.join(", ", normalized);
+    }
+
+    private static String normalize(@Nullable String value) {
+        return value == null ? "" : value.trim();
     }
 }

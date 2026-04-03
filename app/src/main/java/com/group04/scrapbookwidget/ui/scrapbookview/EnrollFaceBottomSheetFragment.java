@@ -53,6 +53,7 @@ public class EnrollFaceBottomSheetFragment extends BottomSheetDialogFragment {
     private TextView descriptionText;
     
     private OnEnrollmentCompleteListener enrollmentListener;
+    private boolean enrollmentFinalized = false;
     
     @Inject
     FaceEmbeddingManager faceEmbeddingManager;
@@ -125,7 +126,7 @@ public class EnrollFaceBottomSheetFragment extends BottomSheetDialogFragment {
             String initializationError = faceEmbeddingManager.getInitializationError();
             Log.e(TAG, "[ENROLL_UI_ERROR] " + initializationError);
             showError(initializationError);
-            setUIBusy(true);
+            setUIBusy(false);
             return;
         }
         
@@ -235,6 +236,10 @@ public class EnrollFaceBottomSheetFragment extends BottomSheetDialogFragment {
      * Process the captured selfie image for face enrollment.
      */
     private void processSelfieImage(@Nullable Bitmap portrait) {
+        if (enrollmentFinalized) {
+            return;
+        }
+
         if (portrait == null) {
             Log.e(TAG, "[PROCESS_ERROR] Portrait is null");
             showError("Failed to capture image");
@@ -264,6 +269,9 @@ public class EnrollFaceBottomSheetFragment extends BottomSheetDialogFragment {
             new FaceEmbeddingManager.FaceEmbeddingCallback() {
                 @Override
                 public void onEnrollmentSuccess(List<Double> embedding) {
+                    if (enrollmentFinalized) {
+                        return;
+                    }
                     setUIBusy(false);
                     Log.d(TAG, "[PROCESS_ML_SUCCESS] Embedding extracted, size: " + (embedding != null ? embedding.size() : 0));
                     saveEmbeddingToFirestore(embedding);
@@ -271,12 +279,7 @@ public class EnrollFaceBottomSheetFragment extends BottomSheetDialogFragment {
                 
                 @Override
                 public void onEnrollmentError(String error) {
-                    setUIBusy(false);
-                    Log.e(TAG, "[PROCESS_ML_ERROR] " + error);
-                    showError(error);
-                    if (enrollmentListener != null) {
-                        enrollmentListener.onEnrollmentFailed(error);
-                    }
+                    finalizeEnrollmentFailure(error, "[PROCESS_ML_ERROR]");
                 }
             }
         );
@@ -288,13 +291,14 @@ public class EnrollFaceBottomSheetFragment extends BottomSheetDialogFragment {
      * and stores the faceVector on the backend.
      */
     private void saveEmbeddingToFirestore(@NonNull List<Double> faceEmbedding) {
+        if (enrollmentFinalized) {
+            return;
+        }
+
         String userId = getCurrentUserId();
         if (userId == null) {
             Log.e(TAG, "[UPLOAD_ERROR] User ID not available");
-            showError("User ID not available");
-            if (enrollmentListener != null) {
-                enrollmentListener.onEnrollmentFailed("User not authenticated");
-            }
+            finalizeEnrollmentFailure("User not authenticated", "[UPLOAD_ERROR]");
             return;
         }
         
@@ -306,28 +310,17 @@ public class EnrollFaceBottomSheetFragment extends BottomSheetDialogFragment {
             new RepositoryCallback<Void>() {
                 @Override
                 public void onSuccess(Void result) {
-                    setUIBusy(false);
                     Log.d(TAG, "[UPLOAD_SUCCESS] Face embedding saved to server successfully for user: " + userId);
-                    Toast.makeText(requireContext(), 
-                        "Face enrollment complete!", 
-                        Toast.LENGTH_SHORT).show();
-                    
-                    // Notify listener of success
-                    if (enrollmentListener != null) {
-                        enrollmentListener.onEnrollmentComplete(faceEmbedding);
-                    }
-                    
-                    dismiss();
+                    finalizeEnrollmentSuccess(faceEmbedding);
                 }
                 
                 @Override
                 public void onError(Exception error) {
-                    setUIBusy(false);
-                    Log.e(TAG, "[UPLOAD_ERROR] Failed to save embedding to server: " + error.getMessage(), error);
-                    showError("Failed to save enrollment: " + error.getMessage());
-                    if (enrollmentListener != null) {
-                        enrollmentListener.onEnrollmentFailed(error.getMessage());
-                    }
+                    String errorMessage = error != null && error.getMessage() != null
+                            ? error.getMessage()
+                            : "Failed to save enrollment";
+                    Log.e(TAG, "[UPLOAD_ERROR] Failed to save embedding to server: " + errorMessage, error);
+                    finalizeEnrollmentFailure(errorMessage, "[UPLOAD_ERROR]");
                 }
             });
     }
@@ -361,5 +354,33 @@ public class EnrollFaceBottomSheetFragment extends BottomSheetDialogFragment {
      */
     private void showError(@NonNull String message) {
         Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show();
+    }
+
+    private void finalizeEnrollmentSuccess(@NonNull List<Double> faceEmbedding) {
+        if (enrollmentFinalized) {
+            return;
+        }
+
+        enrollmentFinalized = true;
+        setUIBusy(false);
+        Toast.makeText(requireContext(), "Face enrollment complete!", Toast.LENGTH_SHORT).show();
+        if (enrollmentListener != null) {
+            enrollmentListener.onEnrollmentComplete(faceEmbedding);
+        }
+        dismissAllowingStateLoss();
+    }
+
+    private void finalizeEnrollmentFailure(@NonNull String message, @NonNull String logPrefix) {
+        if (enrollmentFinalized) {
+            return;
+        }
+
+        enrollmentFinalized = false;
+        setUIBusy(false);
+        Log.e(TAG, logPrefix + " " + message);
+        showError(message);
+        if (enrollmentListener != null) {
+            enrollmentListener.onEnrollmentFailed(message);
+        }
     }
 }

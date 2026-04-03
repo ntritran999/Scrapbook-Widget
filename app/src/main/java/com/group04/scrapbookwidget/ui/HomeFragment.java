@@ -31,13 +31,13 @@ public class HomeFragment extends Fragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         Bundle args = getArguments();
-        if (args != null) {
+        if (hasScrapbookNavigationArgs(args)) {
             NavHostFragment navHostFragment =
                     (NavHostFragment) getChildFragmentManager().findFragmentById(R.id.home_nav_host_fragment);
-            NavController navController = navHostFragment.getNavController();
-            view.post(() -> {
-                navController.navigate(R.id.scrapbookViewFragment, args);
-            });
+            if (navHostFragment != null) {
+                NavController navController = navHostFragment.getNavController();
+                view.post(() -> navController.navigate(R.id.scrapbookViewFragment, args));
+            }
         }
 
         String userId = getActivity()
@@ -52,5 +52,17 @@ public class HomeFragment extends Fragment {
                              Bundle savedInstanceState) {
         // Inflate the layout for this fragment
         return inflater.inflate(R.layout.fragment_home, container, false);
+    }
+
+    private boolean hasScrapbookNavigationArgs(@Nullable Bundle args) {
+        if (args == null || args.isEmpty()) {
+            return false;
+        }
+
+        return args.containsKey("GROUP_ID")
+                || args.containsKey("PAGE_ID")
+                || args.containsKey("PASTED_IMAGE_PATH")
+                || args.containsKey("CAPTION")
+                || args.containsKey("FACE_EMBEDDINGS");
     }
 }

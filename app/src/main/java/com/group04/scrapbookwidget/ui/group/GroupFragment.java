@@ -20,9 +20,11 @@ import com.group04.scrapbookwidget.R;
 import com.group04.scrapbookwidget.data.model.TodayMemory;
 import com.group04.scrapbookwidget.databinding.FragmentGroupBinding;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
 import javax.inject.Inject;
 
@@ -216,7 +218,8 @@ public class GroupFragment extends Fragment {
     }
 
     private String getTodayDateText() {
-        return DateFormat.getMediumDateFormat(requireContext()).format(new Date());
+        SimpleDateFormat sdf = new SimpleDateFormat("MMM d, yyyy", Locale.ENGLISH);
+        return sdf.format(new Date());
     }
 
     private List<TodayMemory> filterValidMemories(@Nullable List<TodayMemory> memories) {

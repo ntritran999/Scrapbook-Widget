@@ -8,4 +8,7 @@
     <color name="light_blue_600">#FF039BE5</color>
     <color name="light_blue_900">#FF01579B</color>
     <color name="red">#FFFF4444</color>
+    <color name="memory_gold">#FFFFD54F</color>
+    <color name="memory_gold_soft">#FFFFECB3</color>
+    <color name="memory_overlay">#CC050505</color>
 </resources>

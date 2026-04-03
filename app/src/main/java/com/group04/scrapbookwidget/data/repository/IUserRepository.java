@@ -1,5 +1,7 @@
 package com.group04.scrapbookwidget.data.repository;
 
+import androidx.annotation.NonNull;
+
 import com.group04.scrapbookwidget.data.model.Group;
 import com.group04.scrapbookwidget.data.model.User;
 import com.group04.scrapbookwidget.data.service.UserService;
@@ -24,4 +26,5 @@ public interface IUserRepository {
     
     void checkUsername(String username, RepositoryCallback<UserService.UsernameCheckResponse> callback);
     void uploadAvatar(File imageFile, RepositoryCallback<String> callback);
+    void hasUserEnrolledFace(@NonNull String userId, @NonNull RepositoryCallback<Boolean> callback);
 }

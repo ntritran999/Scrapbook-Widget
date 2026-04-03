@@ -63,10 +63,16 @@
     <string name="sign_out">Sign Out</string>
     <string name="delete_account_confirmation">Are you sure you want to delete your account? This action cannot be undone.</string>
     <string name="back">Back</string>
+    <string name="close">Close</string>
 
     <!-- New Settings strings -->
     <string name="edit_photo">Edit Photo</string>
     <string name="edit_profile">Edit Profile</string>
+    <string name="memory_on_date">Memory on %1$s</string>
+    <string name="memory_story_meta">%1$s with %2$s</string>
+    <string name="memory_story_today">Today</string>
+    <string name="memory_story_tagged_empty">your friends</string>
+    <string name="memory_content_description">Memory photo</string>
     <string name="get_locket_gold">Get Scrapbook Premium</string>
     <string name="premium_plan">Get Scrapbook Premium</string>
     <string name="locket_gold_subtitle">Unlock the best of Scrapbook</string>

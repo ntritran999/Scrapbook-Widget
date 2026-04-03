@@ -23,10 +23,12 @@ import okhttp3.Response;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
 
+import java.util.concurrent.TimeUnit;
+
 @Module
 @InstallIn(SingletonComponent.class)
 public class ServiceModule {
-    private final String BASE_URL = "http://10.0.2.2:3000/api/v1/";
+    private final String BASE_URL = "http://192.168.1.8:3000/api/v1/";
 
     @Singleton
     @Provides
@@ -38,6 +40,9 @@ public class ServiceModule {
     @Provides
     public OkHttpClient provideOkHttpClient(FirebaseAuth firebaseAuth) {
         return new OkHttpClient.Builder()
+                .connectTimeout(30, TimeUnit.SECONDS)
+                .readTimeout(30, TimeUnit.SECONDS)
+                .writeTimeout(30, TimeUnit.SECONDS)
                 .addInterceptor(new Interceptor() {
                     @Override
                     public Response intercept(Chain chain) throws IOException {

@@ -20,6 +20,9 @@ import dagger.hilt.android.lifecycle.HiltViewModel;
 public class CompactGroupListViewModel extends ViewModel {
     private final IUserRepository userRepository;
     private final FirebaseAuth auth;
+    private static final String TAG = "CompactGroupListViewModel";
+    private static final int MAX_RETRIES = 3;
+    private int retryCount = 0;
 
     private final MutableLiveData<List<Group>> groupsLiveData = new MutableLiveData<>();
     private final MutableLiveData<String> errorMessage = new MutableLiveData<>();

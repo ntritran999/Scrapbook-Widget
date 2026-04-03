@@ -1,5 +1,7 @@
 package com.group04.scrapbookwidget.data.repository;
 
+import androidx.annotation.Nullable;
+
 import com.google.gson.Gson;
 import com.group04.scrapbookwidget.data.model.Reaction;
 import com.group04.scrapbookwidget.data.model.ScrapbookItem;
@@ -129,9 +131,13 @@ public class ScrapbookRepository implements IScrapbookRepository {
     }
 
     @Override
-    public void addItemWithFile(String groupId, String pageId, String imagePath, ScrapbookItem itemModel, RepositoryCallback<ScrapbookItem> callback) {
+    public void addItemWithFile(String groupId, String pageId, String imagePath, ScrapbookItem itemModel,
+                                @Nullable List<List<Double>> faceEmbeddings,
+                                RepositoryCallback<ScrapbookItem> callback) {
         // logcat
         android.util.Log.d("ScrapbookRepository", "addItemWithFile: start");
+
+        itemModel.setFaceEmbeddings(faceEmbeddings);
 
         String jsonItem = gson.toJson(itemModel);
         RequestBody payloadPart = RequestBody.create(MediaType.parse("application/json"), jsonItem);
@@ -139,6 +145,11 @@ public class ScrapbookRepository implements IScrapbookRepository {
         android.util.Log.d("ScrapbookRepository", "addItemWithFile: " + jsonItem);
 
         File imageFile = new File(imagePath);
+        if (!imageFile.exists()) {
+            callback.onError(new Exception("Image file not found"));
+            return;
+        }
+
         String mimeType = "image/jpeg";
         if (imageFile.getName().toLowerCase().endsWith(".png")) {
             mimeType = "image/png";

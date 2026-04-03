@@ -4,84 +4,140 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/container"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:id="@+id/container"
-        android:background="@android:color/black">
+        android:background="@drawable/bg_editor_screen">
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnBack"
-            style="@style/Widget.Material3.Button.IconButton"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            app:icon="@drawable/ic_back"
-            app:iconTint="@android:color/white"
+        <LinearLayout
+            android:id="@+id/topBar"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:layout_marginTop="16dp"
+            android:layout_marginEnd="16dp"
+            android:background="@drawable/bg_dark_surface_panel"
+            android:gravity="center_vertical"
+            android:minHeight="64dp"
+            android:orientation="horizontal"
+            android:paddingHorizontal="8dp"
+            android:paddingVertical="8dp"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
-            tools:visibility="visible" />
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnBack"
+                style="@style/Widget.Material3.Button.IconButton"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:contentDescription="@string/back"
+                app:icon="@drawable/ic_back"
+                app:iconTint="@android:color/white" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Edit Memory"
+                    android:textColor="@android:color/white"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text="Refine your photo before saving or pasting"
+                    android:textColor="#99FFFFFF"
+                    android:textSize="12sp" />
+            </LinearLayout>
+        </LinearLayout>
 
         <LinearLayout
             android:id="@+id/brushToolsLayout"
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:layout_marginTop="12dp"
+            android:layout_marginEnd="16dp"
+            android:background="@drawable/bg_dark_surface_panel"
+            android:gravity="center"
             android:orientation="horizontal"
-            android:background="@drawable/bg_palette"
-            android:padding="4dp"
+            android:padding="8dp"
             android:visibility="gone"
-            android:layout_marginTop="16dp"
-            android:elevation="4dp"
-            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent">
+            app:layout_constraintTop_toBottomOf="@id/topBar">
 
             <Button
                 android:id="@+id/btnBrushPencil"
-                android:layout_width="80dp"
-                android:layout_height="36dp"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_marginEnd="6dp"
+                android:layout_weight="1"
+                android:background="@drawable/bg_editor_chip_active"
                 android:text="Pencil"
-                android:textSize="12sp"
                 android:textAllCaps="false"
-                android:layout_marginEnd="4dp"
-                android:backgroundTint="#4CAF50"
-                style="@style/Widget.MaterialComponents.Button.UnelevatedButton"
-                app:cornerRadius="18dp"/>
+                android:textColor="@android:color/white"
+                android:textSize="13sp"
+                android:textStyle="bold" />
 
             <Button
                 android:id="@+id/btnBrushEraser"
-                android:layout_width="80dp"
-                android:layout_height="36dp"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_marginStart="6dp"
+                android:layout_weight="1"
+                android:background="@drawable/bg_editor_chip"
                 android:text="Eraser"
-                android:textSize="12sp"
                 android:textAllCaps="false"
-                android:textColor="@android:color/black"
-                android:backgroundTint="#EEEEEE"
-                style="@style/Widget.MaterialComponents.Button.UnelevatedButton"
-                app:cornerRadius="18dp"/>
-
+                android:textColor="@android:color/white"
+                android:textSize="13sp"
+                android:textStyle="bold" />
         </LinearLayout>
 
         <com.group04.scrapbookwidget.ui.camera.ScrapbookMaskView
             android:id="@+id/tornPaperFrame"
             android:layout_width="0dp"
             android:layout_height="0dp"
+            android:layout_marginStart="16dp"
+            android:layout_marginTop="16dp"
+            android:layout_marginEnd="16dp"
+            android:layout_marginBottom="16dp"
+            app:layout_constraintBottom_toTopOf="@id/actionButtonsLayout"
             app:layout_constraintDimensionRatio="1:1"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintBottom_toTopOf="@+id/bottomToolsLayout"
+            app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent">
+            app:layout_constraintTop_toBottomOf="@id/brushToolsLayout">
+
             <FrameLayout
                 android:layout_width="match_parent"
-                android:layout_height="match_parent">
+                android:layout_height="match_parent"
+                android:background="@drawable/bg_dark_surface_card"
+                android:padding="10dp">
+
                 <ImageView
                     android:id="@+id/imgPreview"
-                    android:scaleType="centerCrop"
                     android:layout_width="match_parent"
-                    android:layout_height="match_parent"/>
+                    android:layout_height="match_parent"
+                    android:adjustViewBounds="true"
+                    android:background="@android:color/black"
+                    android:clipToOutline="true"
+                    android:scaleType="centerCrop" />
+
                 <View
                     android:id="@+id/imagePreviewOverlay"
                     android:layout_width="match_parent"
-                    android:layout_height="match_parent"/>
+                    android:layout_height="match_parent" />
             </FrameLayout>
+
             <com.group04.scrapbookwidget.ui.camera.ScrapbookDrawView
                 android:id="@+id/drawView"
                 android:layout_width="match_parent"
@@ -92,84 +148,123 @@
             android:id="@+id/colorPaletteLayout"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center"
-            android:padding="8dp"
-            android:visibility="gone"
-            android:background="@drawable/bg_palette"
             android:layout_marginBottom="12dp"
-            app:layout_constraintBottom_toTopOf="@+id/actionButtonsLayout"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent">
+            android:background="@drawable/bg_dark_surface_panel"
+            android:gravity="center"
+            android:orientation="horizontal"
+            android:paddingHorizontal="10dp"
+            android:paddingVertical="8dp"
+            android:visibility="gone"
+            app:layout_constraintBottom_toTopOf="@id/actionButtonsLayout"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent">
 
-            <View android:id="@+id/colorWhite" android:layout_width="32dp" android:layout_height="32dp" android:layout_margin="6dp" android:background="@drawable/bg_color_circle" android:backgroundTint="@android:color/white" />
-            <View android:id="@+id/colorRed" android:layout_width="32dp" android:layout_height="32dp" android:layout_margin="6dp" android:background="@drawable/bg_color_circle" android:backgroundTint="#F44336" />
-            <View android:id="@+id/colorYellow" android:layout_width="32dp" android:layout_height="32dp" android:layout_margin="6dp" android:background="@drawable/bg_color_circle" android:backgroundTint="#FFEB3B" />
-            <View android:id="@+id/colorGreen" android:layout_width="32dp" android:layout_height="32dp" android:layout_margin="6dp" android:background="@drawable/bg_color_circle" android:backgroundTint="#4CAF50" />
-            <View android:id="@+id/colorBlue" android:layout_width="32dp" android:layout_height="32dp" android:layout_margin="6dp" android:background="@drawable/bg_color_circle" android:backgroundTint="#2196F3" />
-            <View android:id="@+id/colorBlack" android:layout_width="32dp" android:layout_height="32dp" android:layout_margin="6dp" android:background="@drawable/bg_color_circle" android:backgroundTint="#000000" />
-
+            <View android:id="@+id/colorWhite" android:layout_width="30dp" android:layout_height="30dp" android:layout_margin="6dp" android:background="@drawable/bg_color_circle" android:backgroundTint="@android:color/white" />
+            <View android:id="@+id/colorRed" android:layout_width="30dp" android:layout_height="30dp" android:layout_margin="6dp" android:background="@drawable/bg_color_circle" android:backgroundTint="#F44336" />
+            <View android:id="@+id/colorYellow" android:layout_width="30dp" android:layout_height="30dp" android:layout_margin="6dp" android:background="@drawable/bg_color_circle" android:backgroundTint="#FFEB3B" />
+            <View android:id="@+id/colorGreen" android:layout_width="30dp" android:layout_height="30dp" android:layout_margin="6dp" android:background="@drawable/bg_color_circle" android:backgroundTint="#4CAF50" />
+            <View android:id="@+id/colorBlue" android:layout_width="30dp" android:layout_height="30dp" android:layout_margin="6dp" android:background="@drawable/bg_color_circle" android:backgroundTint="#2196F3" />
+            <View android:id="@+id/colorBlack" android:layout_width="30dp" android:layout_height="30dp" android:layout_margin="6dp" android:background="@drawable/bg_color_circle" android:backgroundTint="#000000" />
         </LinearLayout>
 
         <LinearLayout
             android:id="@+id/actionButtonsLayout"
-            android:layout_width="match_parent"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="16dp"
+            android:layout_marginBottom="16dp"
+            android:background="@drawable/bg_dark_surface_panel"
             android:orientation="horizontal"
-            android:paddingHorizontal="32dp"
-            android:paddingVertical="16dp"
-            app:layout_constraintBottom_toTopOf="@+id/bottomToolsLayout"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent">
+            android:padding="10dp"
+            app:layout_constraintBottom_toTopOf="@id/bottomToolsLayout"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent">
 
             <Button
                 android:id="@+id/btnSave"
                 android:layout_width="0dp"
-                android:layout_height="wrap_content"
+                android:layout_height="50dp"
+                android:layout_marginEnd="6dp"
                 android:layout_weight="1"
+                android:background="@drawable/bg_dark_outline_button"
                 android:text="Save"
-                android:layout_marginEnd="8dp" />
+                app:backgroundTint="@null"
+                android:textAllCaps="false"
+                android:textColor="@android:color/white"
+                android:textSize="15sp"
+                android:textStyle="bold" />
 
             <Button
                 android:id="@+id/btnPaste"
                 android:layout_width="0dp"
-                android:layout_height="wrap_content"
+                android:layout_height="50dp"
+                android:layout_marginStart="6dp"
                 android:layout_weight="1"
-                android:text="Paste"
-                android:layout_marginStart="8dp" />
+                android:background="@drawable/bg_gold_gradient_button"
+                android:text="Stick Here"
+                app:backgroundTint="@null"
+                android:textAllCaps="false"
+                android:textColor="@android:color/black"
+                android:textSize="15sp"
+                android:textStyle="bold" />
         </LinearLayout>
 
         <LinearLayout
             android:id="@+id/bottomToolsLayout"
-            android:layout_width="match_parent"
-            android:layout_height="80dp"
-            android:orientation="horizontal"
-            android:background="#222222"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="16dp"
+            android:layout_marginBottom="16dp"
+            android:background="@drawable/bg_dark_surface_panel"
             android:gravity="center"
-            app:layout_constraintBottom_toBottomOf="parent">
+            android:orientation="horizontal"
+            android:padding="10dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent">
 
             <Button
                 android:id="@+id/btnToolMask"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_width="0dp"
+                android:layout_height="44dp"
+                android:layout_marginHorizontal="6dp"
+                android:layout_weight="1"
+                android:background="@drawable/bg_editor_chip"
+                app:backgroundTint="@null"
                 android:text="Mask"
-                android:layout_margin="8dp"/>
+                android:textAllCaps="false"
+                android:textColor="@android:color/white"
+                android:textStyle="bold" />
 
             <Button
                 android:id="@+id/btnToolDraw"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_width="0dp"
+                android:layout_height="44dp"
+                android:layout_marginHorizontal="6dp"
+                android:layout_weight="1"
+                android:background="@drawable/bg_editor_chip"
                 android:text="Draw"
-                android:layout_margin="8dp"/>
+                app:backgroundTint="@null"
+                android:textAllCaps="false"
+                android:textColor="@android:color/white"
+                android:textStyle="bold" />
 
             <Button
                 android:id="@+id/btnToolFilter"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Filter"
+                android:layout_width="0dp"
+                android:layout_height="44dp"
+                android:layout_marginHorizontal="6dp"
+                android:layout_weight="1"
+                android:background="@drawable/bg_editor_chip"
+                app:backgroundTint="@null"
                 android:enabled="false"
-                android:layout_margin="8dp"/>
-
+                android:text="Filter"
+                android:textAllCaps="false"
+                android:textColor="#66FFFFFF"
+                android:textStyle="bold" />
         </LinearLayout>
+
     </androidx.constraintlayout.widget.ConstraintLayout>
 </layout>

@@ -333,4 +333,135 @@ public class UserRepository implements IUserRepository {
         }
         return "image/jpeg"; // Default fallback
     }
+
+    /**
+     * Save face embedding to user profile.
+     * Called during user enrollment process.
+     * The face embedding is extracted locally and sent to the backend for storage.
+     *
+     * @param userId Unique identifier of the user
+     * @param faceEmbedding The extracted face embedding vector (List<Double>)
+     * @param callback Callback for success/error handling
+     */
+    public void saveFaceEmbedding(@NonNull String userId, 
+                                  @NonNull List<Double> faceEmbedding,
+                                  @NonNull RepositoryCallback<Void> callback) {
+        Log.d(TAG, "Saving face embedding for user: " + userId + 
+              ", embedding size: " + faceEmbedding.size());
+        
+        // Create enrollment request with the face embedding
+        UserService.FaceEnrollmentRequest enrollmentRequest = 
+            new UserService.FaceEnrollmentRequest(faceEmbedding);
+        
+        // Send to backend via dedicated enrollment endpoint
+        userService.enrollUserFace(userId, enrollmentRequest)
+            .enqueue(new Callback<UserService.FaceEnrollmentResponse>() {
+                @Override
+                public void onResponse(@NonNull Call<UserService.FaceEnrollmentResponse> call,
+                                      @NonNull Response<UserService.FaceEnrollmentResponse> response) {
+                    if (response.isSuccessful() && response.body() != null) {
+                        UserService.FaceEnrollmentResponse enrollmentResponse = response.body();
+                        boolean enrollmentSucceeded = enrollmentResponse.success
+                                || enrollmentResponse.enrolledAt > 0
+                                || looksLikeSuccessfulEnrollmentMessage(enrollmentResponse.message);
+                        if (enrollmentSucceeded) {
+                            Log.d(TAG, "Face embedding saved successfully for user: " + userId + 
+                                  " at: " + enrollmentResponse.enrolledAt);
+                            callback.onSuccess(null);
+                        } else {
+                            Log.e(TAG, "Backend enrollment failed: " + enrollmentResponse.message);
+                            callback.onError(new Exception("Enrollment failed: " + enrollmentResponse.message));
+                        }
+                    } else {
+                        String errorMsg = "Enrollment request failed: " + response.code();
+                        try {
+                            if (response.errorBody() != null) {
+                                errorMsg += " - " + response.errorBody().string();
+                            }
+                        } catch (Exception e) {
+                            Log.e(TAG, "Error reading error body", e);
+                        }
+                        Log.e(TAG, errorMsg);
+                        callback.onError(new Exception(errorMsg));
+                    }
+                }
+
+                @Override
+                public void onFailure(@NonNull Call<UserService.FaceEnrollmentResponse> call,
+                                     @NonNull Throwable t) {
+                    Log.e(TAG, "Failed to save face embedding for user: " + userId, t);
+                    callback.onError(new Exception("Network error: " + t.getMessage()));
+                }
+            });
+    }
+
+    private boolean looksLikeSuccessfulEnrollmentMessage(String message) {
+        if (message == null) {
+            return false;
+        }
+
+        String normalizedMessage = message.trim().toLowerCase();
+        return normalizedMessage.contains("success")
+                || normalizedMessage.contains("successful")
+                || normalizedMessage.contains("thanh cong")
+                || normalizedMessage.contains("thành công")
+                || normalizedMessage.contains("enroll complete");
+    }
+
+    /**
+     * Retrieve user's face embedding from their profile.
+     * Returns null if face embedding doesn't exist (user not enrolled).
+     *
+     * @param userId Unique identifier of the user
+     * @param callback Callback containing the user with faceVector (may be null)
+     */
+    public void getUserFaceEmbedding(@NonNull String userId,
+                                      @NonNull RepositoryCallback<List<Double>> callback) {
+        Log.d(TAG, "Retrieving face embedding for user: " + userId);
+        
+        getUserById(userId, new RepositoryCallback<User>() {
+            @Override
+            public void onSuccess(User user) {
+                if (user != null && user.getFaceVector() != null && !user.getFaceVector().isEmpty()) {
+                    Log.d(TAG, "Face embedding found for user: " + userId + 
+                          ", embedding size: " + user.getFaceVector().size());
+                    callback.onSuccess(user.getFaceVector());
+                } else {
+                    Log.d(TAG, "No face embedding found for user: " + userId);
+                    callback.onSuccess(null);
+                }
+            }
+
+            @Override
+            public void onError(Exception error) {
+                Log.e(TAG, "Failed to retrieve user face embedding: " + userId, error);
+                callback.onError(error);
+            }
+        });
+    }
+
+    /**
+     * Check if user has already enrolled their face.
+     * Returns true if faceVector exists in user profile.
+     *
+     * @param userId Unique identifier of the user
+     * @param callback Callback with boolean result (true = enrolled, false = not enrolled)
+     */
+    public void hasUserEnrolledFace(@NonNull String userId,
+                                     @NonNull RepositoryCallback<Boolean> callback) {
+        getUserFaceEmbedding(userId, new RepositoryCallback<List<Double>>() {
+            @Override
+            public void onSuccess(List<Double> embedding) {
+                boolean isEnrolled = embedding != null && !embedding.isEmpty();
+                Log.d(TAG, "User " + userId + " face enrollment status: " + isEnrolled);
+                callback.onSuccess(isEnrolled);
+            }
+
+            @Override
+            public void onError(Exception error) {
+                Log.e(TAG, "Error checking face enrollment status", error);
+                callback.onError(error);
+            }
+        });
+    }
 }

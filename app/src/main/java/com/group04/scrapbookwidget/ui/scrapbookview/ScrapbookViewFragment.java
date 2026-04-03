@@ -22,7 +22,15 @@ import android.widget.ImageView;
 import android.widget.Toast;
 
 import com.group04.scrapbookwidget.R;
+import com.group04.scrapbookwidget.data.model.User;
 import com.group04.scrapbookwidget.databinding.FragmentScrapbookViewBinding;
+import com.group04.scrapbookwidget.data.repository.IUserRepository;
+import com.group04.scrapbookwidget.data.repository.RepositoryCallback;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import javax.inject.Inject;
 
 import dagger.hilt.android.AndroidEntryPoint;
 
@@ -35,6 +43,13 @@ public class ScrapbookViewFragment extends Fragment {
     private String userId = "";
 
     private FragmentScrapbookViewBinding binding;
+    
+    @Inject
+    IUserRepository userRepository;
+    
+    private boolean hasCheckedFaceEnrollment = false;
+    private boolean shouldPromptEnrollmentAfterGroupSelection = false;
+    private boolean hasShownEnrollPrompt = false;
     private float dX, dY;
     private ImageView currentPastingView;
     private String pastedImagePath;
@@ -50,6 +65,7 @@ public class ScrapbookViewFragment extends Fragment {
     private float pastedImageScale = 1.0f;
     private float pastedImageZIndex = 10f;
     private String pastedImageCaption = "";
+    private List<List<Double>> pastedFaceEmbeddings;
 
     public ScrapbookViewFragment() {
     }
@@ -64,6 +80,8 @@ public class ScrapbookViewFragment extends Fragment {
             String bundlePageId = bundle.getString("PAGE_ID", "");
             String bundlePastedImagePath = bundle.getString("PASTED_IMAGE_PATH");
             String bundleCaption = bundle.getString("CAPTION", "");
+            hasCheckedFaceEnrollment = bundle.getBoolean("HAS_CHECKED_ENROLLMENT", false);
+            List<List<Double>> bundleFaceEmbeddings = getFaceEmbeddingsFromBundle(bundle);
 
             // Only update if bundle has non-empty values (don't overwrite with empty strings)
             if (!bundleGroupId.isEmpty()) {
@@ -78,6 +96,7 @@ public class ScrapbookViewFragment extends Fragment {
             if (bundleCaption != null) {
                 pastedImageCaption = bundleCaption;
             }
+            pastedFaceEmbeddings = bundleFaceEmbeddings;
 
             // Restore pasting mode flag
             isInPastingMode = bundle.getBoolean("IS_IN_PASTING_MODE", false);
@@ -112,6 +131,7 @@ public class ScrapbookViewFragment extends Fragment {
 
         scrapbookViewModel = new ViewModelProvider(this).get(ScrapbookViewModel.class);
 
+
         // Lưu GROUP_ID, PAGE_ID vào SharedPreferences để ImageEditorFragment dùng
         if (!groupId.isEmpty() && !pageId.isEmpty()) {
             requireActivity().getSharedPreferences(TMP_PREF_NAME, Activity.MODE_PRIVATE)
@@ -132,18 +152,21 @@ public class ScrapbookViewFragment extends Fragment {
             android.util.Log.d("ScrapbookViewFragment", "onViewCreated - LOADING PASTED IMAGE: " + pastedImagePath);
             android.util.Log.d("ScrapbookViewFragment", "onViewCreated - Forcing group selection dialog for pasting mode");
             // Always show group selection dialog when pasting - user must select group each time
+            shouldPromptEnrollmentAfterGroupSelection = true;
             showGroupSelectionDialog();
             return;  // Don't load anything until group is selected
         }
         // If no pasted image, load scrapbook with current group (or show dialog if empty)
         else if (groupId.isEmpty()) {
             android.util.Log.d("ScrapbookViewFragment", "GroupId is empty, showing group selection dialog");
+            shouldPromptEnrollmentAfterGroupSelection = true;
             showGroupSelectionDialog();
         } else {
             // Load scrapbook with current groupId
             android.util.Log.d("ScrapbookViewFragment", "onViewCreated - Loading scrapbook normally");
             scrapbookViewModel.loadScrapbook(groupId, pageId);
             binding.btnSwitchGroup.setVisibility(View.INVISIBLE);
+            maybeCheckFaceEnrollment(false);
         }
     }
 
@@ -151,7 +174,7 @@ public class ScrapbookViewFragment extends Fragment {
         androidx.lifecycle.Observer<Boolean> loaderObserver = state -> {
             boolean isLoadingData = scrapbookViewModel.getIsLoading().getValue() != null && scrapbookViewModel.getIsLoading().getValue();
             boolean isRenderingGL = scrapbookViewModel.getIsRendering().getValue() != null && scrapbookViewModel.getIsRendering().getValue();
-            
+
             if (binding != null) {
                 binding.loadingOverlay.setVisibility((isLoadingData || isRenderingGL) ? View.VISIBLE : View.GONE);
             }
@@ -161,7 +184,7 @@ public class ScrapbookViewFragment extends Fragment {
 
         scrapbookViewModel.getIsRendering().observe(getViewLifecycleOwner(), rendering -> {
             loaderObserver.onChanged(rendering);
-            
+
             if (!rendering && currentPastingView != null && !isInPastingMode) {
                 android.util.Log.d("ScrapbookViewFragment", "Render complete. Removing temporary image safely.");
                 exitPastingMode();
@@ -243,6 +266,8 @@ public class ScrapbookViewFragment extends Fragment {
                 android.util.Log.d("ScrapbookViewFragment", "Group selected - Loading scrapbook normally");
                 scrapbookViewModel.loadScrapbook(groupId, "");
             }
+
+            maybeCheckFaceEnrollment(true);
         });
         dialog.setCancelable(false); // Force user to select a group
         dialog.show(getChildFragmentManager(), "GroupSelectionDialog");
@@ -257,7 +282,7 @@ public class ScrapbookViewFragment extends Fragment {
         isInPastingMode = true;
         binding.cameraBtn.setVisibility(View.INVISIBLE);
         binding.btnConfirmPaste.setVisibility(View.VISIBLE);
-        Toast.makeText(requireContext(), "Ảnh sẵn sàng dán. Kéo, xoay tuỳ ý rồi nhấn Confirm", Toast.LENGTH_SHORT).show();
+        Toast.makeText(requireContext(), "Please patse the image to scrapbook", Toast.LENGTH_SHORT).show();
     }
 
     private void exitPastingMode() {
@@ -418,9 +443,96 @@ public class ScrapbookViewFragment extends Fragment {
         scrapbookViewModel.saveScrapbookItem(
                 finalPageId, pastedImagePath, userId,
                 pastedImageX, pastedImageY, pastedImageWidth, pastedImageHeight,
-                pastedImageRotation, pastedImageScale, pastedImageZIndex, pastedImageCaption
+                pastedImageRotation, pastedImageScale, pastedImageZIndex, pastedImageCaption,
+                pastedFaceEmbeddings
         );
         binding.btnSwitchGroup.setVisibility(View.INVISIBLE);
+    }
+
+    /**
+     * Check if user enroll their face.
+     * Just check once in this view's life cycle.
+     */
+    private void checkFaceEnrollmentStatus() {
+        if (hasCheckedFaceEnrollment || userId == null || userId.isEmpty()) {
+            return;
+        }
+
+        userRepository.hasUserEnrolledFace(userId, new RepositoryCallback<Boolean>() {
+            @Override
+            public void onSuccess(Boolean isEnrolled) {
+                hasCheckedFaceEnrollment = true;
+
+                if (!isEnrolled) {
+                    android.util.Log.d("ScrapbookViewFragment", "User chưa có faceVector, hiển thị prompt...");
+                    showEnrollFacePrompt();
+                } else {
+                    android.util.Log.d("ScrapbookViewFragment", "User ĐÃ CÓ faceVector, bỏ qua prompt.");
+                }
+            }
+
+            @Override
+            public void onError(Exception e) {
+                android.util.Log.e("ScrapbookViewFragment", "Lỗi khi kiểm tra face enrollment", e);
+                // Nếu lỗi mạng, có thể để hasCheckedFaceEnrollment = false để lần sau check lại
+                hasCheckedFaceEnrollment = false;
+            }
+        });
+    }
+
+    private void maybeCheckFaceEnrollment(boolean completedGroupSelection) {
+        if (completedGroupSelection) {
+            shouldPromptEnrollmentAfterGroupSelection = false;
+            checkFaceEnrollmentStatus();
+            return;
+        }
+
+        if (!groupId.isEmpty() && !shouldPromptEnrollmentAfterGroupSelection) {
+            checkFaceEnrollmentStatus();
+        }
+    }
+
+    /**
+     * Display Bottom Sheet to enroll user's face.
+     */
+    private void showEnrollFacePrompt() {
+        if (hasShownEnrollPrompt || !isAdded()) {
+            return;
+        }
+
+        hasShownEnrollPrompt = true;
+        EnrollFaceBottomSheetFragment enrollBottomSheet = EnrollFaceBottomSheetFragment.newInstance();
+
+        enrollBottomSheet.setEnrollmentListener(new EnrollFaceBottomSheetFragment.OnEnrollmentCompleteListener() {
+            @Override
+            public void onEnrollmentComplete(List<Double> faceEmbedding) {
+                Toast.makeText(requireContext(), "Face Setup Complete!.", Toast.LENGTH_SHORT).show();
+            }
+
+            @Override
+            public void onEnrollmentSkipped() {
+                hasShownEnrollPrompt = false;
+                android.util.Log.d("ScrapbookViewFragment", "User skipped face enrollment.");
+            }
+
+            @Override
+            public void onEnrollmentFailed(String errorMessage) {
+                hasShownEnrollPrompt = false;
+                android.util.Log.e("ScrapbookViewFragment", "Face enrollment failed: " + errorMessage);
+            }
+        });
+
+        enrollBottomSheet.show(getChildFragmentManager(), "EnrollFaceBottomSheet");
+    }
+
+    @Nullable
+    @SuppressWarnings("unchecked")
+    private List<List<Double>> getFaceEmbeddingsFromBundle(@NonNull Bundle bundle) {
+        Object serializedEmbeddings = bundle.getSerializable("FACE_EMBEDDINGS");
+        if (serializedEmbeddings instanceof ArrayList<?>) {
+            return new ArrayList<>((ArrayList<ArrayList<Double>>) serializedEmbeddings);
+        }
+        return null;
     }
 
     @SuppressLint("ClickableViewAccessibility")
@@ -454,6 +566,16 @@ public class ScrapbookViewFragment extends Fragment {
         outState.putString("PASTED_IMAGE_PATH", pastedImagePath);
         outState.putBoolean("IS_IN_PASTING_MODE", isInPastingMode);
         outState.putString("CAPTION", pastedImageCaption);
+        outState.putBoolean("HAS_CHECKED_ENROLLMENT", hasCheckedFaceEnrollment);
+        if (pastedFaceEmbeddings != null) {
+            ArrayList<ArrayList<Double>> serializableEmbeddings = new ArrayList<>();
+            for (List<Double> embedding : pastedFaceEmbeddings) {
+                serializableEmbeddings.add(embedding != null ? new ArrayList<>(embedding) : new ArrayList<>());
+            }
+            outState.putSerializable("FACE_EMBEDDINGS", serializableEmbeddings);
+        } else {
+            outState.putSerializable("FACE_EMBEDDINGS", null);
+        }
     }
 
     @Override

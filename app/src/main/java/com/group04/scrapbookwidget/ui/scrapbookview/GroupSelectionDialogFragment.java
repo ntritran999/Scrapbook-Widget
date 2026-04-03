@@ -32,6 +32,8 @@ public class GroupSelectionDialogFragment extends DialogFragment {
     private CompactGroupListViewModel viewModel;
     private GroupSelectionRecyclerAdapter adapter;
     private OnGroupSelectedListener listener;
+    @Nullable
+    private Group pendingSelectedGroup;
 
     public interface OnGroupSelectedListener {
         void onGroupSelected(Group group);
@@ -91,9 +93,7 @@ public class GroupSelectionDialogFragment extends DialogFragment {
                 requireContext(),
                 new ArrayList<>(),
                 group -> {
-                    if (listener != null) {
-                        listener.onGroupSelected(group);
-                    }
+                    pendingSelectedGroup = group;
                     dismiss();
                 }
         );
@@ -129,5 +129,14 @@ public class GroupSelectionDialogFragment extends DialogFragment {
     public void onDestroyView() {
         super.onDestroyView();
         binding = null;
+    }
+
+    @Override
+    public void onDismiss(@NonNull android.content.DialogInterface dialog) {
+        super.onDismiss(dialog);
+        if (listener != null && pendingSelectedGroup != null) {
+            listener.onGroupSelected(pendingSelectedGroup);
+            pendingSelectedGroup = null;
+        }
     }
 }

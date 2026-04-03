@@ -2,8 +2,10 @@ package com.group04.scrapbookwidget.ui.camera;
 
 import android.app.Activity;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Matrix;
 import android.net.Uri;
 import android.os.Bundle;
 import android.view.LayoutInflater;
@@ -13,6 +15,8 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.content.ContextCompat;
+import androidx.exifinterface.media.ExifInterface;
 import androidx.fragment.app.Fragment;
 import androidx.navigation.NavController;
 import androidx.navigation.Navigation;
@@ -21,12 +25,24 @@ import androidx.navigation.fragment.NavHostFragment;
 import com.google.android.material.snackbar.Snackbar;
 import com.group04.scrapbookwidget.R;
 import com.group04.scrapbookwidget.databinding.FragmentImageEditorBinding;
+import com.group04.scrapbookwidget.ml.FaceEmbeddingManager;
 import com.group04.scrapbookwidget.ui.scrapbookview.CaptionInputDialogFragment;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
 
+import javax.inject.Inject;
+
+import dagger.hilt.android.AndroidEntryPoint;
+
+@AndroidEntryPoint
 public class ImageEditorFragment extends Fragment {
+    private static final String FACE_EMBEDDINGS_KEY = "FACE_EMBEDDINGS";
 
     private FragmentImageEditorBinding binding;
     private String photoPath;
@@ -38,6 +54,14 @@ public class ImageEditorFragment extends Fragment {
     private String pageId = "";
     private String currentCaption = "";
     private String pendingImagePath = "";
+    
+    @Inject
+    FaceEmbeddingManager faceEmbeddingManager;
+    
+    private boolean isExtractingFaces = false;
+    private boolean hasStartedFaceExtraction = false;
+    private boolean shouldNavigateAfterFaceExtraction = false;
+    private ArrayList<ArrayList<Double>> pendingFaceEmbeddings;
 
     private boolean saveToGallery(String cachedPhotoPath) {
         if (cachedPhotoPath == null) {
@@ -82,11 +106,22 @@ public class ImageEditorFragment extends Fragment {
         if (getArguments() != null) {
             photoPath = getArguments().getString("PHOTO_PATH");
         }
+        if (savedInstanceState != null) {
+            pendingImagePath = savedInstanceState.getString("PASTED_IMAGE_PATH", "");
+            currentCaption = savedInstanceState.getString("CAPTION", "");
+            Serializable serializedEmbeddings = savedInstanceState.getSerializable(FACE_EMBEDDINGS_KEY);
+            if (serializedEmbeddings instanceof ArrayList<?>) {
+                //noinspection unchecked
+                pendingFaceEmbeddings = (ArrayList<ArrayList<Double>>) serializedEmbeddings;
+            }
+        }
         
         groupId = requireActivity().getSharedPreferences(PREF_NAME, Activity.MODE_PRIVATE)
                 .getString("CURRENT_GROUP_ID", "");
         pageId = requireActivity().getSharedPreferences(PREF_NAME, Activity.MODE_PRIVATE)
                 .getString("CURRENT_PAGE_ID", "");
+
+        // FaceEmbeddingManager is injected by Hilt and already initialized
     }
 
     @Override
@@ -151,6 +186,8 @@ public class ImageEditorFragment extends Fragment {
             Navigation.findNavController(requireView()).navigate(R.id.cameraFragment);
         });
 
+        startFaceExtractionIfNeeded();
+
         return binding.getRoot();
     }
 
@@ -189,16 +226,75 @@ public class ImageEditorFragment extends Fragment {
             @Override
             public void onCaptionConfirmed(String caption) {
                 currentCaption = caption;
-                navigateToScrapbook();
+                continueToScrapbookWhenFaceExtractionReady();
             }
 
             @Override
             public void onCaptionCancelled() {
                 currentCaption = "";
-                navigateToScrapbook();
+                continueToScrapbookWhenFaceExtractionReady();
             }
         });
         captionDialog.show(getChildFragmentManager(), "CaptionInputDialog");
+    }
+
+    private void startFaceExtractionIfNeeded() {
+        if (hasStartedFaceExtraction || pendingFaceEmbeddings != null) {
+            return;
+        }
+
+        if (photoPath == null || photoPath.isEmpty()) {
+            return;
+        }
+
+        Bitmap sourceBitmap = loadBitmapForFaceExtraction(photoPath);
+        if (sourceBitmap == null) {
+            android.util.Log.e("ImageEditorFragment", "Could not decode source photo for face extraction");
+            return;
+        }
+
+        hasStartedFaceExtraction = true;
+        isExtractingFaces = true;
+
+        faceEmbeddingManager.extractFacesFromPhoto(sourceBitmap, new FaceEmbeddingManager.GroupPhotoCallback() {
+            @Override
+            public void onFacesExtracted(List<List<Double>> embeddings) {
+                sourceBitmap.recycle();
+                pendingFaceEmbeddings = toSerializableEmbeddings(embeddings);
+                android.util.Log.d("ImageEditorFragment", "onFacesExtracted: faces=" + (embeddings != null ? embeddings.size() : "null"));
+                finishFaceExtraction();
+            }
+
+            @Override
+            public void onExtractionError(String error) {
+                sourceBitmap.recycle();
+                pendingFaceEmbeddings = null;
+                android.util.Log.e("ImageEditorFragment", "extractFacesFromPhoto failed: " + error);
+                finishFaceExtraction();
+            }
+        });
+    }
+
+    private void continueToScrapbookWhenFaceExtractionReady() {
+        if (!hasStartedFaceExtraction) {
+            startFaceExtractionIfNeeded();
+        }
+
+        if (isExtractingFaces) {
+            shouldNavigateAfterFaceExtraction = true;
+            Toast.makeText(getContext(), "Analyzing faces...", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        navigateToScrapbook();
+    }
+
+    private void finishFaceExtraction() {
+        isExtractingFaces = false;
+        if (shouldNavigateAfterFaceExtraction) {
+            shouldNavigateAfterFaceExtraction = false;
+            navigateToScrapbook();
+        }
     }
 
     private void navigateToScrapbook() {
@@ -212,6 +308,7 @@ public class ImageEditorFragment extends Fragment {
             bundle.putString("GROUP_ID", groupId);
             bundle.putString("PAGE_ID", pageId);
             bundle.putString("CAPTION", currentCaption);
+            bundle.putSerializable(FACE_EMBEDDINGS_KEY, pendingFaceEmbeddings);
 
             android.util.Log.d("ImageEditorFragment", "Navigate with - groupId: " + groupId + ", pageId: " + pageId + ", caption: " + currentCaption);
 
@@ -251,11 +348,11 @@ public class ImageEditorFragment extends Fragment {
 
     private void selectPencil() {
         binding.drawView.setBrushType(ScrapbookDrawView.BrushType.PENCIL);
-        binding.btnBrushPencil.setBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.parseColor("#4CAF50")));
-        binding.btnBrushPencil.setTextColor(Color.WHITE);
+        binding.btnBrushPencil.setBackgroundResource(R.drawable.bg_editor_chip_active);
+        binding.btnBrushPencil.setTextColor(ContextCompat.getColor(requireContext(), android.R.color.white));
         
-        binding.btnBrushEraser.setBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.parseColor("#EEEEEE")));
-        binding.btnBrushEraser.setTextColor(Color.BLACK);
+        binding.btnBrushEraser.setBackgroundResource(R.drawable.bg_editor_chip);
+        binding.btnBrushEraser.setTextColor(ContextCompat.getColor(requireContext(), android.R.color.white));
         
         binding.colorPaletteLayout.setAlpha(1.0f);
         enableColorPalette(true);
@@ -263,11 +360,11 @@ public class ImageEditorFragment extends Fragment {
 
     private void selectEraser() {
         binding.drawView.setBrushType(ScrapbookDrawView.BrushType.ERASER);
-        binding.btnBrushEraser.setBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.parseColor("#F44336")));
-        binding.btnBrushEraser.setTextColor(Color.WHITE);
+        binding.btnBrushEraser.setBackgroundResource(R.drawable.bg_editor_chip_active);
+        binding.btnBrushEraser.setTextColor(ContextCompat.getColor(requireContext(), android.R.color.white));
         
-        binding.btnBrushPencil.setBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.parseColor("#EEEEEE")));
-        binding.btnBrushPencil.setTextColor(Color.BLACK);
+        binding.btnBrushPencil.setBackgroundResource(R.drawable.bg_editor_chip);
+        binding.btnBrushPencil.setTextColor(ContextCompat.getColor(requireContext(), android.R.color.white));
 
         binding.colorPaletteLayout.setAlpha(0.3f);
         enableColorPalette(false);
@@ -280,8 +377,14 @@ public class ImageEditorFragment extends Fragment {
     }
 
     private void updateToolButtonStyles() {
-        binding.btnToolMask.setBackgroundColor(isMaskApplied ? Color.parseColor("#4CAF50") : Color.parseColor("#222222"));
-        binding.btnToolDraw.setBackgroundColor(isDrawingMode ? Color.parseColor("#4CAF50") : Color.parseColor("#222222"));
+        binding.btnToolMask.setBackgroundResource(isMaskApplied
+                ? R.drawable.bg_editor_chip_active
+                : R.drawable.bg_editor_chip);
+        binding.btnToolDraw.setBackgroundResource(isDrawingMode
+                ? R.drawable.bg_editor_chip_active
+                : R.drawable.bg_editor_chip);
+        binding.btnToolMask.setTextColor(ContextCompat.getColor(requireContext(), android.R.color.white));
+        binding.btnToolDraw.setTextColor(ContextCompat.getColor(requireContext(), android.R.color.white));
     }
 
     private void setupColorPalette() {
@@ -291,6 +394,115 @@ public class ImageEditorFragment extends Fragment {
         binding.colorGreen.setOnClickListener(v -> binding.drawView.changeColor(Color.parseColor("#4CAF50")));
         binding.colorBlue.setOnClickListener(v -> binding.drawView.changeColor(Color.parseColor("#2196F3")));
         binding.colorBlack.setOnClickListener(v -> binding.drawView.changeColor(Color.BLACK));
+    }
+
+    @Nullable
+    private Bitmap loadBitmapForFaceExtraction(@Nullable String path) {
+        if (path == null || path.isEmpty()) {
+            return null;
+        }
+
+        try {
+            BitmapFactory.Options options = new BitmapFactory.Options();
+            options.inPreferredConfig = Bitmap.Config.ARGB_8888;
+
+            Uri uri = Uri.parse(path);
+            Bitmap bitmap;
+            if (uri.getScheme() != null) {
+                try (InputStream inputStream = requireContext().getContentResolver().openInputStream(uri)) {
+                    bitmap = inputStream != null ? BitmapFactory.decodeStream(inputStream, null, options) : null;
+                }
+            } else {
+                bitmap = BitmapFactory.decodeFile(path, options);
+            }
+
+            if (bitmap == null) {
+                return null;
+            }
+
+            int exifRotation = readExifRotation(path);
+            return exifRotation == 0 ? bitmap : rotateBitmap(bitmap, exifRotation);
+        } catch (Exception e) {
+            android.util.Log.e("ImageEditorFragment", "loadBitmapForFaceExtraction failed: " + e.getMessage(), e);
+            return null;
+        }
+    }
+
+    private int readExifRotation(@NonNull String path) {
+        try {
+            Uri uri = Uri.parse(path);
+            ExifInterface exifInterface;
+            if (uri.getScheme() != null) {
+                try (InputStream inputStream = requireContext().getContentResolver().openInputStream(uri)) {
+                    if (inputStream == null) {
+                        return 0;
+                    }
+                    exifInterface = new ExifInterface(inputStream);
+                }
+            } else {
+                try (InputStream inputStream = new FileInputStream(path)) {
+                    exifInterface = new ExifInterface(inputStream);
+                }
+            }
+
+            int orientation = exifInterface.getAttributeInt(
+                    ExifInterface.TAG_ORIENTATION,
+                    ExifInterface.ORIENTATION_NORMAL
+            );
+            switch (orientation) {
+                case ExifInterface.ORIENTATION_ROTATE_90:
+                    return 90;
+                case ExifInterface.ORIENTATION_ROTATE_180:
+                    return 180;
+                case ExifInterface.ORIENTATION_ROTATE_270:
+                    return 270;
+                default:
+                    return 0;
+            }
+        } catch (Exception e) {
+            android.util.Log.w("ImageEditorFragment", "Could not read EXIF rotation for face extraction", e);
+            return 0;
+        }
+    }
+
+    @NonNull
+    private Bitmap rotateBitmap(@NonNull Bitmap bitmap, int rotation) {
+        Matrix matrix = new Matrix();
+        matrix.postRotate(rotation);
+        Bitmap rotatedBitmap = Bitmap.createBitmap(
+                bitmap,
+                0,
+                0,
+                bitmap.getWidth(),
+                bitmap.getHeight(),
+                matrix,
+                true
+        );
+        if (rotatedBitmap != bitmap) {
+            bitmap.recycle();
+        }
+        return rotatedBitmap;
+    }
+
+    @Nullable
+    private ArrayList<ArrayList<Double>> toSerializableEmbeddings(@Nullable List<List<Double>> embeddings) {
+        if (embeddings == null) {
+            return null;
+        }
+
+        ArrayList<ArrayList<Double>> serializableEmbeddings = new ArrayList<>();
+        for (List<Double> embedding : embeddings) {
+            serializableEmbeddings.add(embedding != null ? new ArrayList<>(embedding) : new ArrayList<>());
+        }
+        return serializableEmbeddings;
+    }
+
+    @Override
+    public void onSaveInstanceState(@NonNull Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putString("PASTED_IMAGE_PATH", pendingImagePath);
+        outState.putString("CAPTION", currentCaption);
+        outState.putSerializable(FACE_EMBEDDINGS_KEY, pendingFaceEmbeddings);
     }
 
     @Override

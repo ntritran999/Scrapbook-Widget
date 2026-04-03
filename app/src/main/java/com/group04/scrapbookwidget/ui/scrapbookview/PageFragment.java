@@ -34,6 +34,9 @@ public class PageFragment extends Fragment {
     private boolean isBitmapPreparing = false;
     private static final long BITMAP_PREPARE_DEBOUNCE_MS = 200;
     private final ExecutorService bitmapExecutor = Executors.newSingleThreadExecutor();
+    private static final String TAG = "ScrapbookLoader";
+    private long renderStartTime = 0;
+    private long scrapbookLoadStartTime = 0;
 
     public PageFragment() {}
 
@@ -54,7 +57,9 @@ public class PageFragment extends Fragment {
         scrapbookViewModel = new ViewModelProvider(requireParentFragment()).get(ScrapbookViewModel.class);
         scrapbookViewModel.getPagesLiveData().observe(getViewLifecycleOwner(), pages -> {
             if (pages != null && !pages.isEmpty()) {
-                android.util.Log.d("PageFragment", "onViewCreated: Pages not empty, calling debouncedPrepareBitmaps");
+                android.util.Log.d(TAG, "onViewCreated: Pages not empty, calling debouncedPrepareBitmaps");
+                android.util.Log.d(TAG, "[RENDER_PIPELINE_START] Starting render preparation for page");
+                renderStartTime = System.currentTimeMillis();
                 // Debounce bitmap preparation to avoid frequent rendering
                 debouncedPrepareBitmaps(pages, scrapbookViewModel.getPageIndex());
 
@@ -91,23 +96,23 @@ public class PageFragment extends Fragment {
      * This prevents ANR when multiple images are pasted or reloaded rapidly.
      */
     private void debouncedPrepareBitmaps(List<ScrapbookPageData> data, int page) {
-        android.util.Log.d("PageFragment", "debouncedPrepareBitmaps: Called with " + (data != null ? data.size() : "null") + " pages, current page=" + page);
+        android.util.Log.d(TAG, "debouncedPrepareBitmaps: Called with " + (data != null ? data.size() : "null") + " pages, current page=" + page);
 
         // Skip if already preparing bitmaps
         if (isBitmapPreparing) {
-            android.util.Log.d("PageFragment", "debouncedPrepareBitmaps: Already preparing, skipping");
+            android.util.Log.d(TAG, "debouncedPrepareBitmaps: Already preparing, skipping");
             return;
         }
 
         // Remove any pending prepare task
         if (pendingPrepareBitmapsRunnable != null) {
             mainHandler.removeCallbacks(pendingPrepareBitmapsRunnable);
-            android.util.Log.d("PageFragment", "debouncedPrepareBitmaps: Removed pending prepare task");
+            android.util.Log.d(TAG, "debouncedPrepareBitmaps: Removed pending prepare task");
         }
 
         // Create the debounced task
         pendingPrepareBitmapsRunnable = () -> {
-            android.util.Log.d("PageFragment", "debouncedPrepareBitmaps: Executing debounced prepare task");
+            android.util.Log.d(TAG, "debouncedPrepareBitmaps: Executing debounced prepare task");
             prepareBitmaps(data, page);
             pendingPrepareBitmapsRunnable = null;
         };
@@ -117,7 +122,7 @@ public class PageFragment extends Fragment {
     }
 
     private void prepareBitmaps(List<ScrapbookPageData> data, int page) {
-        android.util.Log.d("PageFragment", "prepareBitmaps: Starting bitmap preparation for page " + page);
+        android.util.Log.d(TAG, "[RENDER_PREPARE_START] Preparing bitmaps for page " + page);
 
         // Notify ViewModel about the currently rendering page
         scrapbookViewModel.setCurrentDisplayingPageIndex(page);
@@ -127,26 +132,35 @@ public class PageFragment extends Fragment {
 
         mainHandler.post(() -> scrapbookViewModel.getIsRendering().setValue(true));
 
+        long bitmapPrepareStart = System.currentTimeMillis();
+        
         // Use single-threaded executor to avoid thread pile-up
         bitmapExecutor.execute(() -> {
             try {
-                android.util.Log.d("PageFragment", "prepareBitmaps: Calling PageBuilder.buildPages on background thread");
+                android.util.Log.d(TAG, "[BITMAP_BUILD_PROCESS] Calling PageBuilder.buildPages on background thread");
                 PageResources resources = PageBuilder.buildPages(getContext(), data);
 
-                android.util.Log.d("PageFragment", "prepareBitmaps: PageBuilder.buildPages completed, posting render update to GL thread");
+                long bitmapPrepareDuration = System.currentTimeMillis() - bitmapPrepareStart;
+                android.util.Log.d(TAG, "[BITMAP_PREPARE_COMPLETE] Bitmap preparation completed in " + bitmapPrepareDuration + "ms");
+                android.util.Log.d(TAG, "[RENDER_QUEUE_START] Queuing render update to GL thread");
 
                 pageCurlView.queueEvent(() -> {
                     pageCurlView.getPageRenderer().updatePageResources(resources);
                     pageCurlView.requestRender();
-                    android.util.Log.d("PageFragment", "prepareBitmaps: Render requested");
+                    long renderTotalTime = System.currentTimeMillis() - renderStartTime;
+                    android.util.Log.d(TAG, "[RENDER_COMPLETE] Page render completed in " + renderTotalTime + "ms (total from start)");
+                    android.util.Log.d(TAG, "[UX_STRATEGY_SUMMARY] ✓ Strategy 1: Thumbnail loading (10% quality) ✓ Strategy 2: Shimmer skeleton UI ✓ Strategy 3: Image downsampling to screen size");
                     isBitmapPreparing = false;
 
                     mainHandler.post(() -> scrapbookViewModel.getIsRendering().setValue(false));
                 });
             } catch (ExecutionException | InterruptedException e) {
-                android.util.Log.e("PageFragment", "prepareBitmaps: Exception - " + e.getMessage());
+                android.util.Log.e(TAG, "[RENDER_ERROR] Exception during bitmap preparation: " + e.getMessage());
                 e.printStackTrace();
                 isBitmapPreparing = false;
+
+                long failDuration = System.currentTimeMillis() - renderStartTime;
+                android.util.Log.d(TAG, "[RENDER_FAIL] Render failed after " + failDuration + "ms");
 
                 mainHandler.post(() -> scrapbookViewModel.getIsRendering().setValue(false));
                 requireActivity().runOnUiThread(() -> {

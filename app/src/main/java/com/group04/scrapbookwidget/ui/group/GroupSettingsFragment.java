@@ -134,6 +134,19 @@ public class GroupSettingsFragment extends Fragment {
             Navigation.findNavController(v).navigate(R.id.action_groupSettingsFragment_to_inviteUserFragment, args);
         });
 
+        binding.btnShareInviteLink.getRoot().setOnClickListener(v ->
+                viewModel.getInviteLink(groupId, new GroupSettingsViewModel.InviteLinkCallback() {
+                    @Override
+                    public void onSuccess(String inviteLink) {
+                        shareInviteLink(inviteLink);
+                    }
+
+                    @Override
+                    public void onError(String message) {
+                        Toast.makeText(getContext(), message, Toast.LENGTH_SHORT).show();
+                    }
+                }));
+
         // Show popups instead of dialogs
         binding.tvGroupName.setOnClickListener(v -> {
             if (Boolean.TRUE.equals(viewModel.isAdmin().getValue())) {
@@ -152,6 +165,14 @@ public class GroupSettingsFragment extends Fragment {
         binding.btnManageInvitations.getRoot().setOnClickListener(v -> {
             Toast.makeText(getContext(), "Manage invitations not implemented yet", Toast.LENGTH_SHORT).show();
         });
+    }
+
+    private void shareInviteLink(String inviteLink) {
+        Intent shareIntent = new Intent(Intent.ACTION_SEND);
+        shareIntent.setType("text/plain");
+        shareIntent.putExtra(Intent.EXTRA_TEXT,
+                getString(R.string.invite_link_share_message, inviteLink));
+        startActivity(Intent.createChooser(shareIntent, getString(R.string.share_invite_link)));
     }
 
     private void setupPopupListeners() {

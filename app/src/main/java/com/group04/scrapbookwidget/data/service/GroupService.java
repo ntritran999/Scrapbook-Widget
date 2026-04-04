@@ -2,6 +2,9 @@ package com.group04.scrapbookwidget.data.service;
 
 import com.group04.scrapbookwidget.data.model.Group;
 import com.group04.scrapbookwidget.data.model.Invitation;
+import com.group04.scrapbookwidget.data.model.InviteLinkResponse;
+import com.group04.scrapbookwidget.data.model.JoinByLinkRequest;
+import com.group04.scrapbookwidget.data.model.JoinByLinkResponse;
 import com.group04.scrapbookwidget.data.model.LeaveGroupResponse;
 import com.group04.scrapbookwidget.data.model.Message;
 import com.group04.scrapbookwidget.data.model.Reaction;
@@ -68,6 +71,12 @@ public interface GroupService {
 
     @POST("groups/{groupId}/invitations")
     Call<Void> inviteUser(@Path("groupId") String groupId, @Body Map<String, String> body);
+
+    @GET("groups/{groupId}/invite-link")
+    Call<InviteLinkResponse> getInviteLink(@Path("groupId") String groupId);
+
+    @POST("groups/join-by-link")
+    Call<JoinByLinkResponse> joinByLink(@Body JoinByLinkRequest body);
 
     @PUT("groups/{groupId}/members/{userId}")
     Call<Void> addMemberDirectly(@Path("groupId") String groupId, @Path("userId") String userId);

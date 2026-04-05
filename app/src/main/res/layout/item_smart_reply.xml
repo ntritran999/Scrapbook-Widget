@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TextView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/tvSmartReply"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:layout_marginEnd="8dp"
+    android:background="@drawable/bg_smart_reply_chip"
+    android:ellipsize="end"
+    android:maxLines="1"
+    android:paddingHorizontal="16dp"
+    android:paddingVertical="10dp"
+    android:textColor="@android:color/white"
+    android:textSize="14sp"
+    android:textStyle="bold"
+    tools:text="Sounds good!"
+    xmlns:tools="http://schemas.android.com/tools" />

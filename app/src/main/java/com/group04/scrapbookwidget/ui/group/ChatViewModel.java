@@ -9,14 +9,20 @@ import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.ViewModel;
 
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.mlkit.nl.smartreply.SmartReply;
+import com.google.mlkit.nl.smartreply.SmartReplyGenerator;
+import com.google.mlkit.nl.smartreply.SmartReplySuggestion;
+import com.google.mlkit.nl.smartreply.TextMessage;
 import com.google.gson.Gson;
 import com.group04.scrapbookwidget.data.model.Message;
 import com.group04.scrapbookwidget.data.model.TodayMemory;
 import com.group04.scrapbookwidget.data.service.GroupService;
 
+import java.time.Instant;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -38,6 +44,7 @@ public class ChatViewModel extends ViewModel {
     private final FirebaseAuth auth;
     private final Gson gson = new Gson();
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    private final SmartReplyGenerator smartReply = SmartReply.getClient();
 
     private final MutableLiveData<List<Message>> _messages = new MutableLiveData<>(new ArrayList<>());
     public LiveData<List<Message>> getMessages() { return _messages; }
@@ -50,6 +57,9 @@ public class ChatViewModel extends ViewModel {
 
     private final MutableLiveData<List<TodayMemory>> _todayMemories = new MutableLiveData<>(new ArrayList<>());
     public LiveData<List<TodayMemory>> getTodayMemories() { return _todayMemories; }
+
+    private final MutableLiveData<List<String>> suggestedReplies = new MutableLiveData<>(Collections.emptyList());
+    public LiveData<List<String>> getSuggestedReplies() { return suggestedReplies; }
 
     private String currentGroupId;
     private Thread streamThread;
@@ -264,6 +274,64 @@ public class ChatViewModel extends ViewModel {
         });
     }
 
+    public void generateReplies(List<Message> recentMessages, String currentUserId) {
+        if (recentMessages == null || recentMessages.isEmpty() || currentUserId == null || currentUserId.trim().isEmpty()) {
+            suggestedReplies.setValue(Collections.emptyList());
+            return;
+        }
+
+        int startIndex = Math.max(recentMessages.size() - 10, 0);
+        List<TextMessage> conversation = new ArrayList<>();
+        for (int i = startIndex; i < recentMessages.size(); i++) {
+            Message message = recentMessages.get(i);
+            if (message == null) {
+                continue;
+            }
+
+            String content = message.getContent();
+            String senderId = resolveSenderId(message);
+            if (content == null || content.trim().isEmpty() || senderId == null || senderId.trim().isEmpty()) {
+                continue;
+            }
+
+            long timestamp = parseTimestamp(message);
+            if (currentUserId.equals(senderId)) {
+                conversation.add(TextMessage.createForLocalUser(content, timestamp));
+            } else {
+                conversation.add(TextMessage.createForRemoteUser(content, timestamp, senderId));
+            }
+        }
+
+        if (conversation.isEmpty()) {
+            suggestedReplies.setValue(Collections.emptyList());
+            return;
+        }
+
+        smartReply.suggestReplies(conversation)
+                .addOnSuccessListener(result -> {
+                    if (result == null || result.getStatus() != 0 || result.getSuggestions() == null || result.getSuggestions().isEmpty()) {
+                        suggestedReplies.setValue(Collections.emptyList());
+                        return;
+                    }
+
+                    List<String> replies = new ArrayList<>();
+                    for (SmartReplySuggestion suggestion : result.getSuggestions()) {
+                        if (suggestion != null && suggestion.getText() != null && !suggestion.getText().trim().isEmpty()) {
+                            replies.add(suggestion.getText());
+                        }
+                    }
+                    suggestedReplies.setValue(replies);
+                })
+                .addOnFailureListener(error -> {
+                    Log.w(TAG, "Failed to generate smart replies", error);
+                    suggestedReplies.setValue(Collections.emptyList());
+                });
+    }
+
+    public void clearSuggestedReplies() {
+        suggestedReplies.setValue(Collections.emptyList());
+    }
+
     private void startMessageStream() {
         if (isStreaming) stopMessageStream();
         isStreaming = true;
@@ -373,9 +441,43 @@ public class ChatViewModel extends ViewModel {
     protected void onCleared() {
         super.onCleared();
         stopMessageStream();
+        smartReply.close();
     }
 
     private String safe(String value) {
         return value == null || value.trim().isEmpty() ? "<empty>" : value;
+    }
+
+    private String resolveSenderId(Message message) {
+        if (message == null) {
+            return null;
+        }
+        if (message.getCreatedBy() != null && !message.getCreatedBy().trim().isEmpty()) {
+            return message.getCreatedBy();
+        }
+        return message.getSenderId();
+    }
+
+    private long parseTimestamp(Message message) {
+        if (message == null) {
+            return System.currentTimeMillis();
+        }
+
+        String rawTimestamp = message.getCreatedAt();
+        if (rawTimestamp == null || rawTimestamp.trim().isEmpty()) {
+            return System.currentTimeMillis();
+        }
+
+        try {
+            return Instant.parse(rawTimestamp).toEpochMilli();
+        } catch (Exception ignored) {
+        }
+
+        try {
+            return Long.parseLong(rawTimestamp);
+        } catch (NumberFormatException ignored) {
+        }
+
+        return System.currentTimeMillis();
     }
 }

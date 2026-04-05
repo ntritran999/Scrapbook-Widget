@@ -104,9 +104,25 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         app:layout_constraintTop_toBottomOf="@+id/memoryBannerCard"
-        app:layout_constraintBottom_toTopOf="@+id/inputLayout"
+        app:layout_constraintBottom_toTopOf="@+id/rvSmartReplies"
         tools:itemCount="4"
         tools:listitem="@layout/item_chat_message" />
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rvSmartReplies"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="12dp"
+        android:layout_marginEnd="12dp"
+        android:layout_marginBottom="8dp"
+        android:overScrollMode="never"
+        android:visibility="gone"
+        app:layout_constraintBottom_toTopOf="@+id/inputLayout"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        tools:itemCount="3"
+        tools:listitem="@layout/item_smart_reply"
+        tools:visibility="visible" />
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/inputLayout"

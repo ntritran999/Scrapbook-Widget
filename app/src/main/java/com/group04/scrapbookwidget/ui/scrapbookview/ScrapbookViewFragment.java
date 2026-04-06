@@ -13,6 +13,7 @@ import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.Navigation;
 
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
@@ -400,8 +401,7 @@ public class ScrapbookViewFragment extends Fragment {
         String finalPageId = (currentPageId != null && !currentPageId.isEmpty()) ? currentPageId : pageId;
 
         if (finalPageId == null || finalPageId.isEmpty()) {
-            Toast.makeText(requireContext(), "Invalid page", Toast.LENGTH_SHORT).show();
-            android.util.Log.e("ScrapbookViewFragment", "confirmPastedImage: Invalid pageId");
+            showBackgroundSelectionDialog();
             isInPastingMode = true;  // Restore flag since confirmation failed
             return;
         }
@@ -559,6 +559,15 @@ public class ScrapbookViewFragment extends Fragment {
             }
             return true;
         });
+    }
+
+    private void showBackgroundSelectionDialog() {
+        BackgroundSelectionDialogFragment dialog = new BackgroundSelectionDialogFragment();
+        dialog.setOnBackgroundSelectListener(url -> {
+            scrapbookViewModel.createScrapbookPage(url);
+        });
+        dialog.setCancelable(false);
+        dialog.show(getChildFragmentManager(), BackgroundSelectionDialogFragment.TAG);
     }
 
     @Override

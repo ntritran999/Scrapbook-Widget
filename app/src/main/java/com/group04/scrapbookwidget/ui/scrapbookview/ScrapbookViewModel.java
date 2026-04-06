@@ -2,6 +2,7 @@ package com.group04.scrapbookwidget.ui.scrapbookview;
 
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Log;
 import android.widget.Toast;
 
 import androidx.annotation.Nullable;
@@ -30,7 +31,7 @@ public class ScrapbookViewModel extends ViewModel {
 
     private int pageIndex = 0;
     private String groupId;
-    
+    private String defaultPageId;
     private final MutableLiveData<List<ScrapbookPageData>> pagesLiveData = new MutableLiveData<>();
     private final MutableLiveData<Boolean> isLoading = new MutableLiveData<>();
     private final MutableLiveData<String> errorMessage = new MutableLiveData<>();
@@ -106,25 +107,19 @@ public class ScrapbookViewModel extends ViewModel {
             @Override
             public void onSuccess(List<ScrapbookPage> pages) {
                 if (pages == null || pages.isEmpty()) {
-                    // Automatically create first page for a new group
-                    scrapbookRepository.createPage(groupId, new RepositoryCallback<ScrapbookPage>() {
-                        @Override
-                        public void onSuccess(ScrapbookPage newPage) {
-                            List<ScrapbookPageData> scrapbookData = new ArrayList<>();
-                            scrapbookData.add(new ScrapbookPageData(newPage, new ArrayList<>()));
-                            pagesLiveData.setValue(scrapbookData);
-                            pageIndex = 0;
-                            isLoading.setValue(false);
-                        }
-
-                        @Override
-                        public void onError(Exception e) {
-                            pagesLiveData.setValue(new ArrayList<>());
-                            errorMessage.setValue("Failed to create initial page: " + e.getMessage());
-                            isLoading.setValue(false);
-                        }
-                    });
+                    isLoading.setValue(false);
                     return;
+                }
+
+                if (pages.size() == 1) {
+                    ScrapbookPage firstPage = pages.get(0);
+                    String backgroundImageUrl = firstPage.getBackgroundImage();
+                    if (backgroundImageUrl == null || backgroundImageUrl.isEmpty()) {
+                        defaultPageId = firstPage.getId();
+                        isLoading.setValue(false);
+                        Log.d("create-page-defaultPageId", defaultPageId + "");
+                        return;
+                    }
                 }
 
                 List<ScrapbookItem>[] resultsArray = new List[pages.size()];
@@ -165,6 +160,44 @@ public class ScrapbookViewModel extends ViewModel {
             @Override
             public void onError(Exception e) {
                 errorMessage.setValue("Failed to load pages: " + e.getMessage());
+                isLoading.setValue(false);
+            }
+        });
+    }
+
+    public void createScrapbookPage(String backgroundImageUrl) {
+        isLoading.setValue(true);
+        ScrapbookPage newPage = new ScrapbookPage();
+        newPage.setBackgroundImage(backgroundImageUrl);
+        scrapbookRepository.createPage(groupId, newPage, new RepositoryCallback<ScrapbookPage>() {
+            @Override
+            public void onSuccess(ScrapbookPage result) {
+                List<ScrapbookPageData> scrapbookData = new ArrayList<>();
+                scrapbookData.add(new ScrapbookPageData(result, new ArrayList<>()));
+                if (defaultPageId != null && !defaultPageId.isEmpty()) {
+                    scrapbookRepository.removePage(groupId, defaultPageId, new RepositoryCallback<Void>() {
+                        @Override
+                        public void onSuccess(Void result) {
+                            pagesLiveData.setValue(scrapbookData);
+                            pageIndex = 0;
+                            loadScrapbook(groupId, "");
+                            isLoading.setValue(false);
+                        }
+
+                        @Override
+                        public void onError(Exception exception) {
+                            pagesLiveData.setValue(new ArrayList<>());
+                            errorMessage.setValue("Failed to create initial page: " + exception.getMessage());
+                            isLoading.setValue(false);
+                        }
+                    });
+                }
+            }
+
+            @Override
+            public void onError(Exception exception) {
+                pagesLiveData.setValue(new ArrayList<>());
+                errorMessage.setValue("Failed to create initial page: " + exception.getMessage());
                 isLoading.setValue(false);
             }
         });

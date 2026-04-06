@@ -94,7 +94,10 @@ public interface GroupService {
     Call<List<ScrapbookPage>> getScrapbookPages(@Path("groupId") String groupId);
 
     @POST("groups/{groupId}/scrapbook-pages")
-    Call<ScrapbookPage> createScrapbookPage(@Path("groupId") String groupId);
+    Call<ScrapbookPage> createScrapbookPage(@Path("groupId") String groupId, @Body ScrapbookPage page);
+
+    @DELETE("groups/{groupId}/scrapbook-pages/{pageId}")
+    Call<Void> removeScrapbookPage(@Path("groupId") String groupId, @Path("pageId") String pageId);
 
     @GET("groups/{groupId}/scrapbook-pages/{pageId}/items")
     Call<List<ScrapbookItem>> getItems(@Path("groupId") String groupId, @Path("pageId") String pageId);

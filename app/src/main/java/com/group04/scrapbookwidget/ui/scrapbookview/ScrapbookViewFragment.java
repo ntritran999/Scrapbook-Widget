@@ -151,6 +151,7 @@ public class ScrapbookViewFragment extends Fragment {
         if (pastedImagePath != null && !pastedImagePath.isEmpty()) {
             android.util.Log.d("ScrapbookViewFragment", "onViewCreated - LOADING PASTED IMAGE: " + pastedImagePath);
             android.util.Log.d("ScrapbookViewFragment", "onViewCreated - Forcing group selection dialog for pasting mode");
+            currentPastingView = null;
             // Always show group selection dialog when pasting - user must select group each time
             shouldPromptEnrollmentAfterGroupSelection = true;
             showGroupSelectionDialog();
@@ -255,9 +256,11 @@ public class ScrapbookViewFragment extends Fragment {
             android.util.Log.d("ScrapbookViewFragment", "Group selected - groupId: " + groupId);
 
             // Check if we have a pasted image waiting to be placed
-            if (pastedImagePath != null && !pastedImagePath.isEmpty() && isInPastingMode == false) {
+            if (pastedImagePath != null && !pastedImagePath.isEmpty()) {
                 android.util.Log.d("ScrapbookViewFragment", "Group selected - Loading pasted image");
-                addPastedImageToScrapbook(pastedImagePath);
+                if (currentPastingView == null) {
+                    addPastedImageToScrapbook(pastedImagePath);
+                }
                 enterPastingMode();
                 // Load scrapbook in background for context
                 scrapbookViewModel.loadScrapbook(groupId, "");

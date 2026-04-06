@@ -76,6 +76,7 @@ public class TopBarFragment extends Fragment {
     private void setupGroupObserver() {
         groupListViewModel.getGroupsLiveData().observe(getViewLifecycleOwner(), groups -> {
             if (groups != null && groups.isEmpty()) {
+                binding.groupList.setAdapter(null);
                 preferences.edit().putBoolean("HAS_GROUP", false).commit();
             }
             if (groups != null && !groups.isEmpty()) {

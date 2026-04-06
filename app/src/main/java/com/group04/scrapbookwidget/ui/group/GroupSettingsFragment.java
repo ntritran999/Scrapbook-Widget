@@ -252,7 +252,8 @@ public class GroupSettingsFragment extends Fragment {
                 .setPositiveButton(R.string.leave_group, (dialog, which) -> {
                     viewModel.leaveGroup(groupId, () -> {
                         Toast.makeText(getContext(), "Left group", Toast.LENGTH_SHORT).show();
-                        Navigation.findNavController(requireView()).popBackStack(R.id.homeFragment, false);
+                        Navigation.findNavController(requireView()).popBackStack(R.id.homeFragment, true);
+                        Navigation.findNavController(requireView()).navigate(R.id.homeFragment);
                     });
                 })
                 .setNegativeButton(android.R.string.cancel, null)

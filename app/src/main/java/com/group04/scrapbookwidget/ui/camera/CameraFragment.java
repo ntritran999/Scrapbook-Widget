@@ -1,6 +1,8 @@
 package com.group04.scrapbookwidget.ui.camera;
 
 import android.Manifest;
+import android.content.Context;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.media.MediaPlayer;
@@ -27,6 +29,7 @@ import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.navigation.Navigation;
 
+import com.google.android.material.snackbar.Snackbar;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.group04.scrapbookwidget.R;
 import com.group04.scrapbookwidget.databinding.FragmentCameraBinding;
@@ -46,6 +49,8 @@ public class CameraFragment extends Fragment {
     private int lensFacing = CameraSelector.LENS_FACING_FRONT;
 
     private int flashMode = ImageCapture.FLASH_MODE_OFF;
+
+    private SharedPreferences preferences;
 
     private final ActivityResultLauncher<String> requestPermissionLauncher =
             registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {
@@ -98,6 +103,7 @@ public class CameraFragment extends Fragment {
             }
         });
 
+        preferences = requireContext().getSharedPreferences("TMP_USER_SESSION", Context.MODE_PRIVATE);
         return binding.getRoot();
     }
 
@@ -178,8 +184,19 @@ public class CameraFragment extends Fragment {
                         Bundle bundle = new Bundle();
                         bundle.putString("PHOTO_PATH", photoFile.getAbsolutePath());
 
-                        Navigation.findNavController(requireView())
-                                .navigate(R.id.action_cameraFragment_to_imageEditorFragment, bundle);
+                        boolean hasGroup = preferences.getBoolean("HAS_GROUP", false);
+                        if (hasGroup) {
+                            Navigation.findNavController(requireView())
+                                    .navigate(R.id.action_cameraFragment_to_imageEditorFragment, bundle);
+                        }
+                        else {
+                            Snackbar.make(binding.layoutControls, "Hãy tạo nhóm để tiếp tục.", Snackbar.LENGTH_SHORT)
+                                    .setAction("Tới cài đặt", v -> {
+                                        Navigation.findNavController(requireActivity(), R.id.nav_host_fragment)
+                                                .navigate(R.id.action_homeFragment_to_settingFragment);
+                                    })
+                                    .show();
+                        }
                     }
                 }
         );

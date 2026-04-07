@@ -11,6 +11,7 @@ import java.util.List;
 
 public interface IUserRepository {
     void login(String email, String password, RepositoryCallback<User> callback);
+    void loginWithGoogle(String idToken, RepositoryCallback<User> callback);
     void register(String email, String password, String name, RepositoryCallback<User> callback);
     void logout();
 
@@ -27,4 +28,5 @@ public interface IUserRepository {
     void checkUsername(String username, RepositoryCallback<UserService.UsernameCheckResponse> callback);
     void uploadAvatar(File imageFile, RepositoryCallback<String> callback);
     void hasUserEnrolledFace(@NonNull String userId, @NonNull RepositoryCallback<Boolean> callback);
+    void saveFaceEmbedding(@NonNull String userId, @NonNull List<Double> faceEmbedding, @NonNull RepositoryCallback<Void> callback);
 }

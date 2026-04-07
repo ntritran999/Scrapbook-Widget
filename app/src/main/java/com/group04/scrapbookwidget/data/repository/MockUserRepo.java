@@ -6,6 +6,7 @@ import androidx.annotation.NonNull;
 
 import com.group04.scrapbookwidget.data.model.Group;
 import com.group04.scrapbookwidget.data.model.User;
+import com.group04.scrapbookwidget.data.service.AuthService;
 import com.group04.scrapbookwidget.data.service.UserService;
 
 import java.io.File;
@@ -23,10 +24,12 @@ import retrofit2.Response;
 public class MockUserRepo implements IUserRepository {
 
     private final UserService userService;
+    private final AuthService authService;
 
     @Inject
-    public MockUserRepo(UserService userService) {
+    public MockUserRepo(UserService userService, AuthService authService) {
         this.userService = userService;
+        this.authService = authService;
     }
 
     @Override
@@ -41,6 +44,28 @@ public class MockUserRepo implements IUserRepository {
                     callback.onSuccess(response.body());
                 } else {
                     callback.onError(new Exception("Login failed: " + response.code()));
+                }
+            }
+
+            @Override
+            public void onFailure(@NonNull Call<User> call, @NonNull Throwable t) {
+                callback.onError(new Exception(t));
+            }
+        });
+    }
+
+    @Override
+    public void loginWithGoogle(String idToken, RepositoryCallback<User> callback) {
+        User userRequest = new User();
+        userRequest.setIdToken(idToken);
+
+        authService.loginWithGoogle(userRequest).enqueue(new Callback<User>() {
+            @Override
+            public void onResponse(@NonNull Call<User> call, @NonNull Response<User> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    callback.onSuccess(response.body());
+                } else {
+                    callback.onError(new Exception("Google login verification failed: " + response.code()));
                 }
             }
 
@@ -223,7 +248,14 @@ public class MockUserRepo implements IUserRepository {
     }
 
     @Override
-    public void hasUserEnrolledFace(String userId, RepositoryCallback<Boolean> callback) {}
+    public void hasUserEnrolledFace(@NonNull String userId, @NonNull RepositoryCallback<Boolean> callback) {
+        // Mock implementation
+    }
+
+    @Override
+    public void saveFaceEmbedding(@NonNull String userId, @NonNull List<Double> faceEmbedding, @NonNull RepositoryCallback<Void> callback) {
+        // Mock implementation
+    }
 
     @Override
     public void uploadAvatar(File imageFile, RepositoryCallback<String> callback) {

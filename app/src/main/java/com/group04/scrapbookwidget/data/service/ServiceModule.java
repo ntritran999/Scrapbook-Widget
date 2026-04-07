@@ -20,6 +20,7 @@ import okhttp3.Interceptor;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
+import okhttp3.logging.HttpLoggingInterceptor;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
 
@@ -28,7 +29,8 @@ import java.util.concurrent.TimeUnit;
 @Module
 @InstallIn(SingletonComponent.class)
 public class ServiceModule {
-    private final String BASE_URL = "http://192.168.1.8:3000/api/v1/";
+    // 10.0.2.2 is for Emulator. Use your machine's IP (e.g. 192.168.x.x) for physical devices.
+    private final String BASE_URL = "http://10.0.2.2:3000/api/v1/";
 
     @Singleton
     @Provides
@@ -39,20 +41,27 @@ public class ServiceModule {
     @Singleton
     @Provides
     public OkHttpClient provideOkHttpClient(FirebaseAuth firebaseAuth) {
+        HttpLoggingInterceptor logging = new HttpLoggingInterceptor();
+        logging.setLevel(HttpLoggingInterceptor.Level.BODY);
+
         return new OkHttpClient.Builder()
                 .connectTimeout(30, TimeUnit.SECONDS)
                 .readTimeout(30, TimeUnit.SECONDS)
                 .writeTimeout(30, TimeUnit.SECONDS)
+                .addInterceptor(logging)
                 .addInterceptor(new Interceptor() {
                     @Override
                     public Response intercept(Chain chain) throws IOException {
                         Request originalRequest = chain.request();
-                        FirebaseUser user = firebaseAuth.getCurrentUser();
+                        
+                        // Skip adding Bearer token for Google Login itself
+                        if (originalRequest.url().toString().contains("auth/google")) {
+                            return chain.proceed(originalRequest);
+                        }
 
+                        FirebaseUser user = firebaseAuth.getCurrentUser();
                         if (user != null) {
                             try {
-                                // Retrofit/OkHttp calls run on background threads, 
-                                // so we can safely block to get the token.
                                 GetTokenResult tokenResult = Tasks.await(user.getIdToken(false));
                                 String token = tokenResult.getToken();
 
@@ -85,6 +94,12 @@ public class ServiceModule {
                 .client(okHttpClient)
                 .addConverterFactory(GsonConverterFactory.create(gson))
                 .build();
+    }
+
+    @Singleton
+    @Provides
+    public AuthService provideAuthService(Retrofit retrofit) {
+        return retrofit.create(AuthService.class);
     }
 
     @Singleton

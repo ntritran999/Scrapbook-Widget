@@ -9,6 +9,7 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.group04.scrapbookwidget.data.model.Group;
 import com.group04.scrapbookwidget.data.model.User;
+import com.group04.scrapbookwidget.data.service.AuthService;
 import com.group04.scrapbookwidget.data.service.UserService;
 
 import java.io.File;
@@ -27,11 +28,13 @@ public class UserRepository implements IUserRepository {
 
     private static final String TAG = "UserRepository";
     private final UserService userService;
+    private final AuthService authService;
     private final FirebaseAuth firebaseAuth;
 
     @Inject
-    public UserRepository(UserService userService, FirebaseAuth firebaseAuth) {
+    public UserRepository(UserService userService, AuthService authService, FirebaseAuth firebaseAuth) {
         this.userService = userService;
+        this.authService = authService;
         this.firebaseAuth = firebaseAuth;
     }
 
@@ -57,6 +60,28 @@ public class UserRepository implements IUserRepository {
                         callback.onError(task.getException());
                     }
                 });
+    }
+
+    @Override
+    public void loginWithGoogle(String idToken, RepositoryCallback<User> callback) {
+        User userRequest = new User();
+        userRequest.setIdToken(idToken);
+
+        authService.loginWithGoogle(userRequest).enqueue(new Callback<User>() {
+            @Override
+            public void onResponse(@NonNull Call<User> call, @NonNull Response<User> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    callback.onSuccess(response.body());
+                } else {
+                    callback.onError(new Exception("Google login verification failed: " + response.code()));
+                }
+            }
+
+            @Override
+            public void onFailure(@NonNull Call<User> call, @NonNull Throwable t) {
+                callback.onError(new Exception(t));
+            }
+        });
     }
 
     private void verifySessionOnServer(String idToken, RepositoryCallback<User> callback) {

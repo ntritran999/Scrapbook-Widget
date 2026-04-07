@@ -4,6 +4,8 @@
     <string name="add_widget">Add widget</string>
     <string name="app_widget_description">App widget layout preview</string>
 
+    <string name="web_client_id" translatable="false">52208309642-lc1rio2i3uf5220hhvmpd9cqgom2dcfi.apps.googleusercontent.com</string>
+
     <!-- Auth Login -->
     <string name="login_welcome">Welcome back!</string>
     <string name="login_subtitle">Sign in to continue</string>

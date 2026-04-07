@@ -71,6 +71,25 @@ public class LoginViewModel extends ViewModel {
         }
     }
 
+    public void onGoogleLoginSuccess(String idToken) {
+        _isLoading.setValue(true);
+        _errorMessage.setValue(null);
+
+        userRepository.loginWithGoogle(idToken, new RepositoryCallback<User>() {
+            @Override
+            public void onSuccess(User result) {
+                _isLoading.setValue(false);
+                _user.setValue(result);
+            }
+
+            @Override
+            public void onError(Exception e) {
+                _isLoading.setValue(false);
+                _errorMessage.setValue(e.getMessage());
+            }
+        });
+    }
+
     public void onForgotPasswordClick() {
         // TODO: Navigate to Forgot Password screen
     }

@@ -54,8 +54,8 @@ public class ScrapbookRepository implements IScrapbookRepository {
     }
 
     @Override
-    public void createPage(String groupId, RepositoryCallback<ScrapbookPage> callback) {
-        groupService.createScrapbookPage(groupId).enqueue(new Callback<ScrapbookPage>() {
+    public void createPage(String groupId, ScrapbookPage page, RepositoryCallback<ScrapbookPage> callback) {
+        groupService.createScrapbookPage(groupId, page).enqueue(new Callback<ScrapbookPage>() {
             @Override
             public void onResponse(Call<ScrapbookPage> call, Response<ScrapbookPage> response) {
                 if (response.isSuccessful()) {
@@ -67,6 +67,25 @@ public class ScrapbookRepository implements IScrapbookRepository {
 
             @Override
             public void onFailure(Call<ScrapbookPage> call, Throwable t) {
+                callback.onError(new Exception(t));
+            }
+        });
+    }
+
+    @Override
+    public void removePage(String groupId, String pageId, RepositoryCallback<Void> callback) {
+        groupService.removeScrapbookPage(groupId, pageId).enqueue(new Callback<Void>() {
+            @Override
+            public void onResponse(Call<Void> call, Response<Void> response) {
+                if (response.isSuccessful()) {
+                    callback.onSuccess(response.body());
+                } else {
+                    callback.onError(new Exception("Failed to remove page: " + response.code()));
+                }
+            }
+
+            @Override
+            public void onFailure(Call<Void> call, Throwable t) {
                 callback.onError(new Exception(t));
             }
         });

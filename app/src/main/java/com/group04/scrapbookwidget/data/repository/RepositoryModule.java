@@ -25,4 +25,8 @@ public abstract class RepositoryModule {
     @Singleton
     @Binds
     public abstract IGroupRepository bindGroupRepository(GroupRepository groupRepository);
+
+    @Singleton
+    @Binds
+    public abstract  IBackgroundRepository bindBackgroundRepository(BackgroundRepository backgroundRepository);
 }

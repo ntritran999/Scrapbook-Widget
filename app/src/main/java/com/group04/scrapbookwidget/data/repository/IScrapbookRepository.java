@@ -11,7 +11,8 @@ import java.util.List;
 public interface IScrapbookRepository {
     void getPage(String groupId, String pageId, RepositoryCallback<ScrapbookPage> callback);
     void getAllPages(String groupId, RepositoryCallback<List<ScrapbookPage>> callback);
-    void createPage(String groupId, RepositoryCallback<ScrapbookPage> callback);
+    void createPage(String groupId, ScrapbookPage page, RepositoryCallback<ScrapbookPage> callback);
+    void removePage(String groupId, String pageId, RepositoryCallback<Void> callback);
 
     void getItem(String groupId, String pageId, String itemId, RepositoryCallback<ScrapbookItem> callback);
     void getAllItems(String groupId, String pageId, RepositoryCallback<List<ScrapbookItem>> callback);

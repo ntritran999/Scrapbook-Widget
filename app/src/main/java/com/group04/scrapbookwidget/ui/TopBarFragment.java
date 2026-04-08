@@ -1,5 +1,7 @@
 package com.group04.scrapbookwidget.ui;
 
+import android.content.Context;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 
 import androidx.annotation.NonNull;
@@ -30,6 +32,8 @@ import dagger.hilt.android.AndroidEntryPoint;
 
 @AndroidEntryPoint
 public class TopBarFragment extends Fragment {
+    private final String PREF_NAME = "TMP_USER_SESSION";
+    private SharedPreferences preferences;
     private CompactGroupListViewModel groupListViewModel;
     private SettingViewModel settingViewModel;
     private FragmentTopBarBinding binding;
@@ -71,7 +75,12 @@ public class TopBarFragment extends Fragment {
 
     private void setupGroupObserver() {
         groupListViewModel.getGroupsLiveData().observe(getViewLifecycleOwner(), groups -> {
+            if (groups != null && groups.isEmpty()) {
+                binding.groupList.setAdapter(null);
+                preferences.edit().putBoolean("HAS_GROUP", false).commit();
+            }
             if (groups != null && !groups.isEmpty()) {
+                preferences.edit().putBoolean("HAS_GROUP", true).commit();
                 int n = groups.size();
                 String[] groupNames = new String[n];
                 String[] groupAvatars = new String[n];
@@ -124,6 +133,7 @@ public class TopBarFragment extends Fragment {
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
         binding = DataBindingUtil.inflate(inflater, R.layout.fragment_top_bar, container, false);
+        preferences = requireContext().getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
         return binding.getRoot();
     }
 

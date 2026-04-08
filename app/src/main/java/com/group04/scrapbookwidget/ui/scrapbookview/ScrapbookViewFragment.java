@@ -13,6 +13,7 @@ import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.Navigation;
 
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
@@ -151,6 +152,7 @@ public class ScrapbookViewFragment extends Fragment {
         if (pastedImagePath != null && !pastedImagePath.isEmpty()) {
             android.util.Log.d("ScrapbookViewFragment", "onViewCreated - LOADING PASTED IMAGE: " + pastedImagePath);
             android.util.Log.d("ScrapbookViewFragment", "onViewCreated - Forcing group selection dialog for pasting mode");
+            currentPastingView = null;
             // Always show group selection dialog when pasting - user must select group each time
             shouldPromptEnrollmentAfterGroupSelection = true;
             showGroupSelectionDialog();
@@ -255,9 +257,11 @@ public class ScrapbookViewFragment extends Fragment {
             android.util.Log.d("ScrapbookViewFragment", "Group selected - groupId: " + groupId);
 
             // Check if we have a pasted image waiting to be placed
-            if (pastedImagePath != null && !pastedImagePath.isEmpty() && isInPastingMode == false) {
+            if (pastedImagePath != null && !pastedImagePath.isEmpty()) {
                 android.util.Log.d("ScrapbookViewFragment", "Group selected - Loading pasted image");
-                addPastedImageToScrapbook(pastedImagePath);
+                if (currentPastingView == null) {
+                    addPastedImageToScrapbook(pastedImagePath);
+                }
                 enterPastingMode();
                 // Load scrapbook in background for context
                 scrapbookViewModel.loadScrapbook(groupId, "");
@@ -397,8 +401,7 @@ public class ScrapbookViewFragment extends Fragment {
         String finalPageId = (currentPageId != null && !currentPageId.isEmpty()) ? currentPageId : pageId;
 
         if (finalPageId == null || finalPageId.isEmpty()) {
-            Toast.makeText(requireContext(), "Invalid page", Toast.LENGTH_SHORT).show();
-            android.util.Log.e("ScrapbookViewFragment", "confirmPastedImage: Invalid pageId");
+            showBackgroundSelectionDialog();
             isInPastingMode = true;  // Restore flag since confirmation failed
             return;
         }
@@ -556,6 +559,15 @@ public class ScrapbookViewFragment extends Fragment {
             }
             return true;
         });
+    }
+
+    private void showBackgroundSelectionDialog() {
+        BackgroundSelectionDialogFragment dialog = new BackgroundSelectionDialogFragment();
+        dialog.setOnBackgroundSelectListener(url -> {
+            scrapbookViewModel.createScrapbookPage(url);
+        });
+        dialog.setCancelable(false);
+        dialog.show(getChildFragmentManager(), BackgroundSelectionDialogFragment.TAG);
     }
 
     @Override

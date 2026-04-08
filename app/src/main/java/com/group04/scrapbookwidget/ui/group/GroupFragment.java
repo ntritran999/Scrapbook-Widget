@@ -1,6 +1,8 @@
 package com.group04.scrapbookwidget.ui.group;
 
 import android.os.Bundle;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.text.format.DateFormat;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -13,6 +15,7 @@ import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.Navigation;
 import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
 import com.google.firebase.auth.FirebaseAuth;
@@ -37,10 +40,12 @@ public class GroupFragment extends Fragment {
     private GroupSettingsViewModel settingsViewModel;
     private ChatViewModel chatViewModel;
     private ChatMessageAdapter adapter;
+    private SmartReplyAdapter smartReplyAdapter;
     private String groupId;
     private String groupName;
     private boolean isMemoryBannerDismissed = false;
     private List<TodayMemory> currentMemories = new ArrayList<>();
+    private boolean suppressSmartReplyHide;
 
     @Inject
     FirebaseAuth auth;
@@ -114,6 +119,11 @@ public class GroupFragment extends Fragment {
         binding.rvChat.setLayoutManager(layoutManager);
         binding.rvChat.setAdapter(adapter);
 
+        smartReplyAdapter = new SmartReplyAdapter(this::applySuggestedReply);
+        LinearLayoutManager smartReplyLayoutManager = new LinearLayoutManager(getContext(), RecyclerView.HORIZONTAL, false);
+        binding.rvSmartReplies.setLayoutManager(smartReplyLayoutManager);
+        binding.rvSmartReplies.setAdapter(smartReplyAdapter);
+
         adapter.setOnMessageVisibleListener(message -> {
             chatViewModel.markMessageAsSeen(message.getId());
         });
@@ -129,7 +139,27 @@ public class GroupFragment extends Fragment {
             if (!content.isEmpty()) {
                 chatViewModel.sendMessage(content);
                 binding.etMessage.setText("");
+                hideSmartReplies();
+                chatViewModel.clearSuggestedReplies();
             }
+        });
+
+        binding.etMessage.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                if (suppressSmartReplyHide) {
+                    return;
+                }
+                if (s != null && s.length() > 0) {
+                    hideSmartReplies();
+                }
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {}
         });
     }
 
@@ -172,7 +202,21 @@ public class GroupFragment extends Fragment {
                 if (!messages.isEmpty()) {
                     binding.rvChat.smoothScrollToPosition(messages.size() - 1);
                 }
+                if (binding.etMessage.getText() == null || binding.etMessage.getText().length() == 0) {
+                    chatViewModel.generateReplies(messages, auth.getUid());
+                }
             }
+        });
+
+        chatViewModel.getSuggestedReplies().observe(getViewLifecycleOwner(), suggestions -> {
+            if (suggestions == null || suggestions.isEmpty()) {
+                smartReplyAdapter.setSuggestions(new ArrayList<>());
+                binding.rvSmartReplies.setVisibility(View.GONE);
+                return;
+            }
+
+            smartReplyAdapter.setSuggestions(suggestions);
+            binding.rvSmartReplies.setVisibility(View.VISIBLE);
         });
 
         chatViewModel.getTodayMemories().observe(getViewLifecycleOwner(), memories -> {
@@ -236,6 +280,24 @@ public class GroupFragment extends Fragment {
             }
         }
         return validMemories;
+    }
+
+    private void applySuggestedReply(String text) {
+        if (binding == null || text == null) {
+            return;
+        }
+        suppressSmartReplyHide = true;
+        binding.etMessage.setText(text);
+        binding.etMessage.setSelection(text.length());
+        suppressSmartReplyHide = false;
+        hideSmartReplies();
+        chatViewModel.clearSuggestedReplies();
+    }
+
+    private void hideSmartReplies() {
+        if (binding != null) {
+            binding.rvSmartReplies.setVisibility(View.GONE);
+        }
     }
 
     @Override

@@ -29,7 +29,7 @@ import java.util.concurrent.TimeUnit;
 @Module
 @InstallIn(SingletonComponent.class)
 public class ServiceModule {
-    private final String BASE_URL = "http://10.0.2.2:3000/api/v1/";
+    private final String BASE_URL = "http://10.252.128.69:3000/api/v1/";
 
     @Singleton
     @Provides
@@ -53,17 +53,16 @@ public class ServiceModule {
                     public Response intercept(Chain chain) throws IOException {
                         Request originalRequest = chain.request();
 
-                        // Skip adding Bearer token for Google Login itself
-                        if (originalRequest.url().toString().contains("auth/google")) {
+                        // 1. Skip if it's the Google Auth endpoint
+                        // 2. Skip if the request already has an Authorization header (e.g. from manual SSE call)
+                        if (originalRequest.url().toString().contains("auth/google") || 
+                            originalRequest.header("Authorization") != null) {
                             return chain.proceed(originalRequest);
                         }
 
                         FirebaseUser user = firebaseAuth.getCurrentUser();
-
                         if (user != null) {
                             try {
-                                // Retrofit/OkHttp calls run on background threads, 
-                                // so we can safely block to get the token.
                                 GetTokenResult tokenResult = Tasks.await(user.getIdToken(false));
                                 String token = tokenResult.getToken();
 
@@ -145,5 +144,4 @@ public class ServiceModule {
     public BackgroundImageService provideBackgroundImageService(Retrofit retrofit) {
         return retrofit.create(BackgroundImageService.class);
     }
-
 }

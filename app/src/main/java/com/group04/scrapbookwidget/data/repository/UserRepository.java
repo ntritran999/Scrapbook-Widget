@@ -67,19 +67,34 @@ public class UserRepository implements IUserRepository {
         User userRequest = new User();
         userRequest.setIdToken(idToken);
 
+        Log.d(TAG, "loginWithGoogle: Calling POST /auth/google with token length: " + idToken.length());
+
         authService.loginWithGoogle(userRequest).enqueue(new Callback<User>() {
             @Override
             public void onResponse(@NonNull Call<User> call, @NonNull Response<User> response) {
                 if (response.isSuccessful() && response.body() != null) {
+                    Log.d(TAG, "loginWithGoogle: SUCCESS");
                     callback.onSuccess(response.body());
                 } else {
-                    callback.onError(new Exception("Google login verification failed: " + response.code()));
+                    String errorMsg = "Google login verification failed: " + response.code();
+                    try {
+                        if (response.errorBody() != null) {
+                            String serverError = response.errorBody().string();
+                            Log.e(TAG, "Server error body: " + serverError);
+                            errorMsg += " - " + serverError;
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error reading error body", e);
+                    }
+                    Log.e(TAG, errorMsg);
+                    callback.onError(new Exception(errorMsg));
                 }
             }
 
             @Override
             public void onFailure(@NonNull Call<User> call, @NonNull Throwable t) {
-                callback.onError(new Exception(t));
+                Log.e(TAG, "loginWithGoogle: Network/Technical Failure", t);
+                callback.onError(new Exception("Network error: " + t.getMessage()));
             }
         });
     }

@@ -31,6 +31,11 @@ public class User {
     @SerializedName("faceVector")
     private List<Double> faceVector;
 
+    @SerializedName("defaultGroupId")
+    private String defaultGroupId;
+    @SerializedName("defaultPageId")
+    private String defaultPageId;
+
     public User() {}
 
     public String getId() { return id; }
@@ -81,4 +86,10 @@ public class User {
 
     public List<Double> getFaceVector() { return faceVector; }
     public void setFaceVector(List<Double> faceVector) { this.faceVector = faceVector; }
+
+    public String getDefaultGroupId() { return defaultGroupId; }
+    public void setDefaultGroupId(String defaultGroupId) { this.defaultGroupId = defaultGroupId; }
+
+    public String getDefaultPageId() { return defaultPageId; }
+    public void setDefaultPageId(String defaultPageId) { this.defaultPageId = defaultPageId; }
 }

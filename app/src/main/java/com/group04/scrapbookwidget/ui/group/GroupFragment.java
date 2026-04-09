@@ -131,6 +131,17 @@ public class GroupFragment extends Fragment {
         adapter.setOnResendClickListener(message -> {
             chatViewModel.resendMessage(message);
         });
+
+        // Add layout change listener to scroll to bottom when keyboard appears
+        binding.rvChat.addOnLayoutChangeListener((v, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> {
+            if (bottom < oldBottom) {
+                binding.rvChat.postDelayed(() -> {
+                    if (adapter.getItemCount() > 0) {
+                        binding.rvChat.smoothScrollToPosition(adapter.getItemCount() - 1);
+                    }
+                }, 100);
+            }
+        });
     }
 
     private void setupInput() {

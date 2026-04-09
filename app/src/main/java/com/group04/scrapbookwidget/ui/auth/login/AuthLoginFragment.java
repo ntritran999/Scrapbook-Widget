@@ -138,8 +138,12 @@ public class AuthLoginFragment extends Fragment {
     }
 
     private void signInWithGoogle() {
-        Intent signInIntent = googleSignInClient.getSignInIntent();
-        googleSignInLauncher.launch(signInIntent);
+        Log.d(TAG, "signInWithGoogle: Forcing account picker by signing out first");
+        // Clear the previous session to force account selection popup
+        googleSignInClient.signOut().addOnCompleteListener(requireActivity(), task -> {
+            Intent signInIntent = googleSignInClient.getSignInIntent();
+            googleSignInLauncher.launch(signInIntent);
+        });
     }
 
     private void firebaseAuthWithGoogle(String idToken) {

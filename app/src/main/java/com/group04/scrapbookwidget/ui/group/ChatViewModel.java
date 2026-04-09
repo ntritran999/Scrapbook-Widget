@@ -9,6 +9,7 @@ import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.ViewModel;
 
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.mlkit.nl.smartreply.SmartReply;
 import com.google.mlkit.nl.smartreply.SmartReplyGenerator;
 import com.google.mlkit.nl.smartreply.SmartReplySuggestion;
@@ -23,6 +24,8 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
+import java.util.Locale;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -31,6 +34,7 @@ import java.util.UUID;
 import javax.inject.Inject;
 
 import dagger.hilt.android.lifecycle.HiltViewModel;
+import com.google.android.gms.tasks.Tasks;
 import okhttp3.ResponseBody;
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -40,6 +44,9 @@ import retrofit2.Response;
 public class ChatViewModel extends ViewModel {
     private static final String TAG = "ChatViewModel";
     private static final String MEMORY_TAG = "MemoryDebug";
+    private static final long SSE_RETRY_INITIAL_MS = 1_000L;
+    private static final long SSE_RETRY_MAX_MS = 30_000L;
+    private static final String SSE_CONTENT_TYPE = "text/event-stream";
     private final GroupService groupService;
     private final FirebaseAuth auth;
     private final Gson gson = new Gson();
@@ -62,8 +69,15 @@ public class ChatViewModel extends ViewModel {
     public LiveData<List<String>> getSuggestedReplies() { return suggestedReplies; }
 
     private String currentGroupId;
-    private Thread streamThread;
-    private boolean isStreaming = false;
+    private volatile Thread streamThread;
+    private volatile boolean isStreaming = false;
+    private volatile Call<ResponseBody> activeStreamCall;
+
+    private static class FatalSseException extends Exception {
+        FatalSseException(String message) {
+            super(message);
+        }
+    }
 
     @Inject
     public ChatViewModel(GroupService groupService, FirebaseAuth auth) {
@@ -73,75 +87,48 @@ public class ChatViewModel extends ViewModel {
 
     public void initChat(String groupId) {
         this.currentGroupId = groupId;
-        Log.d(MEMORY_TAG, "[INIT_CHAT] groupId=" + groupId + ", authUid=" + auth.getUid());
+        Log.d(TAG, "initChat: groupId=" + groupId);
+        
+        loadMessages(); 
         startMessageStream();
         loadTodayMemories();
     }
 
-    private void loadTodayMemories() {
-        Log.d(MEMORY_TAG, "[LOAD_START] groupId=" + currentGroupId + ", authUid=" + auth.getUid());
-        if (currentGroupId == null) {
-            Log.w(MEMORY_TAG, "[LOAD_ABORT] currentGroupId is null");
-            _todayMemories.setValue(new ArrayList<>());
-            return;
-        }
+    private void loadMessages() {
+        if (currentGroupId == null) return;
+        
+        _isLoading.setValue(true);
+        groupService.getMessages(currentGroupId).enqueue(new Callback<List<Message>>() {
+            @Override
+            public void onResponse(Call<List<Message>> call, Response<List<Message>> response) {
+                _isLoading.setValue(false);
+                if (response.isSuccessful() && response.body() != null) {
+                    mergeMessages(response.body());
+                }
+            }
 
-        Call<List<TodayMemory>> call = groupService.getTodayMemory(currentGroupId);
-        Log.d(MEMORY_TAG, "[API_REQUEST] GET " + call.request().method() + " " + call.request().url());
-        call.enqueue(new Callback<List<TodayMemory>>() {
+            @Override
+            public void onFailure(Call<List<Message>> call, Throwable t) {
+                _isLoading.setValue(false);
+                Log.e(TAG, "loadMessages: Failed", t);
+            }
+        });
+    }
+
+    private void loadTodayMemories() {
+        if (currentGroupId == null) return;
+
+        groupService.getTodayMemory(currentGroupId).enqueue(new Callback<List<TodayMemory>>() {
             @Override
             public void onResponse(Call<List<TodayMemory>> call, Response<List<TodayMemory>> response) {
                 if (response.isSuccessful()) {
-                    List<TodayMemory> memories = response.body();
-                    int count = memories != null ? memories.size() : 0;
-                    Log.d(MEMORY_TAG, "[API_SUCCESS] code=" + response.code() + ", memoryCount=" + count);
-                    if (count == 0) {
-                        Log.w(MEMORY_TAG,
-                                "[API_EMPTY] Backend returned no memories. Checklist: " +
-                                        "1) current user must be a member of groups/" + currentGroupId + "/members/{uid}; " +
-                                        "2) scrapbook items must belong to this group; " +
-                                        "3) item.type must equal 'photo'; " +
-                                        "4) taggedUserIds must be non-empty; " +
-                                        "5) joined users for taggedUserIds must still exist and not be deleted."
-                        );
-                    } else {
-                        for (int i = 0; i < memories.size(); i++) {
-                            TodayMemory memory = memories.get(i);
-                            Log.d(MEMORY_TAG,
-                                    "[API_ITEM_" + i + "] photoUrl=" + safe(memory != null ? memory.getPhotoUrl() : null) +
-                                            ", taggedUsernames=" + (memory != null ? memory.getTaggedUsernames() : null));
-                        }
-                    }
-                    _todayMemories.setValue(memories != null ? memories : new ArrayList<>());
-                } else {
-                    String errorBody = null;
-                    try {
-                        errorBody = response.errorBody() != null ? response.errorBody().string() : null;
-                    } catch (Exception e) {
-                        errorBody = "[unable to read error body: " + e.getMessage() + "]";
-                    }
-                    Log.e(MEMORY_TAG,
-                            "[API_FAILED] code=" + response.code() +
-                                    ", message=" + response.message() +
-                                    ", errorBody=" + errorBody);
-                    if (response.code() == 403) {
-                        Log.w(MEMORY_TAG, "[API_FAILED_HINT] User is likely not a member of this group on backend yet.");
-                    } else if (response.code() == 404) {
-                        Log.w(MEMORY_TAG, "[API_FAILED_HINT] groupId may not exist on backend: " + currentGroupId);
-                    }
-                    _todayMemories.setValue(new ArrayList<>());
-                    Log.w(TAG, "Failed to load today memories: " + response.code());
+                    _todayMemories.setValue(response.body() != null ? response.body() : new ArrayList<>());
                 }
             }
 
             @Override
             public void onFailure(Call<List<TodayMemory>> call, Throwable t) {
-                Log.e(MEMORY_TAG,
-                        "[API_ERROR] url=" + call.request().url() +
-                                ", exception=" + t.getClass().getSimpleName() +
-                                ", message=" + t.getMessage(), t);
                 _todayMemories.postValue(new ArrayList<>());
-                Log.w(TAG, "Failed to load today memories", t);
             }
         });
     }
@@ -149,12 +136,12 @@ public class ChatViewModel extends ViewModel {
     public void sendMessage(String content) {
         if (currentGroupId == null || content.trim().isEmpty()) return;
 
-        // Create a temporary message for optimistic UI update
         Message tempMessage = new Message();
         String tempId = "temp_" + UUID.randomUUID().toString();
         tempMessage.setId(tempId);
         tempMessage.setContent(content);
         tempMessage.setCreatedBy(auth.getUid());
+        tempMessage.setCreatedAt(Instant.now().toString()); // Cần thời gian để sort
         tempMessage.setStatus(Message.Status.SENDING);
         tempMessage.setSenderName(auth.getCurrentUser() != null ? auth.getCurrentUser().getDisplayName() : "Me");
         
@@ -225,7 +212,6 @@ public class ChatViewModel extends ViewModel {
         mainHandler.post(() -> {
             List<Message> currentList = new ArrayList<>(_messages.getValue());
             
-            // Check if the real message is already in the list (e.g. from SSE)
             int realIdx = -1;
             for (int i = 0; i < currentList.size(); i++) {
                 if (currentList.get(i).getId().equals(realMessage.getId())) {
@@ -243,19 +229,16 @@ public class ChatViewModel extends ViewModel {
             }
 
             if (realIdx != -1) {
-                // Real message already exists (from SSE), just remove the temp one
                 if (tempIdx != -1) {
                     currentList.remove(tempIdx);
                 }
             } else if (tempIdx != -1) {
-                // Replace temp with real
                 currentList.set(tempIdx, realMessage);
             } else {
-                // Neither found, just add real (shouldn't happen)
                 currentList.add(realMessage);
             }
             
-            _messages.setValue(currentList);
+            sortAndSetMessages(currentList);
         });
     }
 
@@ -275,57 +258,42 @@ public class ChatViewModel extends ViewModel {
     }
 
     public void generateReplies(List<Message> recentMessages, String currentUserId) {
-        if (recentMessages == null || recentMessages.isEmpty() || currentUserId == null || currentUserId.trim().isEmpty()) {
-            suggestedReplies.setValue(Collections.emptyList());
-            return;
-        }
+        if (recentMessages == null || recentMessages.isEmpty() || currentUserId == null) return;
 
-        int startIndex = Math.max(recentMessages.size() - 10, 0);
+        // Đảm bảo chronological order cho ML Kit
+        List<Message> sortedMessages = new ArrayList<>(recentMessages);
+        Collections.sort(sortedMessages, Comparator.comparingLong(this::parseTimestamp));
+
+        int startIndex = Math.max(sortedMessages.size() - 10, 0);
         List<TextMessage> conversation = new ArrayList<>();
-        for (int i = startIndex; i < recentMessages.size(); i++) {
-            Message message = recentMessages.get(i);
-            if (message == null) {
-                continue;
-            }
+        for (int i = startIndex; i < sortedMessages.size(); i++) {
+            Message message = sortedMessages.get(i);
+            if (message == null || message.getContent() == null) continue;
 
-            String content = message.getContent();
-            String senderId = resolveSenderId(message);
-            if (content == null || content.trim().isEmpty() || senderId == null || senderId.trim().isEmpty()) {
-                continue;
-            }
+            String senderId = message.getCreatedBy() != null ? message.getCreatedBy() : message.getSenderId();
+            if (senderId == null) continue;
 
             long timestamp = parseTimestamp(message);
             if (currentUserId.equals(senderId)) {
-                conversation.add(TextMessage.createForLocalUser(content, timestamp));
+                conversation.add(TextMessage.createForLocalUser(message.getContent(), timestamp));
             } else {
-                conversation.add(TextMessage.createForRemoteUser(content, timestamp, senderId));
+                conversation.add(TextMessage.createForRemoteUser(message.getContent(), timestamp, senderId));
             }
         }
 
-        if (conversation.isEmpty()) {
-            suggestedReplies.setValue(Collections.emptyList());
-            return;
-        }
+        if (conversation.isEmpty()) return;
 
         smartReply.suggestReplies(conversation)
                 .addOnSuccessListener(result -> {
-                    if (result == null || result.getStatus() != 0 || result.getSuggestions() == null || result.getSuggestions().isEmpty()) {
-                        suggestedReplies.setValue(Collections.emptyList());
-                        return;
-                    }
-
-                    List<String> replies = new ArrayList<>();
-                    for (SmartReplySuggestion suggestion : result.getSuggestions()) {
-                        if (suggestion != null && suggestion.getText() != null && !suggestion.getText().trim().isEmpty()) {
+                    if (result != null && result.getStatus() == 0) {
+                        List<String> replies = new ArrayList<>();
+                        for (SmartReplySuggestion suggestion : result.getSuggestions()) {
                             replies.add(suggestion.getText());
                         }
+                        suggestedReplies.setValue(replies);
                     }
-                    suggestedReplies.setValue(replies);
                 })
-                .addOnFailureListener(error -> {
-                    Log.w(TAG, "Failed to generate smart replies", error);
-                    suggestedReplies.setValue(Collections.emptyList());
-                });
+                .addOnFailureListener(e -> Log.e(TAG, "SmartReply failed", e));
     }
 
     public void clearSuggestedReplies() {
@@ -334,79 +302,231 @@ public class ChatViewModel extends ViewModel {
 
     private void startMessageStream() {
         if (isStreaming) stopMessageStream();
-        isStreaming = true;
 
-        auth.getCurrentUser().getIdToken(false).addOnSuccessListener(result -> {
-            String token = "Bearer " + result.getToken();
-            streamThread = new Thread(() -> {
-                try {
-                    Response<ResponseBody> response = groupService.streamMessages(currentGroupId, token).execute();
-                    if (response.isSuccessful() && response.body() != null) {
-                        BufferedReader reader = new BufferedReader(new InputStreamReader(response.body().byteStream()));
-                        String line;
-                        String eventType = "";
-                        while (isStreaming && (line = reader.readLine()) != null) {
-                            if (line.startsWith("event:")) {
-                                eventType = line.substring(6).trim();
-                            } else if (line.startsWith("data:")) {
-                                String data = line.substring(5).trim();
-                                handleSseEvent(eventType, data);
-                            }
-                        }
-                    } else {
-                        Log.e(TAG, "SSE connection failed: " + response.code());
-                        retryStream();
-                    }
-                } catch (Exception e) {
-                    Log.e(TAG, "SSE stream error", e);
-                    retryStream();
-                }
-            });
-            streamThread.start();
-        });
+        if (currentGroupId == null || auth.getCurrentUser() == null) {
+            return;
+        }
+
+        isStreaming = true;
+        streamThread = new Thread(this::runSseLoop, "group-message-sse");
+        streamThread.start();
     }
 
-    private void handleSseEvent(String eventType, String data) {
-        switch (eventType) {
-            case "messages.initial":
-                List<Message> initialMessages = gson.fromJson(data, new com.google.gson.reflect.TypeToken<List<Message>>(){}.getType());
-                _messages.postValue(initialMessages);
-                break;
-            case "message.created":
-                Message newMessage = gson.fromJson(data, Message.class);
-                updateOrAddMessage(newMessage);
-                break;
-            case "message.seen":
-                Message updatedMessage = gson.fromJson(data, Message.class);
-                updateOrAddMessage(updatedMessage);
-                break;
+    private void runSseLoop() {
+        long retryMs = SSE_RETRY_INITIAL_MS;
+
+        while (isStreaming && !Thread.currentThread().isInterrupted()) {
+            try {
+                String bearerToken = getBearerToken();
+                connectAndConsumeStream(bearerToken);
+                retryMs = SSE_RETRY_INITIAL_MS;
+            } catch (FatalSseException fatal) {
+                Log.e(TAG, "SSE fatal error: " + fatal.getMessage());
+                postError(fatal.getMessage());
+                stopMessageStream();
+                return;
+            } catch (InterruptedException interruptedException) {
+                Thread.currentThread().interrupt();
+                return;
+            } catch (Exception e) {
+                if (!isStreaming) {
+                    return;
+                }
+
+                Log.w(TAG, "SSE disconnected, retry in " + retryMs + "ms", e);
+                postError("SSE reconnecting...");
+
+                try {
+                    Thread.sleep(retryMs);
+                } catch (InterruptedException interruptedException) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
+
+                retryMs = Math.min(retryMs * 2, SSE_RETRY_MAX_MS);
+            }
         }
     }
 
-    private void updateOrAddMessage(Message message) {
+    private String getBearerToken() throws Exception {
+        FirebaseUser user = auth.getCurrentUser();
+        if (user == null) {
+            throw new FatalSseException("Unauthorized: user not logged in");
+        }
+
+        String idToken = Tasks.await(user.getIdToken(true)).getToken();
+        if (idToken == null || idToken.trim().isEmpty()) {
+            throw new FatalSseException("Unauthorized: failed to obtain token");
+        }
+
+        return "Bearer " + idToken;
+    }
+
+    private void connectAndConsumeStream(String bearerToken) throws Exception {
+        Call<ResponseBody> call = groupService.streamMessages(currentGroupId, bearerToken);
+        activeStreamCall = call;
+        try {
+            Response<ResponseBody> response = call.execute();
+
+            int statusCode = response.code();
+            if (statusCode == 401 || statusCode == 403) {
+                throw new FatalSseException("Unauthorized or forbidden (" + statusCode + ")");
+            }
+            if (statusCode == 404) {
+                throw new FatalSseException("Group not found (404)");
+            }
+            if (!response.isSuccessful() || response.body() == null) {
+                throw new Exception("SSE HTTP error: " + statusCode);
+            }
+
+            String contentType = response.headers().get("content-type");
+            if (contentType == null || !contentType.toLowerCase(Locale.US).contains(SSE_CONTENT_TYPE)) {
+                throw new Exception("Unexpected SSE content-type: " + contentType);
+            }
+
+            postError(null);
+
+            try (ResponseBody body = response.body();
+                 BufferedReader reader = new BufferedReader(new InputStreamReader(body.byteStream()))) {
+
+                String line;
+                String eventType = "";
+                StringBuilder dataBuilder = new StringBuilder();
+
+                while (isStreaming && (line = reader.readLine()) != null) {
+                    if (line.isEmpty()) {
+                        dispatchSseFrame(eventType, dataBuilder);
+                        eventType = "";
+                        dataBuilder.setLength(0);
+                        continue;
+                    }
+
+                    if (line.startsWith(":")) {
+                        continue;
+                    }
+
+                    if (line.startsWith("event:")) {
+                        eventType = line.substring(6).trim();
+                        continue;
+                    }
+
+                    if (line.startsWith("data:")) {
+                        String chunk = line.substring(5);
+                        if (chunk.startsWith(" ")) {
+                            chunk = chunk.substring(1);
+                        }
+                        if (dataBuilder.length() > 0) {
+                            dataBuilder.append('\n');
+                        }
+                        dataBuilder.append(chunk);
+                    }
+                }
+
+                if (dataBuilder.length() > 0 || !eventType.isEmpty()) {
+                    dispatchSseFrame(eventType, dataBuilder);
+                }
+            }
+
+            if (isStreaming) {
+                throw new Exception("SSE closed by server");
+            }
+        } finally {
+            if (activeStreamCall == call) {
+                activeStreamCall = null;
+            }
+        }
+    }
+
+    private void dispatchSseFrame(String eventType, StringBuilder dataBuilder) {
+        if (dataBuilder == null || dataBuilder.length() == 0) {
+            return;
+        }
+        handleSseEvent(eventType, dataBuilder.toString());
+    }
+
+    private void postError(String errorMessage) {
+        mainHandler.post(() -> _error.setValue(errorMessage));
+    }
+
+    private void handleSseEvent(String eventType, String data) {
+        if (eventType == null || eventType.trim().isEmpty() || data == null || data.trim().isEmpty()) {
+            return;
+        }
+
+        try {
+            switch (eventType) {
+                case "stream.ready":
+                    Log.d(TAG, "SSE stream is ready: " + data);
+                    break;
+                case "messages.initial":
+                    List<Message> initialMessages = gson.fromJson(data, new com.google.gson.reflect.TypeToken<List<Message>>(){}.getType());
+                    mergeMessages(initialMessages);
+                    break;
+                case "message.created":
+                case "message.seen":
+                    Message newMessage = gson.fromJson(data, Message.class);
+                    updateOrAddMessage(newMessage);
+                    break;
+                default:
+                    Log.d(TAG, "Ignoring unsupported SSE event: " + eventType);
+                    break;
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to parse SSE event: " + eventType, e);
+        }
+    }
+
+    private void mergeMessages(List<Message> newMessages) {
+        List<Message> incoming = newMessages != null ? newMessages : Collections.emptyList();
         mainHandler.post(() -> {
-            List<Message> currentList = new ArrayList<>(_messages.getValue());
+            List<Message> current = _messages.getValue();
+            if (current == null) current = new ArrayList<>();
+
+            Map<String, Message> mergedMap = new HashMap<>();
+            for (Message m : current) {
+                if (m.getId() != null) mergedMap.put(m.getId(), m);
+            }
+            for (Message m : incoming) {
+                if (m.getId() != null) mergedMap.put(m.getId(), m);
+            }
+            
+            sortAndSetMessages(new ArrayList<>(mergedMap.values()));
+        });
+    }
+
+    private void updateOrAddMessage(Message message) {
+        if (message == null || message.getId() == null || message.getId().trim().isEmpty()) {
+            return;
+        }
+
+        mainHandler.post(() -> {
+            List<Message> existingMessages = _messages.getValue();
+            if (existingMessages == null) {
+                existingMessages = new ArrayList<>();
+            }
+            List<Message> currentList = new ArrayList<>(existingMessages);
             
             int index = -1;
             for (int i = 0; i < currentList.size(); i++) {
-                if (currentList.get(i).getId().equals(message.getId())) {
+                Message currentMessage = currentList.get(i);
+                if (currentMessage != null && message.getId().equals(currentMessage.getId())) {
                     index = i;
                     break;
                 }
             }
 
             if (index != -1) {
-                // Already exists, just update it
                 currentList.set(index, message);
             } else {
-                // Check if this matches a temp message we sent
                 boolean replaced = false;
                 if (message.getCreatedBy() != null && message.getCreatedBy().equals(auth.getUid())) {
-                    // Search backwards for the most recent temp message with matching content
                     for (int i = currentList.size() - 1; i >= 0; i--) {
                         Message m = currentList.get(i);
-                        if (m.getId() != null && m.getId().startsWith("temp_") && 
-                            m.getContent() != null && m.getContent().equals(message.getContent())) {
+                        if (m != null &&
+                                m.getId() != null &&
+                                m.getId().startsWith("temp_") &&
+                                m.getContent() != null &&
+                                m.getContent().equals(message.getContent())) {
                             currentList.set(i, message);
                             replaced = true;
                             break;
@@ -418,19 +538,29 @@ public class ChatViewModel extends ViewModel {
                     currentList.add(message);
                 }
             }
-            _messages.setValue(currentList);
+            sortAndSetMessages(currentList);
         });
     }
 
+    private void sortAndSetMessages(List<Message> list) {
+        Collections.sort(list, Comparator.comparingLong(this::parseTimestamp));
+        _messages.postValue(list);
+    }
+
     private void retryStream() {
-        if (isStreaming) {
-            try { Thread.sleep(5000); } catch (InterruptedException ignored) {}
-            startMessageStream();
-        }
+        // This method is intentionally left as a no-op.
+        // Reconnect handling is now managed in runSseLoop() with exponential backoff.
     }
 
     private void stopMessageStream() {
         isStreaming = false;
+
+        Call<ResponseBody> call = activeStreamCall;
+        if (call != null) {
+            call.cancel();
+            activeStreamCall = null;
+        }
+
         if (streamThread != null) {
             streamThread.interrupt();
             streamThread = null;
@@ -444,40 +574,19 @@ public class ChatViewModel extends ViewModel {
         smartReply.close();
     }
 
-    private String safe(String value) {
-        return value == null || value.trim().isEmpty() ? "<empty>" : value;
-    }
-
-    private String resolveSenderId(Message message) {
-        if (message == null) {
-            return null;
-        }
-        if (message.getCreatedBy() != null && !message.getCreatedBy().trim().isEmpty()) {
-            return message.getCreatedBy();
-        }
-        return message.getSenderId();
-    }
-
     private long parseTimestamp(Message message) {
-        if (message == null) {
-            return System.currentTimeMillis();
-        }
-
+        if (message == null) return System.currentTimeMillis();
         String rawTimestamp = message.getCreatedAt();
         if (rawTimestamp == null || rawTimestamp.trim().isEmpty()) {
-            return System.currentTimeMillis();
+            rawTimestamp = message.getTime();
         }
-
+        if (rawTimestamp == null || rawTimestamp.trim().isEmpty()) return System.currentTimeMillis();
         try {
             return Instant.parse(rawTimestamp).toEpochMilli();
-        } catch (Exception ignored) {
-        }
-
+        } catch (Exception ignored) {}
         try {
             return Long.parseLong(rawTimestamp);
-        } catch (NumberFormatException ignored) {
-        }
-
+        } catch (NumberFormatException ignored) {}
         return System.currentTimeMillis();
     }
 }

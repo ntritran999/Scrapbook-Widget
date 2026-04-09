@@ -44,7 +44,7 @@ public class ChatMessageAdapter extends RecyclerView.Adapter<ChatMessageAdapter.
     }
 
     public void setMessages(List<Message> messages) {
-        this.messages = messages;
+        this.messages = messages != null ? messages : new ArrayList<>();
         notifyDataSetChanged();
     }
 
@@ -62,11 +62,13 @@ public class ChatMessageAdapter extends RecyclerView.Adapter<ChatMessageAdapter.
         holder.bind(message);
         
         // Trigger seen logic if it's not our own message and we haven't seen it yet
-        if (onMessageVisibleListener != null && !message.getCreatedBy().equals(currentUserId)) {
+        String senderId = message.getCreatedBy() != null ? message.getCreatedBy() : message.getSenderId();
+        boolean isSentByMe = currentUserId != null && currentUserId.equals(senderId);
+        if (onMessageVisibleListener != null && !isSentByMe) {
             boolean alreadySeen = false;
             if (message.getSeenBy() != null) {
                 for (Message.SeenBy seen : message.getSeenBy()) {
-                    if (seen.getId().equals(currentUserId)) {
+                    if (seen != null && currentUserId != null && currentUserId.equals(seen.getId())) {
                         alreadySeen = true;
                         break;
                     }
@@ -92,7 +94,8 @@ public class ChatMessageAdapter extends RecyclerView.Adapter<ChatMessageAdapter.
         }
 
         public void bind(Message message) {
-            boolean isSentByMe = message.getCreatedBy().equals(currentUserId);
+            String senderId = message.getCreatedBy() != null ? message.getCreatedBy() : message.getSenderId();
+            boolean isSentByMe = currentUserId != null && currentUserId.equals(senderId);
 
             if (isSentByMe) {
                 binding.layoutSent.setVisibility(View.VISIBLE);

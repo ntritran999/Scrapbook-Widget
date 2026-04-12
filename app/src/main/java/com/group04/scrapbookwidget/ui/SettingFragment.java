@@ -160,7 +160,9 @@ public class SettingFragment extends Fragment {
         SharedPreferences preferences = requireContext().getSharedPreferences("TMP_USER_SESSION", Context.MODE_PRIVATE);
         preferences.edit().clear().apply();
 
-        // Update widget
+        // Clear widget session & Update widget
+        preferences = requireContext().getSharedPreferences("widget_metadata", Context.MODE_PRIVATE);
+        preferences.edit().clear().apply();
         AppWidget.updateWidgetNow(requireContext());
 
         // Navigate back to Login screen and clear navigation stack

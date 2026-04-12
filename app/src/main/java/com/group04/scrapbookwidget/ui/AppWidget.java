@@ -26,6 +26,9 @@ public class AppWidget extends AppWidgetProvider {
                                 int appWidgetId, int[] appWidgetIds, SharedPreferences preferences) {
         SharedPreferences userSessionPref = context.getSharedPreferences(USER_SESSION_PREF, Activity.MODE_PRIVATE);
         int layout = R.layout.app_widget_empty;
+        String status = preferences.getString("STATUS", "");
+        String photoLatest = preferences.getString("PHOTO_URL", "");
+        String avatar = preferences.getString("AVATAR", "");
         Intent intent = new Intent(context, MainActivity.class);
 
         String groupId = null, pageId = null;
@@ -34,6 +37,7 @@ public class AppWidget extends AppWidgetProvider {
             pageId = preferences.getString("PAGE_ID", null);
         }
 
+        Boolean isWidgetEmpty = true;
         if (groupId != null && pageId != null) {
             Bundle args = new Bundle();
             args.putString("GROUP_ID", groupId);
@@ -43,6 +47,11 @@ public class AppWidget extends AppWidgetProvider {
             intent.putExtras(args);
             intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
 
+            if (!photoLatest.isEmpty()) {
+                isWidgetEmpty = false;
+            }
+        }
+        if (!isWidgetEmpty) {
             layout = R.layout.app_widget;
         }
         PendingIntent pendingIntent = PendingIntent.getActivity(
@@ -55,23 +64,28 @@ public class AppWidget extends AppWidgetProvider {
         RemoteViews views = new RemoteViews(context.getPackageName(), layout);
         views.setOnClickPendingIntent(R.id.widget_container, pendingIntent);
 
-        if (groupId != null && pageId != null) {
-            views.setTextViewText(R.id.widget_sender_status, preferences.getString("STATUS", ""));
+        if (!isWidgetEmpty) {
+            views.setTextViewText(R.id.widget_sender_status, status);
 
             AppWidgetTarget backgroundImage = new AppWidgetTarget(context, R.id.widget_background_image, views, appWidgetIds);
             AppWidgetTarget avatarImage = new AppWidgetTarget(context, R.id.widget_sender_avatar_image, views, appWidgetIds);
 
             Glide.with(context.getApplicationContext())
                     .asBitmap()
-                    .load(preferences.getString("PHOTO_URL", ""))
+                    .load(photoLatest)
                     .centerCrop()
                     .into(backgroundImage);
 
-            Glide.with(context.getApplicationContext())
-                    .asBitmap()
-                    .load(preferences.getString("AVATAR", ""))
-                    .circleCrop()
-                    .into(avatarImage);
+            if (avatar.isEmpty()) {
+                views.setImageViewResource(R.id.widget_sender_avatar_image, R.drawable.account_circle_24);
+            }
+            else {
+                Glide.with(context.getApplicationContext())
+                        .asBitmap()
+                        .load(avatar)
+                        .circleCrop()
+                        .into(avatarImage);
+            }
         }
 
         // Instruct the widget manager to update the widget

@@ -37,6 +37,7 @@ public class ScrapbookViewModel extends ViewModel {
     private final MutableLiveData<String> errorMessage = new MutableLiveData<>();
     private final MutableLiveData<Boolean> isSavingItem = new MutableLiveData<>(false);
     private final MutableLiveData<String> itemSaveError = new MutableLiveData<>();
+    private final MutableLiveData<Boolean> isPageCurlEffectEnabled = new MutableLiveData<>();
     
     private final MutableLiveData<Boolean> isRendering = new MutableLiveData<>(false);
     public MutableLiveData<Boolean> getIsRendering() { return isRendering; }
@@ -91,6 +92,14 @@ public class ScrapbookViewModel extends ViewModel {
 
     public LiveData<String> getItemSaveError() {
         return itemSaveError;
+    }
+
+    public LiveData<Boolean> getIsPageCurlEffectEnabled() {
+        return isPageCurlEffectEnabled;
+    }
+
+    public void togglePageCurlEffect(boolean isEnabled) {
+        isPageCurlEffectEnabled.setValue(isEnabled);
     }
 
     public void loadScrapbook(String groupId, String pageId) {

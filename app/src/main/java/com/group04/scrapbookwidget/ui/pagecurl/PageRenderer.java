@@ -7,13 +7,16 @@ import android.opengl.GLSurfaceView;
 import android.opengl.GLUtils;
 
 import com.group04.scrapbookwidget.ui.meshes.CurlMesh;
+import com.group04.scrapbookwidget.ui.meshes.SimpleMesh;
 
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
 
 public class PageRenderer implements GLSurfaceView.Renderer {
     private Context _context;
+    private boolean isEffectEnabled;
     private CurlMesh curlMesh;
+    private SimpleMesh simpleMesh;
     private float startX = -1.0f, startY = -1.0f, curX = -1.0f, curY = -1.0f;
     private int bmpW, bmpH;
     private int curPage = 1;
@@ -22,8 +25,9 @@ public class PageRenderer implements GLSurfaceView.Renderer {
     private PageResources pageResources;
     private int[] textures;
     private int[] backTex;
-    public PageRenderer(Context context) {
+    public PageRenderer(Context context, boolean isEffectEnabled) {
         _context = context;
+        this.isEffectEnabled = isEffectEnabled;
     }
 
     public void setStartPos(float x, float y) {
@@ -39,6 +43,10 @@ public class PageRenderer implements GLSurfaceView.Renderer {
 
     public void setIsForward(boolean forward) {
         isForward = forward;
+    }
+
+    public void setIsEffectEnabled(boolean isEffectEnabled) {
+        this.isEffectEnabled = isEffectEnabled;
     }
 
     public int getPageNums() {
@@ -62,16 +70,21 @@ public class PageRenderer implements GLSurfaceView.Renderer {
         int front = textures[curPage - 1];
         int next = front;
 
-        if (startX > 0.0f) {
-            if (isForward && curPage < pageResources.pageBitmaps.size()) {
-                next = textures[curPage];
+        if (isEffectEnabled) {
+            if (startX > 0.0f) {
+                if (isForward && curPage < pageResources.pageBitmaps.size()) {
+                    next = textures[curPage];
+                }
+                else if (!isForward && curPage >= 2) {
+                    front = textures[curPage - 2];
+                    next = textures[curPage - 1];
+                }
             }
-            else if (!isForward && curPage >= 2) {
-                front = textures[curPage - 2];
-                next = textures[curPage - 1];
-            }
+            curlMesh.draw(startX, startY, curX, curY, front, backTex[0], next);
         }
-        curlMesh.draw(startX, startY, curX, curY, front, backTex[0], next);
+        else {
+            simpleMesh.draw(front);
+        }
     }
 
     @Override
@@ -87,6 +100,7 @@ public class PageRenderer implements GLSurfaceView.Renderer {
         GLES32.glBlendFunc(GLES32.GL_SRC_ALPHA, GLES32.GL_ONE_MINUS_SRC_ALPHA);
 
         curlMesh = new CurlMesh();
+        simpleMesh = new SimpleMesh();
     }
 
     public static int loadShader(int type, String shaderCode){

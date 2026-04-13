@@ -18,7 +18,8 @@
         <TextView
             android:id="@+id/group_name"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"/>
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_vertical"/>
     </LinearLayout>
 
     <com.google.android.material.divider.MaterialDivider

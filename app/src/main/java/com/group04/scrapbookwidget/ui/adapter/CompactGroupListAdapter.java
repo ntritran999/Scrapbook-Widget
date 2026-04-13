@@ -39,10 +39,16 @@ public class CompactGroupListAdapter extends ArrayAdapter<String> {
         ImageView imageView = row.findViewById(R.id.group_avatar);
 
         groupName.setText(groupNames[position]);
-        Glide.with(context)
-                .load(groupAvatars[position])
-                .circleCrop()
-                .into(imageView);
+        String avatarUrl = groupAvatars[position];
+        if (avatarUrl != null && !avatarUrl.isEmpty()) {
+            Glide.with(context)
+                    .load(groupAvatars[position])
+                    .circleCrop()
+                    .into(imageView);
+        }
+        else {
+            imageView.setImageResource(R.drawable.account_circle_24);
+        }
         return row;
     }
 }

@@ -14,6 +14,9 @@ import com.google.mlkit.nl.smartreply.SmartReplyGenerator;
 import com.google.mlkit.nl.smartreply.SmartReplySuggestion;
 import com.google.mlkit.nl.smartreply.TextMessage;
 import com.google.gson.Gson;
+import android.content.Context;
+import android.content.SharedPreferences;
+import dagger.hilt.android.qualifiers.ApplicationContext;
 import com.group04.scrapbookwidget.data.model.Message;
 import com.group04.scrapbookwidget.data.model.TodayMemory;
 import com.group04.scrapbookwidget.data.service.GroupService;
@@ -42,6 +45,7 @@ public class ChatViewModel extends ViewModel {
     private static final String MEMORY_TAG = "MemoryDebug";
     private final GroupService groupService;
     private final FirebaseAuth auth;
+    private final Context appContext;
     private final Gson gson = new Gson();
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final SmartReplyGenerator smartReply = SmartReply.getClient();
@@ -66,9 +70,10 @@ public class ChatViewModel extends ViewModel {
     private boolean isStreaming = false;
 
     @Inject
-    public ChatViewModel(GroupService groupService, FirebaseAuth auth) {
+    public ChatViewModel(GroupService groupService, FirebaseAuth auth, @ApplicationContext Context appContext) {
         this.groupService = groupService;
         this.auth = auth;
+        this.appContext = appContext;
     }
 
     public void initChat(String groupId) {
@@ -275,6 +280,18 @@ public class ChatViewModel extends ViewModel {
     }
 
     public void generateReplies(List<Message> recentMessages, String currentUserId) {
+        // Respect global AI features setting
+        try {
+            boolean aiEnabled = appContext.getSharedPreferences("APP_SETTINGS", Context.MODE_PRIVATE)
+                    .getBoolean("AI_FEATURES_ENABLED", true);
+            if (!aiEnabled) {
+                suggestedReplies.setValue(Collections.emptyList());
+                return;
+            }
+        } catch (Exception e) {
+            // If unable to read pref, proceed with default behavior
+        }
+
         if (recentMessages == null || recentMessages.isEmpty() || currentUserId == null || currentUserId.trim().isEmpty()) {
             suggestedReplies.setValue(Collections.emptyList());
             return;

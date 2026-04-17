@@ -360,6 +360,41 @@
                         app:title="@{@string/change_email}"
                         app:subtitle="@{viewModel.currentUser.email}"/>
 
+                    <!-- AI Features Toggle (General -> Profile Settings) -->
+                    <RelativeLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:paddingVertical="12dp">
+
+                        <ImageView
+                            android:id="@+id/icAiFeature"
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:layout_centerVertical="true"
+                            android:src="@drawable/ic_auto_awesome" android:contentDescription="@null"
+                            app:tint="#FFFFFF" />
+
+                        <TextView
+                            android:id="@+id/tvAiFeatureLabel"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_centerVertical="true"
+                            android:layout_marginStart="16dp"
+                            android:layout_toEndOf="@id/icAiFeature"
+                            android:layout_toStartOf="@+id/switchAiFeaturesProfile"
+                            android:text="AI Features"
+                            android:textColor="#FFFFFF"
+                            android:textSize="16sp" />
+
+                        <com.google.android.material.materialswitch.MaterialSwitch
+                            android:id="@+id/switchAiFeaturesProfile"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_alignParentEnd="true"
+                            android:layout_centerVertical="true"
+                            android:checked="true" />
+                    </RelativeLayout>
+
                     <!-- Support Section -->
                     <TextView
                         android:layout_width="match_parent"

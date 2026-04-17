@@ -97,15 +97,15 @@ public class ChatViewModel extends ViewModel {
     public void initChat(String groupId) {
         this.currentGroupId = groupId;
         Log.d(TAG, "initChat: groupId=" + groupId);
-        
-        loadMessages(); 
+
+        loadMessages();
         startWebSocket();
         loadTodayMemories();
     }
 
     private void loadMessages() {
         if (currentGroupId == null) return;
-        
+
         _isLoading.setValue(true);
         groupService.getMessages(currentGroupId).enqueue(new Callback<List<Message>>() {
             @Override
@@ -150,7 +150,7 @@ public class ChatViewModel extends ViewModel {
         tempMessage.setId(tempId);
         tempMessage.setContent(content);
         tempMessage.setCreatedBy(auth.getUid());
-        tempMessage.setCreatedAt(Instant.now().toString()); 
+        tempMessage.setCreatedAt(Instant.now().toString());
         tempMessage.setStatus(Message.Status.SENDING);
         tempMessage.setSenderName(auth.getCurrentUser() != null ? auth.getCurrentUser().getDisplayName() : "Me");
         
@@ -361,9 +361,9 @@ public class ChatViewModel extends ViewModel {
             try {
                 JsonObject packet = gson.fromJson(text, JsonObject.class);
                 String event = packet.has("event") ? packet.get("event").getAsString() : "";
-                
+
                 if (event.equals("messages.initial")) {
-                    List<Message> initialMessages = gson.fromJson(packet.get("data"), 
+                    List<Message> initialMessages = gson.fromJson(packet.get("data"),
                             new com.google.gson.reflect.TypeToken<List<Message>>(){}.getType());
                     mergeMessagesInternal(initialMessages);
                 } else if (event.equals("message.created") || event.equals("message.seen")) {
@@ -388,7 +388,7 @@ public class ChatViewModel extends ViewModel {
         for (Message m : newMessages) {
             if (m.getId() != null) mergedMap.put(m.getId(), m);
         }
-        
+
         masterMessagesList.clear();
         masterMessagesList.addAll(mergedMap.values());
         processAndPostMessages();
@@ -411,7 +411,7 @@ public class ChatViewModel extends ViewModel {
             if (message.getCreatedBy() != null && message.getCreatedBy().equals(myUid)) {
                 for (int i = masterMessagesList.size() - 1; i >= 0; i--) {
                     Message m = masterMessagesList.get(i);
-                    if (m != null && m.getId() != null && m.getId().startsWith("temp_") && 
+                    if (m != null && m.getId() != null && m.getId().startsWith("temp_") &&
                         m.getContent() != null && m.getContent().equals(message.getContent())) {
                         masterMessagesList.set(i, message);
                         replaced = true;
@@ -419,7 +419,7 @@ public class ChatViewModel extends ViewModel {
                     }
                 }
             }
-            
+
             if (!replaced) {
                 masterMessagesList.add(message);
             }
@@ -430,7 +430,7 @@ public class ChatViewModel extends ViewModel {
     private void processAndPostMessages() {
         Collections.sort(masterMessagesList, Comparator.comparingLong(this::parseTimestamp));
         _messages.postValue(new ArrayList<>(masterMessagesList));
-        
+
         String myUid = auth.getUid();
         Map<String, String> userToLatestMessageId = new HashMap<>();
         Map<String, Message.SeenBy> userToLatestDetails = new HashMap<>();

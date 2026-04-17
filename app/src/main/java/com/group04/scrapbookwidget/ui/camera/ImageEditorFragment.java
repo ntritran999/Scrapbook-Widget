@@ -1,6 +1,7 @@
 package com.group04.scrapbookwidget.ui.camera;
 
 import android.app.Activity;
+import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
@@ -90,7 +91,7 @@ public class ImageEditorFragment extends Fragment {
                 while ((length = fis.read(buffer)) > 0) {
                     os.write(buffer, 0, length);
                 }
-                Snackbar.make(binding.container, "Ảnh đã được lưu xuống máy", Snackbar.LENGTH_SHORT).show();
+                Snackbar.make(binding.container, "Saved to gallery.", Snackbar.LENGTH_SHORT).show();
                 return true;
             } catch (Exception e) {
                 e.printStackTrace();
@@ -159,7 +160,7 @@ public class ImageEditorFragment extends Fragment {
                     Thread.sleep(interval);
                 } catch (InterruptedException e) {
                     if (binding != null) {
-                        Snackbar.make(binding.container, "Vui lòng thử lại sau.", Snackbar.LENGTH_SHORT).show();
+                        Snackbar.make(binding.container, "Please try again later.", Snackbar.LENGTH_SHORT).show();
                     }
                 }
             }
@@ -207,8 +208,10 @@ public class ImageEditorFragment extends Fragment {
             File outputDir = requireContext().getCacheDir();
             File imageFile = File.createTempFile("pasted_image", ".png", outputDir);
             try (FileOutputStream out = new FileOutputStream(imageFile)) {
-                bitmap.compress(Bitmap.CompressFormat.PNG, 100, out);
+                bitmap.compress(Bitmap.CompressFormat.WEBP, 80, out);
             }
+
+            bitmap.recycle();
 
             // Store the image path and show caption dialog
             pendingImagePath = imageFile.getAbsolutePath();
@@ -247,14 +250,29 @@ public class ImageEditorFragment extends Fragment {
             return;
         }
 
+        // Respect user setting: skip face embedding extraction when AI features disabled
+        try {
+            boolean aiEnabled = requireActivity().getSharedPreferences("APP_SETTINGS", Context.MODE_PRIVATE)
+                    .getBoolean("AI_FEATURES_ENABLED", true);
+            if (!aiEnabled) {
+                // Do not start background extraction when disabled
+                android.util.Log.d("ImageEditorFragment", "AI features disabled - skipping face extraction");
+                hasStartedFaceExtraction = true;
+                isExtractingFaces = false;
+                return;
+            }
+        } catch (Exception e) {
+            // If preference access fails, default to enabled behavior (do nothing)
+        }
+
+        hasStartedFaceExtraction = true;
+        isExtractingFaces = true;
+
         Bitmap sourceBitmap = loadBitmapForFaceExtraction(photoPath);
         if (sourceBitmap == null) {
             android.util.Log.e("ImageEditorFragment", "Could not decode source photo for face extraction");
             return;
         }
-
-        hasStartedFaceExtraction = true;
-        isExtractingFaces = true;
 
         faceEmbeddingManager.extractFacesFromPhoto(sourceBitmap, new FaceEmbeddingManager.GroupPhotoCallback() {
             @Override

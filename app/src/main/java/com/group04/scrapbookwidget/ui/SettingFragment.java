@@ -44,7 +44,27 @@ public class SettingFragment extends Fragment {
         setupObservers();
         setupClickListeners();
 
+        setupAiToggleInProfile();
+
         return binding.getRoot();
+    }
+
+    private static final String SETTING_PREF_NAME = "APP_SETTINGS";
+    private static final String AI_FEATURES_KEY = "AI_FEATURES_ENABLED";
+
+    private void setupAiToggleInProfile() {
+        try {
+            // initialize state
+            boolean enabled = requireContext().getSharedPreferences(SETTING_PREF_NAME, Context.MODE_PRIVATE)
+                    .getBoolean(AI_FEATURES_KEY, true);
+            if (binding.switchAiFeaturesProfile != null) {
+                binding.switchAiFeaturesProfile.setChecked(enabled);
+                binding.switchAiFeaturesProfile.setOnCheckedChangeListener((buttonView, isChecked) -> {
+                    requireContext().getSharedPreferences(SETTING_PREF_NAME, Context.MODE_PRIVATE)
+                            .edit().putBoolean(AI_FEATURES_KEY, isChecked).apply();
+                });
+            }
+        } catch (Exception ignored) {}
     }
 
     private void setupRecyclerView() {
@@ -160,7 +180,9 @@ public class SettingFragment extends Fragment {
         SharedPreferences preferences = requireContext().getSharedPreferences("TMP_USER_SESSION", Context.MODE_PRIVATE);
         preferences.edit().clear().apply();
 
-        // Update widget
+        // Clear widget session & Update widget
+        preferences = requireContext().getSharedPreferences("widget_metadata", Context.MODE_PRIVATE);
+        preferences.edit().clear().apply();
         AppWidget.updateWidgetNow(requireContext());
 
         // Navigate back to Login screen and clear navigation stack

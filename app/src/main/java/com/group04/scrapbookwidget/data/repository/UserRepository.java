@@ -1,9 +1,13 @@
 package com.group04.scrapbookwidget.data.repository;
 
+import android.content.Context;
 import android.util.Log;
 import android.webkit.MimeTypeMap;
 
 import androidx.annotation.NonNull;
+import androidx.work.ExistingWorkPolicy;
+import androidx.work.OneTimeWorkRequest;
+import androidx.work.WorkManager;
 
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
@@ -11,12 +15,14 @@ import com.group04.scrapbookwidget.data.model.Group;
 import com.group04.scrapbookwidget.data.model.User;
 import com.group04.scrapbookwidget.data.service.AuthService;
 import com.group04.scrapbookwidget.data.service.UserService;
+import com.group04.scrapbookwidget.data.worker.WidgetUpdateWorker;
 
 import java.io.File;
 import java.util.List;
 
 import javax.inject.Inject;
 
+import dagger.hilt.android.qualifiers.ApplicationContext;
 import okhttp3.MediaType;
 import okhttp3.MultipartBody;
 import okhttp3.RequestBody;
@@ -30,12 +36,15 @@ public class UserRepository implements IUserRepository {
     private final UserService userService;
     private final AuthService authService;
     private final FirebaseAuth firebaseAuth;
+    private final Context context;
 
     @Inject
-    public UserRepository(UserService userService, AuthService authService, FirebaseAuth firebaseAuth) {
+    public UserRepository(UserService userService, FirebaseAuth firebaseAuth, AuthService authService,
+                          @ApplicationContext Context context) {
         this.userService = userService;
         this.authService = authService;
         this.firebaseAuth = firebaseAuth;
+        this.context = context;
     }
 
     @Override
@@ -108,6 +117,9 @@ public class UserRepository implements IUserRepository {
             public void onResponse(@NonNull Call<User> call, @NonNull Response<User> response) {
                 if (response.isSuccessful() && response.body() != null) {
                     callback.onSuccess(response.body());
+                    OneTimeWorkRequest workRequest = OneTimeWorkRequest.from(WidgetUpdateWorker.class);
+                    WorkManager.getInstance(context)
+                            .enqueueUniqueWork("updateWidgetAfterLogin", ExistingWorkPolicy.REPLACE, workRequest);
                 } else {
                     callback.onError(new Exception("Server session verification failed: " + response.code()));
                 }

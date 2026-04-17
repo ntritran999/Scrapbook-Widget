@@ -50,16 +50,20 @@ public class PageCurlView extends GLSurfaceView {
     private OnPhotoHitListener listener;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private Runnable runnable;
-    public PageCurlView(Context context) {
+    public PageCurlView(Context context, boolean isEffectEnabled) {
         super(context);
         _context = context;
         setEGLContextClientVersion(3);
-        pageRenderer = new PageRenderer(context);
+        pageRenderer = new PageRenderer(context, isEffectEnabled);
         setRenderer(pageRenderer);
     }
 
     public PageRenderer getPageRenderer() {
         return pageRenderer;
+    }
+
+    public void togglePageCurlEffect(boolean isEnabled) {
+        pageRenderer.setIsEffectEnabled(isEnabled);
     }
 
     @Override

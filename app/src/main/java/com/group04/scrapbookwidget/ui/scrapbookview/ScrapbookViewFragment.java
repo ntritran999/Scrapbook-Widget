@@ -38,6 +38,7 @@ import dagger.hilt.android.AndroidEntryPoint;
 @AndroidEntryPoint
 public class ScrapbookViewFragment extends Fragment {
     private static final String TMP_PREF_NAME = "TMP_USER_SESSION";
+    private static final String SETTING_PREF_NAME = "APP_SETTINGS";
 
     private ScrapbookViewModel scrapbookViewModel;
     private String groupId = "", pageId = "";
@@ -144,6 +145,10 @@ public class ScrapbookViewFragment extends Fragment {
                     "Saved to SharedPref - groupId: " + groupId + ", pageId: " + pageId);
         }
 
+        // Tải setting hiệu ứng lật trang
+        binding.btnSwitchPageCurlEffect.setChecked(requireActivity().getSharedPreferences(SETTING_PREF_NAME, Activity.MODE_PRIVATE)
+                .getBoolean("PAGE_CURL_EFFECT_ENABLED", true));
+
         setupObservers();
         setupClickListeners();
 
@@ -192,7 +197,7 @@ public class ScrapbookViewFragment extends Fragment {
         scrapbookViewModel.getIsLoading().observe(getViewLifecycleOwner(), loaderObserver);
         scrapbookViewModel.getIsRendering().observe(getViewLifecycleOwner(), loaderObserver);
         scrapbookViewModel.getIsExporting().observe(getViewLifecycleOwner(), loaderObserver);
-        
+
         scrapbookViewModel.getExportStatus().observe(getViewLifecycleOwner(), status -> {
             if (status != null && !status.isEmpty()) {
                 if (status.contains("saved") || status.contains("Error") || status.contains("Failed")) {
@@ -247,6 +252,18 @@ public class ScrapbookViewFragment extends Fragment {
             showGroupSelectionDialog();
         });
 
+        binding.btnSwitchPageCurlEffect.setOnClickListener(v -> {
+            saveEffectChoice(binding.btnSwitchPageCurlEffect.isChecked());
+        });
+    }
+
+    private void saveEffectChoice(boolean isEnabled) {
+        requireActivity().getSharedPreferences(SETTING_PREF_NAME, Activity.MODE_PRIVATE)
+                .edit()
+                .putBoolean("PAGE_CURL_EFFECT_ENABLED", isEnabled)
+                .apply();
+        scrapbookViewModel.togglePageCurlEffect(isEnabled);
+
         binding.btnSavePage.setOnClickListener(v -> {
             scrapbookViewModel.saveCurrentPageToStorage(requireContext());
         });
@@ -297,6 +314,7 @@ public class ScrapbookViewFragment extends Fragment {
         android.util.Log.d("ScrapbookViewFragment", "enterPastingMode: Entering pasting mode");
         isInPastingMode = true;
         binding.cameraBtn.setVisibility(View.INVISIBLE);
+        binding.btnSwitchPageCurlEffect.setVisibility(View.INVISIBLE);
         binding.btnConfirmPaste.setVisibility(View.VISIBLE);
         binding.btnSavePage.setVisibility(View.GONE);
         Toast.makeText(requireContext(), "Please patse the image to scrapbook", Toast.LENGTH_SHORT).show();
@@ -317,6 +335,7 @@ public class ScrapbookViewFragment extends Fragment {
         pastedImagePath = null;
         isInPastingMode = false;
         binding.cameraBtn.setVisibility(View.VISIBLE);
+        binding.btnSwitchPageCurlEffect.setVisibility(View.INVISIBLE);
         binding.btnConfirmPaste.setVisibility(View.INVISIBLE);
         binding.btnSavePage.setVisibility(View.VISIBLE);
     }
@@ -610,6 +629,7 @@ public class ScrapbookViewFragment extends Fragment {
 
         if (isInPastingMode && pastedImagePath != null && !pastedImagePath.isEmpty()) {
             binding.cameraBtn.setVisibility(View.INVISIBLE);
+            binding.btnSwitchPageCurlEffect.setVisibility(View.INVISIBLE);
             binding.btnConfirmPaste.setVisibility(View.VISIBLE);
         }
     }

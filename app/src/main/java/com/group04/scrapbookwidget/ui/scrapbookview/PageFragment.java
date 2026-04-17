@@ -1,5 +1,6 @@
 package com.group04.scrapbookwidget.ui.scrapbookview;
 
+import android.app.Activity;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -27,6 +28,7 @@ import dagger.hilt.android.AndroidEntryPoint;
 
 @AndroidEntryPoint
 public class PageFragment extends Fragment {
+    private static final String SETTING_PREF_NAME = "APP_SETTINGS";
     private ScrapbookViewModel scrapbookViewModel;
     private PageCurlView pageCurlView;
     private Handler mainHandler = new Handler(Looper.getMainLooper());
@@ -81,13 +83,21 @@ public class PageFragment extends Fragment {
         scrapbookViewModel.getErrorMessage().observe(getViewLifecycleOwner(), error -> {
             Toast.makeText(getContext(), "Cannot load pages", Toast.LENGTH_SHORT).show();
         });
+
+        scrapbookViewModel.getIsPageCurlEffectEnabled().observe(getViewLifecycleOwner(), isEnabled -> {
+            if (isEnabled != null) {
+                pageCurlView.togglePageCurlEffect(isEnabled);
+            }
+        });
     }
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
         // Inflate the layout for this fragment
-        pageCurlView = new PageCurlView(this.getActivity());
+        pageCurlView = new PageCurlView(this.getActivity(),
+                requireActivity().getSharedPreferences(SETTING_PREF_NAME, Activity.MODE_PRIVATE)
+                        .getBoolean("PAGE_CURL_EFFECT_ENABLED", true));
         return pageCurlView;
     }
 

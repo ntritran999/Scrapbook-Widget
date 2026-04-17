@@ -9,6 +9,7 @@ public class Group {
     private String createdBy;
     private Object createdAt; // Can be Long (Firestore) or String (ISO date from API)
     private Message latestMessage;
+    private int unreadCount; // Added unreadCount field
 
     @SerializedName("latestPage")
     private ScrapbookPage latestPage;
@@ -78,5 +79,13 @@ public class Group {
 
     public void setDefaultPage(ScrapbookPage defaultPage) {
         this.defaultPage = defaultPage;
+    }
+
+    public int getUnreadCount() {
+        return unreadCount;
+    }
+
+    public void setUnreadCount(int unreadCount) {
+        this.unreadCount = unreadCount;
     }
 }

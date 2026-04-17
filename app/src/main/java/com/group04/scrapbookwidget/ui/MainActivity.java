@@ -45,7 +45,14 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
-            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
+            // Only apply bottom padding for system bars when keyboard is NOT showing
+            // When keyboard (IME) is showing, we let adjustResize handle the layout shift
+            // but we need to subtract the navigation bar height to avoid double padding
+            int bottomPadding = systemBars.bottom;
+            if (insets.isVisible(WindowInsetsCompat.Type.ime())) {
+                bottomPadding = 0;
+            }
+            v.setPadding(systemBars.left, systemBars.top, systemBars.right, bottomPadding);
             return insets;
         });
 
@@ -62,6 +69,7 @@ public class MainActivity extends AppCompatActivity {
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
         NavHostFragment navHostFragment =
                 (NavHostFragment) getSupportFragmentManager().findFragmentById(R.id.nav_host_fragment);
+        if (navHostFragment == null) return;
         NavController navController = navHostFragment.getNavController();
 
         if (currentUser == null) {

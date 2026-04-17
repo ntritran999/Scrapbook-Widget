@@ -79,6 +79,9 @@ dependencies {
     implementation("com.google.firebase:firebase-firestore")
     implementation("com.google.firebase:firebase-auth")
 
+    // Google Play Services Auth
+    implementation("com.google.android.gms:play-services-auth:21.5.1")
+
     // Google ML Kit
     implementation("com.google.mlkit:face-detection:16.1.7")
     implementation("com.google.mlkit:smart-reply:17.0.4")
@@ -91,6 +94,9 @@ dependencies {
 
     // Gson converter
     implementation("com.squareup.retrofit2:converter-gson:3.0.0")
+
+    // OkHttp logging interceptor
+    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
 
     // WorkMananger
     implementation("androidx.work:work-runtime:2.11.1")

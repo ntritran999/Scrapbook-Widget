@@ -181,20 +181,28 @@ public class ScrapbookViewFragment extends Fragment {
         androidx.lifecycle.Observer<Boolean> loaderObserver = state -> {
             boolean isLoadingData = scrapbookViewModel.getIsLoading().getValue() != null && scrapbookViewModel.getIsLoading().getValue();
             boolean isRenderingGL = scrapbookViewModel.getIsRendering().getValue() != null && scrapbookViewModel.getIsRendering().getValue();
+            boolean isExporting = scrapbookViewModel.getIsExporting().getValue() != null && scrapbookViewModel.getIsExporting().getValue();
 
             if (binding != null) {
-                binding.loadingOverlay.setVisibility((isLoadingData || isRenderingGL) ? View.VISIBLE : View.GONE);
+                binding.loadingOverlay.setVisibility((isLoadingData || isRenderingGL || isExporting) ? View.VISIBLE : View.GONE);
+                if (isExporting) {
+                    String status = scrapbookViewModel.getExportStatus().getValue();
+                    binding.loadingText.setText(status != null ? status : "Saving Page...");
+                } else {
+                    binding.loadingText.setText("Loading Scrapbook...");
+                }
             }
         };
 
         scrapbookViewModel.getIsLoading().observe(getViewLifecycleOwner(), loaderObserver);
+        scrapbookViewModel.getIsRendering().observe(getViewLifecycleOwner(), loaderObserver);
+        scrapbookViewModel.getIsExporting().observe(getViewLifecycleOwner(), loaderObserver);
 
-        scrapbookViewModel.getIsRendering().observe(getViewLifecycleOwner(), rendering -> {
-            loaderObserver.onChanged(rendering);
-
-            if (!rendering && currentPastingView != null && !isInPastingMode) {
-                android.util.Log.d("ScrapbookViewFragment", "Render complete. Removing temporary image safely.");
-                exitPastingMode();
+        scrapbookViewModel.getExportStatus().observe(getViewLifecycleOwner(), status -> {
+            if (status != null && !status.isEmpty()) {
+                if (status.contains("saved") || status.contains("Error") || status.contains("Failed")) {
+                    Toast.makeText(requireContext(), status, Toast.LENGTH_SHORT).show();
+                }
             }
         });
 
@@ -255,6 +263,10 @@ public class ScrapbookViewFragment extends Fragment {
                 .putBoolean("PAGE_CURL_EFFECT_ENABLED", isEnabled)
                 .apply();
         scrapbookViewModel.togglePageCurlEffect(isEnabled);
+
+        binding.btnSavePage.setOnClickListener(v -> {
+            scrapbookViewModel.saveCurrentPageToStorage(requireContext());
+        });
     }
 
     private void showGroupSelectionDialog() {
@@ -304,6 +316,7 @@ public class ScrapbookViewFragment extends Fragment {
         binding.cameraBtn.setVisibility(View.INVISIBLE);
         binding.btnSwitchPageCurlEffect.setVisibility(View.INVISIBLE);
         binding.btnConfirmPaste.setVisibility(View.VISIBLE);
+        binding.btnSavePage.setVisibility(View.GONE);
         Toast.makeText(requireContext(), "Please patse the image to scrapbook", Toast.LENGTH_SHORT).show();
     }
 
@@ -324,6 +337,7 @@ public class ScrapbookViewFragment extends Fragment {
         binding.cameraBtn.setVisibility(View.VISIBLE);
         binding.btnSwitchPageCurlEffect.setVisibility(View.INVISIBLE);
         binding.btnConfirmPaste.setVisibility(View.INVISIBLE);
+        binding.btnSavePage.setVisibility(View.VISIBLE);
     }
 
     private void addPastedImageToScrapbook(String path) {

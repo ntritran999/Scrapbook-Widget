@@ -20,7 +20,7 @@
             android:padding="12dp"
             android:backgroundTint="#F0F0F0"
             android:textColorHint="#999999"
-            android:textColor="@android:color/black"/>
+            android:textColor="@android:color/white"/>
 
     </LinearLayout>
 

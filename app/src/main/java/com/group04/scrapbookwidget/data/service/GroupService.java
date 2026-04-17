@@ -24,6 +24,7 @@ import retrofit2.http.Body;
 import retrofit2.http.DELETE;
 import retrofit2.http.GET;
 import retrofit2.http.Header;
+import retrofit2.http.Headers;
 import retrofit2.http.Multipart;
 import retrofit2.http.PATCH;
 import retrofit2.http.POST;
@@ -123,10 +124,6 @@ public interface GroupService {
 
     @PUT("groups/{groupId}/messages/{messageId}/seen-by/{userId}")
     Call<Message.SeenBy> markAsSeen(@Path("groupId") String groupId, @Path("messageId") String messageId, @Path("userId") String userId);
-
-    @Streaming
-    @GET("groups/{groupId}/messages/stream")
-    Call<ResponseBody> streamMessages(@Path("groupId") String groupId, @Header("Authorization") String bearerToken);
 
     @GET("groups/{groupId}/scrapbook-pages/{pageId}/{itemId}/reactions")
     Call<List<Reaction>> getReactions(@Path("groupId") String groupId, @Path("pageId") String pageId, @Path("itemId") String itemId);

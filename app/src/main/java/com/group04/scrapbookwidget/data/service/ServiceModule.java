@@ -10,6 +10,7 @@ import com.google.gson.GsonBuilder;
 import java.io.IOException;
 import java.util.concurrent.ExecutionException;
 
+import javax.inject.Named;
 import javax.inject.Singleton;
 
 import dagger.Module;
@@ -20,6 +21,7 @@ import okhttp3.Interceptor;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
+import okhttp3.logging.HttpLoggingInterceptor;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
 
@@ -28,7 +30,13 @@ import java.util.concurrent.TimeUnit;
 @Module
 @InstallIn(SingletonComponent.class)
 public class ServiceModule {
-    private final String BASE_URL = "http://10.0.2.2:3000/api/v1/";
+    private final String BASE_URL = "http://10.123.1.131:3000/api/v1/";
+
+    @Provides
+    @Named("baseUrl")
+    public String provideBaseUrl() {
+        return BASE_URL;
+    }
 
     @Singleton
     @Provides
@@ -39,20 +47,29 @@ public class ServiceModule {
     @Singleton
     @Provides
     public OkHttpClient provideOkHttpClient(FirebaseAuth firebaseAuth) {
+        HttpLoggingInterceptor logging = new HttpLoggingInterceptor();
+        logging.setLevel(HttpLoggingInterceptor.Level.BODY);
+
         return new OkHttpClient.Builder()
                 .connectTimeout(30, TimeUnit.SECONDS)
                 .readTimeout(30, TimeUnit.SECONDS)
                 .writeTimeout(30, TimeUnit.SECONDS)
+                .addInterceptor(logging)
                 .addInterceptor(new Interceptor() {
                     @Override
                     public Response intercept(Chain chain) throws IOException {
                         Request originalRequest = chain.request();
-                        FirebaseUser user = firebaseAuth.getCurrentUser();
 
+                        // 1. Skip if it's the Google Auth endpoint
+                        // 2. Skip if the request already has an Authorization header (e.g. from manual SSE call)
+                        if (originalRequest.url().toString().contains("auth/google") || 
+                            originalRequest.header("Authorization") != null) {
+                            return chain.proceed(originalRequest);
+                        }
+
+                        FirebaseUser user = firebaseAuth.getCurrentUser();
                         if (user != null) {
                             try {
-                                // Retrofit/OkHttp calls run on background threads, 
-                                // so we can safely block to get the token.
                                 GetTokenResult tokenResult = Tasks.await(user.getIdToken(false));
                                 String token = tokenResult.getToken();
 
@@ -75,16 +92,22 @@ public class ServiceModule {
 
     @Singleton
     @Provides
-    public Retrofit provideRetrofit(OkHttpClient okHttpClient) {
+    public Retrofit provideRetrofit(OkHttpClient okHttpClient, @Named("baseUrl") String baseUrl) {
         Gson gson = new GsonBuilder()
                 .setLenient()
                 .create();
 
         return new Retrofit.Builder()
-                .baseUrl(BASE_URL)
+                .baseUrl(baseUrl)
                 .client(okHttpClient)
                 .addConverterFactory(GsonConverterFactory.create(gson))
                 .build();
+    }
+
+    @Singleton
+    @Provides
+    public AuthService provideAuthService(Retrofit retrofit) {
+        return retrofit.create(AuthService.class);
     }
 
     @Singleton

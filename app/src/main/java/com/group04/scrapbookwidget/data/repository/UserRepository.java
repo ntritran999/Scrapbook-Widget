@@ -13,6 +13,7 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.group04.scrapbookwidget.data.model.Group;
 import com.group04.scrapbookwidget.data.model.User;
+import com.group04.scrapbookwidget.data.service.AuthService;
 import com.group04.scrapbookwidget.data.service.UserService;
 import com.group04.scrapbookwidget.data.worker.WidgetUpdateWorker;
 
@@ -33,13 +34,15 @@ public class UserRepository implements IUserRepository {
 
     private static final String TAG = "UserRepository";
     private final UserService userService;
+    private final AuthService authService;
     private final FirebaseAuth firebaseAuth;
     private final Context context;
 
     @Inject
-    public UserRepository(UserService userService, FirebaseAuth firebaseAuth,
+    public UserRepository(UserService userService, FirebaseAuth firebaseAuth, AuthService authService,
                           @ApplicationContext Context context) {
         this.userService = userService;
+        this.authService = authService;
         this.firebaseAuth = firebaseAuth;
         this.context = context;
     }
@@ -66,6 +69,43 @@ public class UserRepository implements IUserRepository {
                         callback.onError(task.getException());
                     }
                 });
+    }
+
+    @Override
+    public void loginWithGoogle(String idToken, RepositoryCallback<User> callback) {
+        User userRequest = new User();
+        userRequest.setIdToken(idToken);
+
+        Log.d(TAG, "loginWithGoogle: Calling POST /auth/google with token length: " + idToken.length());
+
+        authService.loginWithGoogle(userRequest).enqueue(new Callback<User>() {
+            @Override
+            public void onResponse(@NonNull Call<User> call, @NonNull Response<User> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    Log.d(TAG, "loginWithGoogle: SUCCESS");
+                    callback.onSuccess(response.body());
+                } else {
+                    String errorMsg = "Google login verification failed: " + response.code();
+                    try {
+                        if (response.errorBody() != null) {
+                            String serverError = response.errorBody().string();
+                            Log.e(TAG, "Server error body: " + serverError);
+                            errorMsg += " - " + serverError;
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error reading error body", e);
+                    }
+                    Log.e(TAG, errorMsg);
+                    callback.onError(new Exception(errorMsg));
+                }
+            }
+
+            @Override
+            public void onFailure(@NonNull Call<User> call, @NonNull Throwable t) {
+                Log.e(TAG, "loginWithGoogle: Network/Technical Failure", t);
+                callback.onError(new Exception("Network error: " + t.getMessage()));
+            }
+        });
     }
 
     private void verifySessionOnServer(String idToken, RepositoryCallback<User> callback) {

@@ -4,37 +4,43 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.ViewModel;
 
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.gson.Gson;
+import com.google.gson.JsonObject;
 import com.google.mlkit.nl.smartreply.SmartReply;
 import com.google.mlkit.nl.smartreply.SmartReplyGenerator;
 import com.google.mlkit.nl.smartreply.SmartReplySuggestion;
 import com.google.mlkit.nl.smartreply.TextMessage;
-import com.google.gson.Gson;
-import android.content.Context;
-import android.content.SharedPreferences;
-import dagger.hilt.android.qualifiers.ApplicationContext;
 import com.group04.scrapbookwidget.data.model.Message;
 import com.group04.scrapbookwidget.data.model.TodayMemory;
 import com.group04.scrapbookwidget.data.service.GroupService;
 
 import java.time.Instant;
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import javax.inject.Inject;
+import javax.inject.Named;
 
 import dagger.hilt.android.lifecycle.HiltViewModel;
-import okhttp3.ResponseBody;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.WebSocket;
+import okhttp3.WebSocketListener;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
@@ -42,16 +48,19 @@ import retrofit2.Response;
 @HiltViewModel
 public class ChatViewModel extends ViewModel {
     private static final String TAG = "ChatViewModel";
-    private static final String MEMORY_TAG = "MemoryDebug";
     private final GroupService groupService;
     private final FirebaseAuth auth;
-    private final Context appContext;
+    private final OkHttpClient okHttpClient;
+    private final String baseUrl;
     private final Gson gson = new Gson();
-    private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final SmartReplyGenerator smartReply = SmartReply.getClient();
+    private final ExecutorService backgroundExecutor = Executors.newSingleThreadExecutor();
 
     private final MutableLiveData<List<Message>> _messages = new MutableLiveData<>(new ArrayList<>());
     public LiveData<List<Message>> getMessages() { return _messages; }
+
+    private final MutableLiveData<List<MessageWrapper>> _messageWrappers = new MutableLiveData<>(new ArrayList<>());
+    public LiveData<List<MessageWrapper>> getMessageWrappers() { return _messageWrappers; }
 
     private final MutableLiveData<Boolean> _isLoading = new MutableLiveData<>(false);
     public LiveData<Boolean> isLoading() { return _isLoading; }
@@ -65,88 +74,70 @@ public class ChatViewModel extends ViewModel {
     private final MutableLiveData<List<String>> suggestedReplies = new MutableLiveData<>(Collections.emptyList());
     public LiveData<List<String>> getSuggestedReplies() { return suggestedReplies; }
 
+    private final MutableLiveData<Message.SeenBy> _markAsSeenResponse = new MutableLiveData<>();
+    public LiveData<Message.SeenBy> getMarkAsSeenResponse() { return _markAsSeenResponse; }
+
     private String currentGroupId;
-    private Thread streamThread;
-    private boolean isStreaming = false;
+    private WebSocket webSocket;
+    private boolean isStopped = false;
+    private long retryDelayMs = 1000;
+    private static final long MAX_RETRY_DELAY_MS = 30000;
+
+    private final List<Message> masterMessagesList = new ArrayList<>();
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
     @Inject
-    public ChatViewModel(GroupService groupService, FirebaseAuth auth, @ApplicationContext Context appContext) {
+    public ChatViewModel(GroupService groupService, FirebaseAuth auth, OkHttpClient okHttpClient, @Named("baseUrl") String baseUrl) {
         this.groupService = groupService;
         this.auth = auth;
-        this.appContext = appContext;
+        this.okHttpClient = okHttpClient;
+        this.baseUrl = baseUrl;
     }
 
     public void initChat(String groupId) {
         this.currentGroupId = groupId;
-        Log.d(MEMORY_TAG, "[INIT_CHAT] groupId=" + groupId + ", authUid=" + auth.getUid());
-        startMessageStream();
+        Log.d(TAG, "initChat: groupId=" + groupId);
+
+        loadMessages();
+        startWebSocket();
         loadTodayMemories();
     }
 
-    private void loadTodayMemories() {
-        Log.d(MEMORY_TAG, "[LOAD_START] groupId=" + currentGroupId + ", authUid=" + auth.getUid());
-        if (currentGroupId == null) {
-            Log.w(MEMORY_TAG, "[LOAD_ABORT] currentGroupId is null");
-            _todayMemories.setValue(new ArrayList<>());
-            return;
-        }
+    private void loadMessages() {
+        if (currentGroupId == null) return;
 
-        Call<List<TodayMemory>> call = groupService.getTodayMemory(currentGroupId);
-        Log.d(MEMORY_TAG, "[API_REQUEST] GET " + call.request().method() + " " + call.request().url());
-        call.enqueue(new Callback<List<TodayMemory>>() {
+        _isLoading.setValue(true);
+        groupService.getMessages(currentGroupId).enqueue(new Callback<List<Message>>() {
             @Override
-            public void onResponse(Call<List<TodayMemory>> call, Response<List<TodayMemory>> response) {
-                if (response.isSuccessful()) {
-                    List<TodayMemory> memories = response.body();
-                    int count = memories != null ? memories.size() : 0;
-                    Log.d(MEMORY_TAG, "[API_SUCCESS] code=" + response.code() + ", memoryCount=" + count);
-                    if (count == 0) {
-                        Log.w(MEMORY_TAG,
-                                "[API_EMPTY] Backend returned no memories. Checklist: " +
-                                        "1) current user must be a member of groups/" + currentGroupId + "/members/{uid}; " +
-                                        "2) scrapbook items must belong to this group; " +
-                                        "3) item.type must equal 'photo'; " +
-                                        "4) taggedUserIds must be non-empty; " +
-                                        "5) joined users for taggedUserIds must still exist and not be deleted."
-                        );
-                    } else {
-                        for (int i = 0; i < memories.size(); i++) {
-                            TodayMemory memory = memories.get(i);
-                            Log.d(MEMORY_TAG,
-                                    "[API_ITEM_" + i + "] photoUrl=" + safe(memory != null ? memory.getPhotoUrl() : null) +
-                                            ", taggedUsernames=" + (memory != null ? memory.getTaggedUsernames() : null));
-                        }
-                    }
-                    _todayMemories.setValue(memories != null ? memories : new ArrayList<>());
-                } else {
-                    String errorBody = null;
-                    try {
-                        errorBody = response.errorBody() != null ? response.errorBody().string() : null;
-                    } catch (Exception e) {
-                        errorBody = "[unable to read error body: " + e.getMessage() + "]";
-                    }
-                    Log.e(MEMORY_TAG,
-                            "[API_FAILED] code=" + response.code() +
-                                    ", message=" + response.message() +
-                                    ", errorBody=" + errorBody);
-                    if (response.code() == 403) {
-                        Log.w(MEMORY_TAG, "[API_FAILED_HINT] User is likely not a member of this group on backend yet.");
-                    } else if (response.code() == 404) {
-                        Log.w(MEMORY_TAG, "[API_FAILED_HINT] groupId may not exist on backend: " + currentGroupId);
-                    }
-                    _todayMemories.setValue(new ArrayList<>());
-                    Log.w(TAG, "Failed to load today memories: " + response.code());
+            public void onResponse(@NonNull Call<List<Message>> call, @NonNull Response<List<Message>> response) {
+                _isLoading.setValue(false);
+                if (response.isSuccessful() && response.body() != null) {
+                    mergeMessages(response.body());
                 }
             }
 
             @Override
-            public void onFailure(Call<List<TodayMemory>> call, Throwable t) {
-                Log.e(MEMORY_TAG,
-                        "[API_ERROR] url=" + call.request().url() +
-                                ", exception=" + t.getClass().getSimpleName() +
-                                ", message=" + t.getMessage(), t);
+            public void onFailure(@NonNull Call<List<Message>> call, @NonNull Throwable t) {
+                _isLoading.setValue(false);
+                Log.e(TAG, "loadMessages: Failed", t);
+            }
+        });
+    }
+
+    private void loadTodayMemories() {
+        if (currentGroupId == null) return;
+
+        groupService.getTodayMemory(currentGroupId).enqueue(new Callback<List<TodayMemory>>() {
+            @Override
+            public void onResponse(@NonNull Call<List<TodayMemory>> call, @NonNull Response<List<TodayMemory>> response) {
+                if (response.isSuccessful()) {
+                    _todayMemories.setValue(response.body() != null ? response.body() : new ArrayList<>());
+                }
+            }
+
+            @Override
+            public void onFailure(@NonNull Call<List<TodayMemory>> call, @NonNull Throwable t) {
                 _todayMemories.postValue(new ArrayList<>());
-                Log.w(TAG, "Failed to load today memories", t);
             }
         });
     }
@@ -154,18 +145,19 @@ public class ChatViewModel extends ViewModel {
     public void sendMessage(String content) {
         if (currentGroupId == null || content.trim().isEmpty()) return;
 
-        // Create a temporary message for optimistic UI update
         Message tempMessage = new Message();
         String tempId = "temp_" + UUID.randomUUID().toString();
         tempMessage.setId(tempId);
         tempMessage.setContent(content);
         tempMessage.setCreatedBy(auth.getUid());
+        tempMessage.setCreatedAt(Instant.now().toString());
         tempMessage.setStatus(Message.Status.SENDING);
         tempMessage.setSenderName(auth.getCurrentUser() != null ? auth.getCurrentUser().getDisplayName() : "Me");
         
-        List<Message> currentList = new ArrayList<>(_messages.getValue());
-        currentList.add(tempMessage);
-        _messages.setValue(currentList);
+        backgroundExecutor.execute(() -> {
+            masterMessagesList.add(tempMessage);
+            processAndPostMessages();
+        });
 
         performSendMessage(tempId, content);
     }
@@ -173,7 +165,7 @@ public class ChatViewModel extends ViewModel {
     public void resendMessage(Message message) {
         if (message.getId() == null) return;
         message.setStatus(Message.Status.SENDING);
-        updateMessageStatusInList(message);
+        updateMessageInList(message);
         performSendMessage(message.getId(), message.getContent());
     }
 
@@ -185,7 +177,7 @@ public class ChatViewModel extends ViewModel {
 
         groupService.sendMessage(currentGroupId, body).enqueue(new Callback<Message>() {
             @Override
-            public void onResponse(Call<Message> call, Response<Message> response) {
+            public void onResponse(@NonNull Call<Message> call, @NonNull Response<Message> response) {
                 if (response.isSuccessful() && response.body() != null) {
                     replaceTempWithMessage(tempId, response.body());
                 } else {
@@ -194,32 +186,30 @@ public class ChatViewModel extends ViewModel {
             }
 
             @Override
-            public void onFailure(Call<Message> call, Throwable t) {
+            public void onFailure(@NonNull Call<Message> call, @NonNull Throwable t) {
                 failMessageInList(tempId);
             }
         });
     }
 
     private void failMessageInList(String id) {
-        mainHandler.post(() -> {
-            List<Message> currentList = new ArrayList<>(_messages.getValue());
-            for (int i = 0; i < currentList.size(); i++) {
-                if (currentList.get(i).getId().equals(id)) {
-                    currentList.get(i).setStatus(Message.Status.FAILED);
-                    _messages.setValue(currentList);
+        backgroundExecutor.execute(() -> {
+            for (int i = 0; i < masterMessagesList.size(); i++) {
+                if (masterMessagesList.get(i).getId().equals(id)) {
+                    masterMessagesList.get(i).setStatus(Message.Status.FAILED);
+                    processAndPostMessages();
                     break;
                 }
             }
         });
     }
 
-    private void updateMessageStatusInList(Message message) {
-        mainHandler.post(() -> {
-            List<Message> currentList = new ArrayList<>(_messages.getValue());
-            for (int i = 0; i < currentList.size(); i++) {
-                if (currentList.get(i).getId().equals(message.getId())) {
-                    currentList.set(i, message);
-                    _messages.setValue(currentList);
+    private void updateMessageInList(Message message) {
+        backgroundExecutor.execute(() -> {
+            for (int i = 0; i < masterMessagesList.size(); i++) {
+                if (masterMessagesList.get(i).getId().equals(message.getId())) {
+                    masterMessagesList.set(i, message);
+                    processAndPostMessages();
                     break;
                 }
             }
@@ -227,40 +217,37 @@ public class ChatViewModel extends ViewModel {
     }
 
     private void replaceTempWithMessage(String tempId, Message realMessage) {
-        mainHandler.post(() -> {
-            List<Message> currentList = new ArrayList<>(_messages.getValue());
-            
-            // Check if the real message is already in the list (e.g. from SSE)
-            int realIdx = -1;
-            for (int i = 0; i < currentList.size(); i++) {
-                if (currentList.get(i).getId().equals(realMessage.getId())) {
-                    realIdx = i;
-                    break;
-                }
-            }
-
+        backgroundExecutor.execute(() -> {
             int tempIdx = -1;
-            for (int i = 0; i < currentList.size(); i++) {
-                if (currentList.get(i).getId().equals(tempId)) {
+            for (int i = 0; i < masterMessagesList.size(); i++) {
+                if (masterMessagesList.get(i).getId().equals(tempId)) {
                     tempIdx = i;
                     break;
                 }
             }
 
-            if (realIdx != -1) {
-                // Real message already exists (from SSE), just remove the temp one
-                if (tempIdx != -1) {
-                    currentList.remove(tempIdx);
+            int realIdx = -1;
+            for (int i = 0; i < masterMessagesList.size(); i++) {
+                if (masterMessagesList.get(i).getId().equals(realMessage.getId())) {
+                    realIdx = i;
+                    break;
                 }
-            } else if (tempIdx != -1) {
-                // Replace temp with real
-                currentList.set(tempIdx, realMessage);
+            }
+
+            if (tempIdx != -1) {
+                if (realIdx != -1) {
+                    masterMessagesList.remove(tempIdx);
+                    masterMessagesList.set(realIdx > tempIdx ? realIdx - 1 : realIdx, realMessage);
+                } else {
+                    masterMessagesList.set(tempIdx, realMessage);
+                }
+            } else if (realIdx != -1) {
+                masterMessagesList.set(realIdx, realMessage);
             } else {
-                // Neither found, just add real (shouldn't happen)
-                currentList.add(realMessage);
+                masterMessagesList.add(realMessage);
             }
             
-            _messages.setValue(currentList);
+            processAndPostMessages();
         });
     }
 
@@ -269,232 +256,249 @@ public class ChatViewModel extends ViewModel {
 
         groupService.markAsSeen(currentGroupId, messageId, auth.getUid()).enqueue(new Callback<Message.SeenBy>() {
             @Override
-            public void onResponse(Call<Message.SeenBy> call, Response<Message.SeenBy> response) {
+            public void onResponse(@NonNull Call<Message.SeenBy> call, @NonNull Response<Message.SeenBy> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    _markAsSeenResponse.postValue(response.body());
+                }
             }
 
             @Override
-            public void onFailure(Call<Message.SeenBy> call, Throwable t) {
+            public void onFailure(@NonNull Call<Message.SeenBy> call, @NonNull Throwable t) {
                 Log.e(TAG, "Failed to mark as seen", t);
             }
         });
     }
 
     public void generateReplies(List<Message> recentMessages, String currentUserId) {
-        // Respect global AI features setting
-        try {
-            boolean aiEnabled = appContext.getSharedPreferences("APP_SETTINGS", Context.MODE_PRIVATE)
-                    .getBoolean("AI_FEATURES_ENABLED", true);
-            if (!aiEnabled) {
-                suggestedReplies.setValue(Collections.emptyList());
-                return;
-            }
-        } catch (Exception e) {
-            // If unable to read pref, proceed with default behavior
-        }
+        if (recentMessages == null || recentMessages.isEmpty() || currentUserId == null) return;
 
-        if (recentMessages == null || recentMessages.isEmpty() || currentUserId == null || currentUserId.trim().isEmpty()) {
-            suggestedReplies.setValue(Collections.emptyList());
-            return;
-        }
+        backgroundExecutor.execute(() -> {
+            List<Message> sortedMessages = new ArrayList<>(recentMessages);
+            Collections.sort(sortedMessages, Comparator.comparingLong(this::parseTimestamp));
 
-        int startIndex = Math.max(recentMessages.size() - 10, 0);
-        List<TextMessage> conversation = new ArrayList<>();
-        for (int i = startIndex; i < recentMessages.size(); i++) {
-            Message message = recentMessages.get(i);
-            if (message == null) {
-                continue;
+            int startIndex = Math.max(sortedMessages.size() - 10, 0);
+            List<TextMessage> conversation = new ArrayList<>();
+            for (int i = startIndex; i < sortedMessages.size(); i++) {
+                Message message = sortedMessages.get(i);
+                if (message == null || message.getContent() == null) continue;
+
+                String senderId = message.getCreatedBy() != null ? message.getCreatedBy() : message.getSenderId();
+                if (senderId == null) continue;
+
+                long timestamp = parseTimestamp(message);
+                if (currentUserId.equals(senderId)) {
+                    conversation.add(TextMessage.createForLocalUser(message.getContent(), timestamp));
+                } else {
+                    conversation.add(TextMessage.createForRemoteUser(message.getContent(), timestamp, senderId));
+                }
             }
 
-            String content = message.getContent();
-            String senderId = resolveSenderId(message);
-            if (content == null || content.trim().isEmpty() || senderId == null || senderId.trim().isEmpty()) {
-                continue;
-            }
+            if (conversation.isEmpty()) return;
 
-            long timestamp = parseTimestamp(message);
-            if (currentUserId.equals(senderId)) {
-                conversation.add(TextMessage.createForLocalUser(content, timestamp));
-            } else {
-                conversation.add(TextMessage.createForRemoteUser(content, timestamp, senderId));
-            }
-        }
-
-        if (conversation.isEmpty()) {
-            suggestedReplies.setValue(Collections.emptyList());
-            return;
-        }
-
-        smartReply.suggestReplies(conversation)
-                .addOnSuccessListener(result -> {
-                    if (result == null || result.getStatus() != 0 || result.getSuggestions() == null || result.getSuggestions().isEmpty()) {
-                        suggestedReplies.setValue(Collections.emptyList());
-                        return;
-                    }
-
-                    List<String> replies = new ArrayList<>();
-                    for (SmartReplySuggestion suggestion : result.getSuggestions()) {
-                        if (suggestion != null && suggestion.getText() != null && !suggestion.getText().trim().isEmpty()) {
-                            replies.add(suggestion.getText());
+            smartReply.suggestReplies(conversation)
+                    .addOnSuccessListener(result -> {
+                        if (result != null && result.getStatus() == 0) {
+                            List<String> replies = new ArrayList<>();
+                            for (SmartReplySuggestion suggestion : result.getSuggestions()) {
+                                replies.add(suggestion.getText());
+                            }
+                            suggestedReplies.postValue(replies);
                         }
-                    }
-                    suggestedReplies.setValue(replies);
-                })
-                .addOnFailureListener(error -> {
-                    Log.w(TAG, "Failed to generate smart replies", error);
-                    suggestedReplies.setValue(Collections.emptyList());
-                });
+                    })
+                    .addOnFailureListener(e -> Log.e(TAG, "SmartReply failed", e));
+        });
     }
 
     public void clearSuggestedReplies() {
         suggestedReplies.setValue(Collections.emptyList());
     }
 
-    private void startMessageStream() {
-        if (isStreaming) stopMessageStream();
-        isStreaming = true;
+    private void startWebSocket() {
+        if (isStopped) return;
+        if (webSocket != null) {
+            webSocket.close(1000, "Reconnecting");
+        }
 
-        auth.getCurrentUser().getIdToken(false).addOnSuccessListener(result -> {
-            String token = "Bearer " + result.getToken();
-            streamThread = new Thread(() -> {
-                try {
-                    Response<ResponseBody> response = groupService.streamMessages(currentGroupId, token).execute();
-                    if (response.isSuccessful() && response.body() != null) {
-                        BufferedReader reader = new BufferedReader(new InputStreamReader(response.body().byteStream()));
-                        String line;
-                        String eventType = "";
-                        while (isStreaming && (line = reader.readLine()) != null) {
-                            if (line.startsWith("event:")) {
-                                eventType = line.substring(6).trim();
-                            } else if (line.startsWith("data:")) {
-                                String data = line.substring(5).trim();
-                                handleSseEvent(eventType, data);
-                            }
-                        }
-                    } else {
-                        Log.e(TAG, "SSE connection failed: " + response.code());
-                        retryStream();
-                    }
-                } catch (Exception e) {
-                    Log.e(TAG, "SSE stream error", e);
-                    retryStream();
+        FirebaseUser user = auth.getCurrentUser();
+        if (user == null) return;
+
+        user.getIdToken(false).addOnSuccessListener(result -> {
+            String token = result.getToken();
+            String wsBaseUrl = baseUrl.replace("http://", "ws://").replace("https://", "wss://");
+            String wsUrl = wsBaseUrl + "groups/" + currentGroupId + "/messages/ws?token=" + token;
+
+            Request request = new Request.Builder().url(wsUrl).build();
+
+            webSocket = okHttpClient.newWebSocket(request, new WebSocketListener() {
+                @Override
+                public void onOpen(@NonNull WebSocket webSocket, @NonNull okhttp3.Response response) {
+                    Log.d(TAG, "WebSocket: Connected to " + wsUrl);
+                    retryDelayMs = 1000;
+                }
+
+                @Override
+                public void onMessage(@NonNull WebSocket webSocket, @NonNull String text) {
+                    handleWebSocketMessage(text);
+                }
+
+                @Override
+                public void onFailure(@NonNull WebSocket webSocket, @NonNull Throwable t, @Nullable okhttp3.Response response) {
+                    Log.e(TAG, "WebSocket Error: " + t.getMessage());
+                    reconnect();
+                }
+
+                @Override
+                public void onClosed(@NonNull WebSocket webSocket, int code, @NonNull String reason) {
+                    Log.d(TAG, "WebSocket: Closed " + reason);
+                    reconnect();
                 }
             });
-            streamThread.start();
         });
     }
 
-    private void handleSseEvent(String eventType, String data) {
-        switch (eventType) {
-            case "messages.initial":
-                List<Message> initialMessages = gson.fromJson(data, new com.google.gson.reflect.TypeToken<List<Message>>(){}.getType());
-                _messages.postValue(initialMessages);
-                break;
-            case "message.created":
-                Message newMessage = gson.fromJson(data, Message.class);
-                updateOrAddMessage(newMessage);
-                break;
-            case "message.seen":
-                Message updatedMessage = gson.fromJson(data, Message.class);
-                updateOrAddMessage(updatedMessage);
-                break;
-        }
+    private void handleWebSocketMessage(String text) {
+        backgroundExecutor.execute(() -> {
+            try {
+                JsonObject packet = gson.fromJson(text, JsonObject.class);
+                String event = packet.has("event") ? packet.get("event").getAsString() : "";
+
+                if (event.equals("messages.initial")) {
+                    List<Message> initialMessages = gson.fromJson(packet.get("data"),
+                            new com.google.gson.reflect.TypeToken<List<Message>>(){}.getType());
+                    mergeMessagesInternal(initialMessages);
+                } else if (event.equals("message.created") || event.equals("message.seen")) {
+                    Message message = gson.fromJson(packet.get("data"), Message.class);
+                    updateOrAddMessageInternal(message);
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error parsing WebSocket message", e);
+            }
+        });
     }
 
-    private void updateOrAddMessage(Message message) {
-        mainHandler.post(() -> {
-            List<Message> currentList = new ArrayList<>(_messages.getValue());
-            
-            int index = -1;
-            for (int i = 0; i < currentList.size(); i++) {
-                if (currentList.get(i).getId().equals(message.getId())) {
-                    index = i;
-                    break;
-                }
-            }
+    private void mergeMessages(List<Message> newMessages) {
+        backgroundExecutor.execute(() -> mergeMessagesInternal(newMessages));
+    }
 
-            if (index != -1) {
-                // Already exists, just update it
-                currentList.set(index, message);
-            } else {
-                // Check if this matches a temp message we sent
-                boolean replaced = false;
-                if (message.getCreatedBy() != null && message.getCreatedBy().equals(auth.getUid())) {
-                    // Search backwards for the most recent temp message with matching content
-                    for (int i = currentList.size() - 1; i >= 0; i--) {
-                        Message m = currentList.get(i);
-                        if (m.getId() != null && m.getId().startsWith("temp_") && 
-                            m.getContent() != null && m.getContent().equals(message.getContent())) {
-                            currentList.set(i, message);
-                            replaced = true;
-                            break;
-                        }
+    private void mergeMessagesInternal(List<Message> newMessages) {
+        Map<String, Message> mergedMap = new HashMap<>();
+        for (Message m : masterMessagesList) {
+            if (m.getId() != null) mergedMap.put(m.getId(), m);
+        }
+        for (Message m : newMessages) {
+            if (m.getId() != null) mergedMap.put(m.getId(), m);
+        }
+
+        masterMessagesList.clear();
+        masterMessagesList.addAll(mergedMap.values());
+        processAndPostMessages();
+    }
+
+    private void updateOrAddMessageInternal(Message message) {
+        int index = -1;
+        for (int i = 0; i < masterMessagesList.size(); i++) {
+            if (masterMessagesList.get(i).getId().equals(message.getId())) {
+                index = i;
+                break;
+            }
+        }
+
+        if (index != -1) {
+            masterMessagesList.set(index, message);
+        } else {
+            boolean replaced = false;
+            String myUid = auth.getUid();
+            if (message.getCreatedBy() != null && message.getCreatedBy().equals(myUid)) {
+                for (int i = masterMessagesList.size() - 1; i >= 0; i--) {
+                    Message m = masterMessagesList.get(i);
+                    if (m != null && m.getId() != null && m.getId().startsWith("temp_") &&
+                        m.getContent() != null && m.getContent().equals(message.getContent())) {
+                        masterMessagesList.set(i, message);
+                        replaced = true;
+                        break;
                     }
                 }
-                
-                if (!replaced) {
-                    currentList.add(message);
+            }
+
+            if (!replaced) {
+                masterMessagesList.add(message);
+            }
+        }
+        processAndPostMessages();
+    }
+
+    private void processAndPostMessages() {
+        Collections.sort(masterMessagesList, Comparator.comparingLong(this::parseTimestamp));
+        _messages.postValue(new ArrayList<>(masterMessagesList));
+
+        String myUid = auth.getUid();
+        Map<String, String> userToLatestMessageId = new HashMap<>();
+        Map<String, Message.SeenBy> userToLatestDetails = new HashMap<>();
+
+        for (Message m : masterMessagesList) {
+            if (m.getSeenBy() != null) {
+                for (Message.SeenBy sb : m.getSeenBy()) {
+                    String uid = sb.getUserId() != null ? sb.getUserId() : sb.getId();
+                    if (uid == null || uid.equals(myUid)) continue;
+                    userToLatestMessageId.put(uid, m.getId());
+                    userToLatestDetails.put(uid, sb);
                 }
             }
-            _messages.setValue(currentList);
-        });
+        }
+
+        Map<String, List<Message.SeenBy>> messageToUsersAt = new HashMap<>();
+        for (Map.Entry<String, String> entry : userToLatestMessageId.entrySet()) {
+            String mid = entry.getValue();
+            Message.SeenBy details = userToLatestDetails.get(entry.getKey());
+            if (details != null) {
+                List<Message.SeenBy> list = messageToUsersAt.get(mid);
+                if (list == null) {
+                    list = new ArrayList<>();
+                    messageToUsersAt.put(mid, list);
+                }
+                list.add(details);
+            }
+        }
+
+        List<MessageWrapper> wrappers = new ArrayList<>(masterMessagesList.size());
+        for (Message m : masterMessagesList) {
+            List<Message.SeenBy> usersHere = messageToUsersAt.get(m.getId());
+            wrappers.add(new MessageWrapper(m, usersHere != null ? usersHere : new ArrayList<>()));
+        }
+
+        _messageWrappers.postValue(wrappers);
     }
 
-    private void retryStream() {
-        if (isStreaming) {
-            try { Thread.sleep(5000); } catch (InterruptedException ignored) {}
-            startMessageStream();
-        }
-    }
-
-    private void stopMessageStream() {
-        isStreaming = false;
-        if (streamThread != null) {
-            streamThread.interrupt();
-            streamThread = null;
-        }
+    private void reconnect() {
+        if (isStopped) return;
+        mainHandler.postDelayed(this::startWebSocket, retryDelayMs);
+        retryDelayMs = Math.min(retryDelayMs * 2, MAX_RETRY_DELAY_MS);
     }
 
     @Override
     protected void onCleared() {
         super.onCleared();
-        stopMessageStream();
+        isStopped = true;
+        if (webSocket != null) {
+            webSocket.close(1000, "ViewModel cleared");
+        }
         smartReply.close();
-    }
-
-    private String safe(String value) {
-        return value == null || value.trim().isEmpty() ? "<empty>" : value;
-    }
-
-    private String resolveSenderId(Message message) {
-        if (message == null) {
-            return null;
-        }
-        if (message.getCreatedBy() != null && !message.getCreatedBy().trim().isEmpty()) {
-            return message.getCreatedBy();
-        }
-        return message.getSenderId();
+        backgroundExecutor.shutdown();
     }
 
     private long parseTimestamp(Message message) {
-        if (message == null) {
-            return System.currentTimeMillis();
-        }
-
+        if (message == null) return System.currentTimeMillis();
         String rawTimestamp = message.getCreatedAt();
         if (rawTimestamp == null || rawTimestamp.trim().isEmpty()) {
-            return System.currentTimeMillis();
+            rawTimestamp = message.getTime();
         }
-
+        if (rawTimestamp == null || rawTimestamp.trim().isEmpty()) return System.currentTimeMillis();
         try {
             return Instant.parse(rawTimestamp).toEpochMilli();
-        } catch (Exception ignored) {
-        }
-
+        } catch (Exception ignored) {}
         try {
             return Long.parseLong(rawTimestamp);
-        } catch (NumberFormatException ignored) {
-        }
-
+        } catch (NumberFormatException ignored) {}
         return System.currentTimeMillis();
     }
 }

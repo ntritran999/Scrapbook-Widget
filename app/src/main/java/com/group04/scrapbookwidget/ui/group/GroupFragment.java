@@ -3,7 +3,6 @@ package com.group04.scrapbookwidget.ui.group;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
-import android.text.format.DateFormat;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -11,6 +10,9 @@ import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.Navigation;
@@ -20,6 +22,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.bumptech.glide.Glide;
 import com.google.firebase.auth.FirebaseAuth;
 import com.group04.scrapbookwidget.R;
+import com.group04.scrapbookwidget.data.model.Message;
 import com.group04.scrapbookwidget.data.model.TodayMemory;
 import com.group04.scrapbookwidget.databinding.FragmentGroupBinding;
 
@@ -53,35 +56,27 @@ public class GroupFragment extends Fragment {
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        Log.d(MEMORY_TAG, "[CREATE] GroupFragment created");
         if (getArguments() != null) {
             groupId = getArguments().getString("GROUP_ID");
             groupName = getArguments().getString("GROUP_NAME", "Chat");
-            Log.d(MEMORY_TAG, "[CREATE] args.groupId=" + groupId + ", args.groupName=" + groupName);
-        } else {
-            Log.w(MEMORY_TAG, "[CREATE] No arguments passed to GroupFragment");
         }
     }
 
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
-        Log.d(MEMORY_TAG, "[CREATE_VIEW] Creating GroupFragment view");
         binding = FragmentGroupBinding.inflate(inflater, container, false);
         settingsViewModel = new ViewModelProvider(requireActivity()).get(GroupSettingsViewModel.class);
         chatViewModel = new ViewModelProvider(this).get(ChatViewModel.class);
-        Log.d(MEMORY_TAG, "[CREATE_VIEW] ViewModels initialized");
         return binding.getRoot();
     }
 
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-        Log.d(MEMORY_TAG, "[VIEW_CREATED] groupId=" + groupId + ", authUid=" + auth.getUid());
 
         if (savedInstanceState != null) {
             isMemoryBannerDismissed = savedInstanceState.getBoolean("memory_banner_dismissed", false);
-            Log.d(MEMORY_TAG, "[STATE] restored memory_banner_dismissed=" + isMemoryBannerDismissed);
         }
 
         setupTopBar();
@@ -89,14 +84,27 @@ public class GroupFragment extends Fragment {
         setupInput();
         setupMemoryBanner();
         setupObservers();
+        setupKeyboardHandling();
         
         if (groupId != null) {
-            Log.d(MEMORY_TAG, "[VIEW_CREATED] initChat(groupId=" + groupId + ")");
             settingsViewModel.loadGroupDetails(groupId);
             chatViewModel.initChat(groupId);
-        } else {
-            Log.e(MEMORY_TAG, "[VIEW_CREATED] groupId is null, cannot initialize chat");
         }
+    }
+
+    private void setupKeyboardHandling() {
+        // Handle keyboard appearance for Edge-to-Edge
+        ViewCompat.setOnApplyWindowInsetsListener(binding.inputLayout, (v, insets) -> {
+            Insets ime = insets.getInsets(WindowInsetsCompat.Type.ime());
+            Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+            
+            // Apply bottom padding based on keyboard height
+            // When keyboard is hidden, we keep system bar padding (navigation bar)
+            int bottomPadding = Math.max(ime.bottom, systemBars.bottom);
+            v.setPadding(v.getPaddingLeft(), v.getPaddingTop(), v.getPaddingRight(), bottomPadding);
+            
+            return insets;
+        });
     }
 
     private void setupTopBar() {
@@ -132,12 +140,11 @@ public class GroupFragment extends Fragment {
             chatViewModel.resendMessage(message);
         });
 
-        // Add layout change listener to scroll to bottom when keyboard appears
         binding.rvChat.addOnLayoutChangeListener((v, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> {
             if (bottom < oldBottom) {
                 binding.rvChat.postDelayed(() -> {
-                    if (adapter.getItemCount() > 0) {
-                        binding.rvChat.smoothScrollToPosition(adapter.getItemCount() - 1);
+                    if (binding != null && adapter.getItemCount() > 0) {
+                        binding.rvChat.scrollToPosition(adapter.getItemCount() - 1);
                     }
                 }, 100);
             }
@@ -176,20 +183,15 @@ public class GroupFragment extends Fragment {
 
     private void setupMemoryBanner() {
         binding.btnCloseMemoryBanner.setOnClickListener(v -> {
-            Log.d(MEMORY_TAG, "[BANNER_DISMISSED] User closed memory banner");
             isMemoryBannerDismissed = true;
             renderMemoryBanner();
         });
 
         binding.memoryBannerCard.setOnClickListener(v -> {
-            if (currentMemories == null || currentMemories.isEmpty()) {
-                Log.w(MEMORY_TAG, "[BANNER_CLICKED] No memories available");
-                return;
+            if (currentMemories != null && !currentMemories.isEmpty()) {
+                MemoryStoryDialogFragment.newInstance(currentMemories, getTodayDateText())
+                        .show(getChildFragmentManager(), "memory_story_dialog");
             }
-
-            Log.d(MEMORY_TAG, "[BANNER_CLICKED] Opening memory story dialog with " + currentMemories.size() + " memories");
-            MemoryStoryDialogFragment.newInstance(currentMemories, getTodayDateText())
-                    .show(getChildFragmentManager(), "memory_story_dialog");
         });
     }
 
@@ -207,13 +209,29 @@ public class GroupFragment extends Fragment {
             }
         });
 
-        chatViewModel.getMessages().observe(getViewLifecycleOwner(), messages -> {
-            if (messages != null) {
-                adapter.setMessages(messages);
-                if (!messages.isEmpty()) {
-                    binding.rvChat.smoothScrollToPosition(messages.size() - 1);
-                }
-                if (binding.etMessage.getText() == null || binding.etMessage.getText().length() == 0) {
+        chatViewModel.getMessageWrappers().observe(getViewLifecycleOwner(), wrappers -> {
+            if (wrappers != null && !wrappers.isEmpty()) {
+                int oldSize = adapter.getItemCount();
+                boolean isAtBottom = isLastItemVisible();
+                
+                Message lastMessage = wrappers.get(wrappers.size() - 1).message;
+                boolean isOwnMessage = auth.getUid() != null && auth.getUid().equals(lastMessage.getCreatedBy());
+
+                adapter.submitList(wrappers, () -> {
+                    if (binding == null) return;
+                    if (oldSize == 0) {
+                        // Initial load
+                        binding.rvChat.scrollToPosition(adapter.getItemCount() - 1);
+                    } else if (isOwnMessage || isAtBottom) {
+                        // Scroll to bottom if we sent the message, or if we were already at the bottom
+                        binding.rvChat.scrollToPosition(adapter.getItemCount() - 1);
+                    }
+                });
+
+                // Generate replies only for new messages and if input is empty
+                if (wrappers.size() > oldSize && (binding.etMessage.getText() == null || binding.etMessage.getText().length() == 0)) {
+                    List<Message> messages = new ArrayList<>();
+                    for (MessageWrapper w : wrappers) messages.add(w.message);
                     chatViewModel.generateReplies(messages, auth.getUid());
                 }
             }
@@ -231,13 +249,8 @@ public class GroupFragment extends Fragment {
         });
 
         chatViewModel.getTodayMemories().observe(getViewLifecycleOwner(), memories -> {
-            int totalReceived = memories != null ? memories.size() : 0;
-            Log.d(MEMORY_TAG, "[OBSERVER_RECEIVED] memoryCountFromApi=" + totalReceived);
             currentMemories = filterValidMemories(memories);
-            int validCount = currentMemories.size();
-            Log.d(MEMORY_TAG, "[FILTERED] validMemoryCount=" + validCount);
             if (!currentMemories.isEmpty()) {
-                Log.d(MEMORY_TAG, "[SETTING_PREVIEW] Loading banner thumbnail from first valid memory");
                 binding.tvMemoryBannerTitle.setText(getString(R.string.memory_on_date, getTodayDateText()));
                 TodayMemory previewMemory = currentMemories.get(0);
                 Glide.with(this)
@@ -249,26 +262,25 @@ public class GroupFragment extends Fragment {
             renderMemoryBanner();
         });
 
-        chatViewModel.getError().observe(getViewLifecycleOwner(), error -> {
-            if (error != null) {
-                Log.w(MEMORY_TAG, "[ERROR_LIVEDATA] " + error);
+        chatViewModel.getMarkAsSeenResponse().observe(getViewLifecycleOwner(), seenBy -> {
+            if (seenBy != null && seenBy.getUserId().equals(auth.getUid())) {
+                settingsViewModel.updateUnreadCount(groupId, seenBy.getUnreadCount());
             }
         });
     }
 
+    private boolean isLastItemVisible() {
+        LinearLayoutManager layoutManager = (LinearLayoutManager) binding.rvChat.getLayoutManager();
+        if (layoutManager != null && adapter.getItemCount() > 0) {
+            int lastVisiblePosition = layoutManager.findLastVisibleItemPosition();
+            // Scroll if within last 2 items
+            return lastVisiblePosition >= adapter.getItemCount() - 2;
+        }
+        return true;
+    }
+
     private void renderMemoryBanner() {
         boolean shouldShow = !isMemoryBannerDismissed && currentMemories != null && !currentMemories.isEmpty();
-        String reason = "";
-        if (isMemoryBannerDismissed) {
-            reason = "user dismissed";
-        } else if (currentMemories == null) {
-            reason = "memories is null";
-        } else if (currentMemories.isEmpty()) {
-            reason = "no valid memories";
-        } else {
-            reason = "all conditions met";
-        }
-        Log.d(MEMORY_TAG, "[RENDER_BANNER] show=" + shouldShow + ", reason=" + reason + ", memoryCount=" + (currentMemories != null ? currentMemories.size() : "null"));
         binding.memoryBannerCard.setVisibility(shouldShow ? View.VISIBLE : View.GONE);
     }
 
@@ -279,24 +291,17 @@ public class GroupFragment extends Fragment {
 
     private List<TodayMemory> filterValidMemories(@Nullable List<TodayMemory> memories) {
         List<TodayMemory> validMemories = new ArrayList<>();
-        if (memories == null) {
-            return validMemories;
-        }
-
+        if (memories == null) return validMemories;
         for (TodayMemory memory : memories) {
             if (memory != null && memory.getPhotoUrl() != null && !memory.getPhotoUrl().trim().isEmpty()) {
                 validMemories.add(memory);
-            } else {
-                Log.w(MEMORY_TAG, "[FILTER_DROP] Ignored memory because photoUrl was null/empty");
             }
         }
         return validMemories;
     }
 
     private void applySuggestedReply(String text) {
-        if (binding == null || text == null) {
-            return;
-        }
+        if (binding == null || text == null) return;
         suppressSmartReplyHide = true;
         binding.etMessage.setText(text);
         binding.etMessage.setSelection(text.length());
@@ -305,10 +310,15 @@ public class GroupFragment extends Fragment {
         chatViewModel.clearSuggestedReplies();
     }
 
+    private void applyWindowInsetsToBottom(View view, WindowInsetsCompat insets) {
+        Insets imeInsets = insets.getInsets(WindowInsetsCompat.Type.ime());
+        Insets systemBarsInsets = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+        int bottom = Math.max(imeInsets.bottom, systemBarsInsets.bottom);
+        view.setPadding(view.getPaddingLeft(), view.getPaddingTop(), view.getPaddingRight(), bottom);
+    }
+
     private void hideSmartReplies() {
-        if (binding != null) {
-            binding.rvSmartReplies.setVisibility(View.GONE);
-        }
+        if (binding != null) binding.rvSmartReplies.setVisibility(View.GONE);
     }
 
     @Override

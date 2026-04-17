@@ -10,6 +10,7 @@ import com.google.gson.GsonBuilder;
 import java.io.IOException;
 import java.util.concurrent.ExecutionException;
 
+import javax.inject.Named;
 import javax.inject.Singleton;
 
 import dagger.Module;
@@ -29,7 +30,13 @@ import java.util.concurrent.TimeUnit;
 @Module
 @InstallIn(SingletonComponent.class)
 public class ServiceModule {
-    private final String BASE_URL = "http://10.252.128.69:3000/api/v1/";
+    private final String BASE_URL = "http://10.123.1.131:3000/api/v1/";
+
+    @Provides
+    @Named("baseUrl")
+    public String provideBaseUrl() {
+        return BASE_URL;
+    }
 
     @Singleton
     @Provides
@@ -85,13 +92,13 @@ public class ServiceModule {
 
     @Singleton
     @Provides
-    public Retrofit provideRetrofit(OkHttpClient okHttpClient) {
+    public Retrofit provideRetrofit(OkHttpClient okHttpClient, @Named("baseUrl") String baseUrl) {
         Gson gson = new GsonBuilder()
                 .setLenient()
                 .create();
 
         return new Retrofit.Builder()
-                .baseUrl(BASE_URL)
+                .baseUrl(baseUrl)
                 .client(okHttpClient)
                 .addConverterFactory(GsonConverterFactory.create(gson))
                 .build();
@@ -144,4 +151,5 @@ public class ServiceModule {
     public BackgroundImageService provideBackgroundImageService(Retrofit retrofit) {
         return retrofit.create(BackgroundImageService.class);
     }
+
 }

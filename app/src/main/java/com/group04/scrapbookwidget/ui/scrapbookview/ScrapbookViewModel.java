@@ -1,9 +1,14 @@
 package com.group04.scrapbookwidget.ui.scrapbookview;
 
+import android.content.ContentValues;
+import android.content.Context;
+import android.graphics.Bitmap;
+import android.net.Uri;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
+import android.provider.MediaStore;
 import android.util.Log;
-import android.widget.Toast;
 
 import androidx.annotation.Nullable;
 import androidx.lifecycle.LiveData;
@@ -16,7 +21,11 @@ import com.group04.scrapbookwidget.data.model.ScrapbookItem;
 import com.group04.scrapbookwidget.data.model.ScrapbookPage;
 import com.group04.scrapbookwidget.data.repository.IScrapbookRepository;
 import com.group04.scrapbookwidget.data.repository.RepositoryCallback;
+import com.group04.scrapbookwidget.ui.pagecurl.PageBuilder;
+import com.group04.scrapbookwidget.ui.pagecurl.PageResources;
 
+import java.io.IOException;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -24,6 +33,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import javax.inject.Inject;
 
 import dagger.hilt.android.lifecycle.HiltViewModel;
+
 @HiltViewModel
 public class ScrapbookViewModel extends ViewModel {
     private final IScrapbookRepository scrapbookRepository;
@@ -40,11 +50,16 @@ public class ScrapbookViewModel extends ViewModel {
     
     private final MutableLiveData<Boolean> isRendering = new MutableLiveData<>(false);
     public MutableLiveData<Boolean> getIsRendering() { return isRendering; }
+
+    private final MutableLiveData<Boolean> isExporting = new MutableLiveData<>(false);
+    public LiveData<Boolean> getIsExporting() { return isExporting; }
+
+    private final MutableLiveData<String> exportStatus = new MutableLiveData<>();
+    public LiveData<String> getExportStatus() { return exportStatus; }
     
     // Debounce mechanism for reload
     private Runnable pendingReloadRunnable = null;
-    private static final long RELOAD_DEBOUNCE_MS = 300;
-    private static final long RELOAD_DELAY_MS = 100;  // Reduced from 500ms for faster feedback
+    private static final long RELOAD_DELAY_MS = 100;
     
     @Inject
     public ScrapbookViewModel(IScrapbookRepository repo) {
@@ -65,7 +80,7 @@ public class ScrapbookViewModel extends ViewModel {
     public String getGroupId() {
         return groupId;
     }
-    //
+
     public String getCurrentPageId() {
         List<ScrapbookPageData> pages = pagesLiveData.getValue();
         if (pages != null && pageIndex >= 0 && pageIndex < pages.size()) {
@@ -73,6 +88,7 @@ public class ScrapbookViewModel extends ViewModel {
         }
         return null;
     }
+
     public LiveData<List<ScrapbookPageData>> getPagesLiveData() {
         return pagesLiveData;
     }
@@ -203,20 +219,8 @@ public class ScrapbookViewModel extends ViewModel {
         });
     }
 
-    /**
-     * Updates the page data with a newly saved item immediately for instant feedback.
-     * This adds the saved item to the existing items list for the specified page.
-     * 
-     * @param pageId The ID of the page
-     * @param newItem The newly saved ScrapbookItem
-     */
     private void updatePageWithNewItem(String pageId, ScrapbookItem newItem) {
-        if (newItem == null || pageId == null) {
-            android.util.Log.w("ScrapbookViewModel", "updatePageWithNewItem: Invalid parameters, newItem=" + newItem + ", pageId=" + pageId);
-            return;
-        }
-
-        android.util.Log.d("ScrapbookViewModel", "updatePageWithNewItem: Adding item " + newItem.getId() + " to page " + pageId);
+        if (newItem == null || pageId == null) return;
 
         List<ScrapbookPageData> currentPages = pagesLiveData.getValue();
         if (currentPages != null) {
@@ -227,169 +231,103 @@ public class ScrapbookViewModel extends ViewModel {
                         items = new ArrayList<>();
                         currentPages.get(i).scrapbookItems = items;
                     }
-                    
-                    // Add the new item to the list
                     items.add(newItem);
-                    android.util.Log.d("ScrapbookViewModel", "updatePageWithNewItem: Added item, page now has " + items.size() + " items");
-                    
-                    // Update LiveData with new reference to trigger observers
-                    List<ScrapbookPageData> updatedPages = new ArrayList<>(currentPages);
-                    android.util.Log.d("ScrapbookViewModel", "updatePageWithNewItem: Updating pages via LiveData");
-                    pagesLiveData.setValue(updatedPages);
+                    pagesLiveData.setValue(new ArrayList<>(currentPages));
                     return;
                 }
             }
-            android.util.Log.w("ScrapbookViewModel", "updatePageWithNewItem: Page not found for pageId: " + pageId);
-        } else {
-            android.util.Log.e("ScrapbookViewModel", "updatePageWithNewItem: currentPages is null");
         }
     }
 
-    /**
-     * Reloads items for the specified page with debounce and delay to prevent ANR.
-     * Uses debouncing to avoid frequent re-renders when multiple paste operations happen quickly.
-     * Delays reload briefly to allow UI to settle before rendering new items.
-     *
-     * @param pageId The ID of the page to reload items for
-     */
-    private void reloadPageItems(String pageId) {
-        if (groupId == null || groupId.isEmpty() || pageId == null || pageId.isEmpty()) {
-            android.util.Log.e("ScrapbookViewModel", "reloadPageItems: Invalid groupId or pageId");
-            return;
-        }
-
-        android.util.Log.d("ScrapbookViewModel", "reloadPageItems: Starting reload for pageId: " + pageId);
-
-        // Remove any pending reload to implement debounce
-        if (pendingReloadRunnable != null) {
-            mainHandler.removeCallbacks(pendingReloadRunnable);
-            android.util.Log.d("ScrapbookViewModel", "reloadPageItems: Cancelled previous pending reload");
-        }
-
-        // Create the debounced reload task
-        pendingReloadRunnable = () -> {
-            android.util.Log.d("ScrapbookViewModel", "reloadPageItems: Executing reload task for pageId: " + pageId);
-            scrapbookRepository.getAllItems(groupId, pageId, new RepositoryCallback<List<ScrapbookItem>>() {
-                @Override
-                public void onSuccess(List<ScrapbookItem> items) {
-                    android.util.Log.d("ScrapbookViewModel", "reloadPageItems: onSuccess - retrieved " + (items != null ? items.size() : 0) + " items");
-                    if (items != null && !items.isEmpty()) {
-                        for (ScrapbookItem item : items) {
-                            android.util.Log.d("ScrapbookViewModel", "  - Item: id=" + item.getId() + 
-                                    ", photoUrl=" + (item.getContent() != null ? item.getContent().photoUrl : "null"));
-                        }
-                    } else {
-                        android.util.Log.w("ScrapbookViewModel", "reloadPageItems: Items list is null or empty!");
-                    }
-                    
-                    // Update the current pages data with the reloaded items
-                    List<ScrapbookPageData> currentPages = pagesLiveData.getValue();
-                    if (currentPages != null) {
-                        boolean found = false;
-                        for (int i = 0; i < currentPages.size(); i++) {
-                            if (currentPages.get(i).scrapbookPage.getId().equals(pageId)) {
-                                android.util.Log.d("ScrapbookViewModel", "reloadPageItems: Updating page at index " + i + 
-                                        " with " + (items != null ? items.size() : 0) + " items");
-                                currentPages.get(i).scrapbookItems = items;
-                                found = true;
-                                break;
-                            }
-                        }
-                        
-                        if (!found) {
-                            android.util.Log.e("ScrapbookViewModel", "reloadPageItems: Page not found for pageId: " + pageId);
-                        }
-                        
-                        // Create new list to ensure LiveData observers are triggered
-                        List<ScrapbookPageData> updatedPages = new ArrayList<>(currentPages);
-                        android.util.Log.d("ScrapbookViewModel", "reloadPageItems: Setting new pages via LiveData, total pages: " + updatedPages.size());
-                        pagesLiveData.setValue(updatedPages);
-                    } else {
-                        android.util.Log.e("ScrapbookViewModel", "reloadPageItems: currentPages is null, cannot update");
-                    }
-                }
-
-                @Override
-                public void onError(Exception e) {
-                    // Log error but don't fail the user experience
-                    android.util.Log.e("ScrapbookViewModel", "reloadPageItems: onError - " + e.getMessage());
-                    e.printStackTrace();
-                    errorMessage.setValue("Failed to refresh items: " + e.getMessage());
-                }
-            });
-
-            pendingReloadRunnable = null;
-        };
-
-        // Post with delay to avoid sudden CPU spike from bitmap rendering
-        android.util.Log.d("ScrapbookViewModel", "reloadPageItems: Scheduling reload with " + RELOAD_DELAY_MS + "ms delay");
-        mainHandler.postDelayed(pendingReloadRunnable, RELOAD_DELAY_MS);
-    }
-
-    /**
-     * Saves a pasted scrapbook item to the database via API.
-     * This method creates a new ScrapbookItem with the provided data and sends it to the server.
-     * After successful save, it reloads the page items to display the new image.
-     *
-     * @param pageId The ID of the page where the item will be saved
-     * @param photoUrl The URL of the cached photo
-     * @param userId The ID of the user creating the item
-     * @param x X coordinate of the item
-     * @param y Y coordinate of the item
-     * @param width Width of the item
-     * @param height Height of the item
-     * @param rotation Rotation angle of the item
-     * @param scale Scale factor of the item
-     * @param zIndex Z-index (layer depth) of the item
-     */
     public void saveScrapbookItem(String pageId, String photoUrl, String userId,
                                    float x, float y, float width, float height,
                                    float rotation, float scale, float zIndex, String caption,
                                    @Nullable List<List<Double>> faceEmbeddings) {
         if (groupId == null || groupId.isEmpty() || pageId == null || pageId.isEmpty()) {
             itemSaveError.setValue("Invalid page or group ID");
-            android.util.Log.e("ScrapbookViewModel", "saveScrapbookItem: Invalid page or group ID. groupId=" + groupId + ", pageId=" + pageId);
             return;
         }
-
-        android.util.Log.d("ScrapbookViewModel", "saveScrapbookItem: Starting save");
-        android.util.Log.d("ScrapbookViewModel", "  pageId=" + pageId + ", photoUrl=" + photoUrl + ", userId=" + userId);
-        android.util.Log.d("ScrapbookViewModel", "  x=" + x + ", y=" + y + ", width=" + width + ", height=" + height);
-        android.util.Log.d("ScrapbookViewModel", "  rotation=" + rotation + ", scale=" + scale + ", zIndex=" + zIndex);
-        android.util.Log.d("ScrapbookViewModel", "  caption=" + caption);
-        android.util.Log.d("ScrapbookViewModel", "  faceEmbeddingsCount=" + (faceEmbeddings != null ? faceEmbeddings.size() : 0));
 
         isSavingItem.setValue(true);
         itemSaveError.setValue(null);
 
-        // Create the item with provided data and caption
         ItemContent itemContent = new ItemContent(photoUrl, caption);
         Layout layout = new Layout(x, y, width, height, rotation, scale, zIndex);
         ScrapbookItem scrapbookItem = new ScrapbookItem("photo", userId, itemContent, layout, faceEmbeddings);
 
-        android.util.Log.d("ScrapbookViewModel", "saveScrapbookItem: Calling repository.addItemWithFile");
         scrapbookRepository.addItemWithFile(groupId, pageId, photoUrl, scrapbookItem, faceEmbeddings, new RepositoryCallback<ScrapbookItem>() {
             @Override
             public void onSuccess(ScrapbookItem savedItem) {
-                android.util.Log.d("ScrapbookViewModel", "saveScrapbookItem: Repository callback onSuccess");
-                android.util.Log.d("ScrapbookViewModel", "  savedItem.id=" + (savedItem != null ? savedItem.getId() : "null"));
-                
                 isSavingItem.setValue(false);
-                itemSaveError.setValue(null);
-                
-                // Update the pages data with the newly saved item immediately
-                // This combines the saved item with existing items on the page
                 updatePageWithNewItem(pageId, savedItem);
             }
 
             @Override
             public void onError(Exception e) {
-                android.util.Log.e("ScrapbookViewModel", "saveScrapbookItem: Repository callback onError: " + e.getMessage());
-                e.printStackTrace();
-                
                 isSavingItem.setValue(false);
                 itemSaveError.setValue("Failed to save item: " + e.getMessage());
             }
         });
+    }
+
+    public void saveCurrentPageToStorage(Context context) {
+        List<ScrapbookPageData> pages = pagesLiveData.getValue();
+        if (pages == null || pageIndex < 0 || pageIndex >= pages.size()) {
+            exportStatus.setValue("No page to save");
+            return;
+        }
+
+        isExporting.setValue(true);
+        exportStatus.setValue("Preparing page...");
+
+        new Thread(() -> {
+            try {
+                // We need to rebuild the current page bitmap at high quality
+                List<ScrapbookPageData> singlePageData = new ArrayList<>();
+                singlePageData.add(pages.get(pageIndex));
+                
+                PageResources resources = PageBuilder.buildPages(context, singlePageData);
+                if (resources.pageBitmaps != null && !resources.pageBitmaps.isEmpty()) {
+                    Bitmap pageBitmap = resources.pageBitmaps.get(0);
+                    saveBitmapToGallery(context, pageBitmap, "Scrapbook_" + System.currentTimeMillis());
+                    
+                    mainHandler.post(() -> {
+                        isExporting.setValue(false);
+                        exportStatus.setValue("Page saved to gallery!");
+                    });
+                } else {
+                    mainHandler.post(() -> {
+                        isExporting.setValue(false);
+                        exportStatus.setValue("Failed to generate page image");
+                    });
+                }
+            } catch (Exception e) {
+                Log.e("ScrapbookViewModel", "Error saving page", e);
+                mainHandler.post(() -> {
+                    isExporting.setValue(false);
+                    exportStatus.setValue("Error: " + e.getMessage());
+                });
+            }
+        }).start();
+    }
+
+    private void saveBitmapToGallery(Context context, Bitmap bitmap, String filename) throws IOException {
+        OutputStream fos;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            ContentValues contentValues = new ContentValues();
+            contentValues.put(MediaStore.MediaColumns.DISPLAY_NAME, filename + ".png");
+            contentValues.put(MediaStore.MediaColumns.MIME_TYPE, "image/png");
+            contentValues.put(MediaStore.MediaColumns.RELATIVE_PATH, "Pictures/Scrapbook");
+            Uri imageUri = context.getContentResolver().insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues);
+            fos = context.getContentResolver().openOutputStream(imageUri);
+        } else {
+            // Older versions would need WRITE_EXTERNAL_STORAGE, but we target modern Android
+            throw new IOException("Unsupported Android version for this implementation");
+        }
+
+        if (fos != null) {
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, fos);
+            fos.close();
+        }
     }
 }

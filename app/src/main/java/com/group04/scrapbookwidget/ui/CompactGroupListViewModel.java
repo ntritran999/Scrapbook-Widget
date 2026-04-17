@@ -6,10 +6,14 @@ import androidx.lifecycle.ViewModel;
 
 import com.google.firebase.auth.FirebaseAuth;
 import com.group04.scrapbookwidget.data.model.Group;
+import com.group04.scrapbookwidget.data.model.Message;
 import com.group04.scrapbookwidget.data.repository.IUserRepository;
 import com.group04.scrapbookwidget.data.repository.RepositoryCallback;
 
+import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 
 import javax.inject.Inject;
@@ -21,8 +25,6 @@ public class CompactGroupListViewModel extends ViewModel {
     private final IUserRepository userRepository;
     private final FirebaseAuth auth;
     private static final String TAG = "CompactGroupListViewModel";
-    private static final int MAX_RETRIES = 3;
-    private int retryCount = 0;
 
     private final MutableLiveData<List<Group>> groupsLiveData = new MutableLiveData<>();
     private final MutableLiveData<String> errorMessage = new MutableLiveData<>();
@@ -49,6 +51,14 @@ public class CompactGroupListViewModel extends ViewModel {
                     groupsLiveData.setValue(new ArrayList<>());
                     return;
                 }
+                
+                // Sort groups by latest message createdAt
+                Collections.sort(groups, (g1, g2) -> {
+                    long t1 = getTimestamp(g1.getLatestMessage());
+                    long t2 = getTimestamp(g2.getLatestMessage());
+                    return Long.compare(t2, t1); // Descending order
+                });
+                
                 groupsLiveData.setValue(groups);
             }
 
@@ -57,6 +67,17 @@ public class CompactGroupListViewModel extends ViewModel {
                 errorMessage.setValue("Failed to load groups");
             }
         });
+    }
+
+    private long getTimestamp(Message message) {
+        if (message == null) return 0;
+        String createdAt = message.getCreatedAt();
+        if (createdAt == null || createdAt.isEmpty()) return 0;
+        try {
+            return Instant.parse(createdAt).toEpochMilli();
+        } catch (Exception e) {
+            return 0;
+        }
     }
 
     public void refresh() {

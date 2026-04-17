@@ -114,4 +114,24 @@
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 
+    <androidx.constraintlayout.widget.Barrier
+        android:id="@+id/barrierMessageBottom"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:barrierDirection="bottom"
+        app:constraint_referenced_ids="layoutReceived,layoutSent" />
+
+    <!-- Last Seen Avatars Container -->
+    <LinearLayout
+        android:id="@+id/layoutSeenBy"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:orientation="horizontal"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/barrierMessageBottom"
+        android:gravity="end">
+        <!-- Avatars will be added dynamically -->
+    </LinearLayout>
+
 </androidx.constraintlayout.widget.ConstraintLayout>

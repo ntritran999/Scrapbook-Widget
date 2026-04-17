@@ -23,6 +23,18 @@
                 android:name="com.group04.scrapbookwidget.ui.scrapbookview.PageFragment"/>
         </FrameLayout>
 
+        <!-- Save Page Button -->
+        <Button
+            android:id="@+id/btnSavePage"
+            style="?attr/materialIconButtonOutlinedStyle"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_margin="16dp"
+            android:contentDescription="Save page to storage"
+            app:icon="@drawable/save_24"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintStart_toStartOf="parent" />
+
         <!-- Switch Group Button -->
         <Button
             android:id="@+id/btnSwitchGroup"
@@ -83,6 +95,7 @@
                     android:indeterminateTint="@color/white" />
 
                 <TextView
+                    android:id="@+id/loadingText"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Loading Scrapbook..."

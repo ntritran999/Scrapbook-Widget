@@ -192,6 +192,14 @@ public class GroupSettingsViewModel extends ViewModel {
         });
     }
 
+    public void updateUnreadCount(String groupId, int unreadCount) {
+        Group currentGroup = _group.getValue();
+        if (currentGroup != null && currentGroup.getId() != null && currentGroup.getId().equals(groupId)) {
+            currentGroup.setUnreadCount(unreadCount);
+            _group.setValue(currentGroup);
+        }
+    }
+
     public void uploadGroupAvatar(String groupId, File file) {
         _isLoading.setValue(true);
         

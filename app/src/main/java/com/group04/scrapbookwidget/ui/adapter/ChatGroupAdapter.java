@@ -60,11 +60,20 @@ public class ChatGroupAdapter extends RecyclerView.Adapter<ChatGroupAdapter.View
         
         Message latest = group.getLatestMessage();
         if (latest != null) {
-            String senderPrefix;
-            if (currentUserId != null && currentUserId.equals(latest.getCreatedBy())) {
+            String senderPrefix = "";
+            String senderId = latest.getCreatedBy() != null ? latest.getCreatedBy() : latest.getSenderId();
+            
+            if (currentUserId != null && currentUserId.equals(senderId)) {
                 senderPrefix = "You: ";
             } else {
-                senderPrefix = latest.getSenderName() != null ? latest.getSenderName() + ": " : "";
+                String senderName = latest.getSenderName();
+                if (senderName != null && !senderName.isEmpty()) {
+                    senderPrefix = senderName + ": ";
+                } else if (latest.getSeenByText() != null && latest.getSeenByText().startsWith("Seen by ")) {
+                    // Heuristic: if senderName is null, maybe we can find it elsewhere? 
+                    // But usually it should be provided.
+                    senderPrefix = ""; 
+                }
             }
             holder.tvLastMessage.setText(senderPrefix + latest.getContent());
             
@@ -104,6 +113,19 @@ public class ChatGroupAdapter extends RecyclerView.Adapter<ChatGroupAdapter.View
             holder.ivGroupAvatar.setImageResource(R.drawable.account_circle_24);
         }
 
+        // Handle Unread Count
+        int unreadCount = group.getUnreadCount();
+        if (unreadCount > 0) {
+            holder.tvUnreadCount.setVisibility(View.VISIBLE);
+            if (unreadCount > 99) {
+                holder.tvUnreadCount.setText("99+");
+            } else {
+                holder.tvUnreadCount.setText(String.valueOf(unreadCount));
+            }
+        } else {
+            holder.tvUnreadCount.setVisibility(View.GONE);
+        }
+
         holder.itemView.setOnClickListener(v -> listener.onGroupClick(group));
     }
 
@@ -117,6 +139,7 @@ public class ChatGroupAdapter extends RecyclerView.Adapter<ChatGroupAdapter.View
         TextView tvGroupName;
         TextView tvLastMessage;
         TextView tvTime;
+        TextView tvUnreadCount;
 
         ViewHolder(View itemView) {
             super(itemView);
@@ -124,6 +147,7 @@ public class ChatGroupAdapter extends RecyclerView.Adapter<ChatGroupAdapter.View
             tvGroupName = itemView.findViewById(R.id.tvGroupName);
             tvLastMessage = itemView.findViewById(R.id.tvLastMessage);
             tvTime = itemView.findViewById(R.id.tvTime);
+            tvUnreadCount = itemView.findViewById(R.id.tvUnreadCount);
         }
     }
 }

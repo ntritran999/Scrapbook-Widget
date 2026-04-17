@@ -153,9 +153,7 @@ public class ScrapbookRepository implements IScrapbookRepository {
     public void addItemWithFile(String groupId, String pageId, String imagePath, ScrapbookItem itemModel,
                                 @Nullable List<List<Double>> faceEmbeddings,
                                 RepositoryCallback<ScrapbookItem> callback) {
-        // logcat
-        android.util.Log.d("ScrapbookRepository", "addItemWithFile: start");
-
+        long startTime = System.currentTimeMillis();
         itemModel.setFaceEmbeddings(faceEmbeddings);
 
         String jsonItem = gson.toJson(itemModel);
@@ -168,6 +166,8 @@ public class ScrapbookRepository implements IScrapbookRepository {
             callback.onError(new Exception("Image file not found"));
             return;
         }
+
+        android.util.Log.d("ScrapbookRepo", "addItemWithFile: File size = " + (imageFile.length() / 1024) + " KB");
 
         String mimeType = "image/jpeg";
         if (imageFile.getName().toLowerCase().endsWith(".png")) {
@@ -183,6 +183,7 @@ public class ScrapbookRepository implements IScrapbookRepository {
         groupService.createItemWithFile(groupId, pageId, filePart, payloadPart).enqueue(new retrofit2.Callback<ScrapbookItem>() {
             @Override
             public void onResponse(Call<ScrapbookItem> call, retrofit2.Response<ScrapbookItem> response) {
+                android.util.Log.d("ScrapbookRepo", "addItemWithFile: Response received in " + (System.currentTimeMillis() - startTime) + " ms");
                 if (response.isSuccessful() && response.body() != null) {
                     callback.onSuccess(response.body());
                 } else {
@@ -192,6 +193,7 @@ public class ScrapbookRepository implements IScrapbookRepository {
 
             @Override
             public void onFailure(Call<ScrapbookItem> call, Throwable t) {
+                android.util.Log.d("ScrapbookRepo", "addItemWithFile: Failed after " + (System.currentTimeMillis() - startTime) + " ms");
                 callback.onError(new Exception(t.getMessage()));
             }
         });

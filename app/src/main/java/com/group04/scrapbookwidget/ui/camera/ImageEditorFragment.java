@@ -208,7 +208,7 @@ public class ImageEditorFragment extends Fragment {
             File outputDir = requireContext().getCacheDir();
             File imageFile = File.createTempFile("pasted_image", ".png", outputDir);
             try (FileOutputStream out = new FileOutputStream(imageFile)) {
-                bitmap.compress(Bitmap.CompressFormat.PNG, 100, out);
+                bitmap.compress(Bitmap.CompressFormat.WEBP, 80, out);
             }
 
             bitmap.recycle();

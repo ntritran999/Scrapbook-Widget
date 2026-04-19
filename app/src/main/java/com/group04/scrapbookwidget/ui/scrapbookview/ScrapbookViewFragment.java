@@ -68,6 +68,7 @@ public class ScrapbookViewFragment extends Fragment {
     private float pastedImageZIndex = 10f;
     private String pastedImageCaption = "";
     private List<List<Double>> pastedFaceEmbeddings;
+    private boolean isConfirmingPaste = false;
 
     public ScrapbookViewFragment() {
     }
@@ -208,14 +209,19 @@ public class ScrapbookViewFragment extends Fragment {
 
         scrapbookViewModel.getIsSavingItem().observe(getViewLifecycleOwner(), isSaving -> {
             android.util.Log.d("ScrapbookViewFragment", "setupObservers: isSavingItem changed to " + isSaving);
-            if (!isSaving && binding != null) {
-                android.util.Log.d("ScrapbookViewFragment", "setupObservers: Item save completed, waiting for pagesLiveData update");
+            if (binding != null) {
+                boolean shouldEnableConfirm = Boolean.FALSE.equals(isSaving) && isInPastingMode && !isConfirmingPaste;
+                binding.btnConfirmPaste.setEnabled(shouldEnableConfirm);
+                if (!isSaving) {
+                    android.util.Log.d("ScrapbookViewFragment", "setupObservers: Item save completed, waiting for pagesLiveData update");
+                }
             }
         });
 
         scrapbookViewModel.getItemSaveError().observe(getViewLifecycleOwner(), error -> {
             if (error != null && !error.isEmpty()) {
                 android.util.Log.e("ScrapbookViewFragment", "setupObservers: Item save error: " + error);
+                isConfirmingPaste = false;
                 exitPastingMode();
                 Toast.makeText(requireContext(), "Error: " + error, Toast.LENGTH_SHORT).show();
             }
@@ -230,9 +236,10 @@ public class ScrapbookViewFragment extends Fragment {
             android.util.Log.d("ScrapbookViewFragment", "  isInPastingMode: " + isInPastingMode);
 
             // ONLY remove temporary image if user confirmed save (not during initial load)
-            if (currentPastingView != null && !isInPastingMode) {
+            if (isConfirmingPaste && currentPastingView != null && !isInPastingMode) {
                 android.util.Log.d("ScrapbookViewFragment", "setupObservers: Removing temporary pasted image after render");
-                // exitPastingMode();
+                isConfirmingPaste = false;
+                exitPastingMode();
             }
         });
     }
@@ -243,7 +250,9 @@ public class ScrapbookViewFragment extends Fragment {
         });
 
         binding.btnConfirmPaste.setOnClickListener(v -> {
-            if (currentPastingView != null) {
+            if (currentPastingView != null && !isConfirmingPaste) {
+                isConfirmingPaste = true;
+                binding.btnConfirmPaste.setEnabled(false);
                 confirmPastedImage();
             }
         });
@@ -313,9 +322,11 @@ public class ScrapbookViewFragment extends Fragment {
         }
         android.util.Log.d("ScrapbookViewFragment", "enterPastingMode: Entering pasting mode");
         isInPastingMode = true;
+        isConfirmingPaste = false;
         binding.cameraBtn.setVisibility(View.INVISIBLE);
         binding.btnSwitchPageCurlEffect.setVisibility(View.INVISIBLE);
         binding.btnConfirmPaste.setVisibility(View.VISIBLE);
+        binding.btnConfirmPaste.setEnabled(true);
         binding.btnSavePage.setVisibility(View.GONE);
         Toast.makeText(requireContext(), "Please patse the image to scrapbook", Toast.LENGTH_SHORT).show();
     }
@@ -334,6 +345,7 @@ public class ScrapbookViewFragment extends Fragment {
         }
         pastedImagePath = null;
         isInPastingMode = false;
+        isConfirmingPaste = false;
         binding.cameraBtn.setVisibility(View.VISIBLE);
         binding.btnSwitchPageCurlEffect.setVisibility(View.INVISIBLE);
         binding.btnConfirmPaste.setVisibility(View.INVISIBLE);
@@ -410,6 +422,7 @@ public class ScrapbookViewFragment extends Fragment {
     private void confirmPastedImage() {
         if (currentPastingView == null) {
             android.util.Log.w("ScrapbookViewFragment", "confirmPastedImage: currentPastingView is null");
+            isConfirmingPaste = false;
             return;
         }
 
@@ -423,6 +436,10 @@ public class ScrapbookViewFragment extends Fragment {
             Toast.makeText(requireContext(), "Please select a group first", Toast.LENGTH_SHORT).show();
             android.util.Log.e("ScrapbookViewFragment", "confirmPastedImage: Invalid groupId");
             isInPastingMode = true;  // Restore flag since confirmation failed
+            isConfirmingPaste = false;
+            if (binding != null) {
+                binding.btnConfirmPaste.setEnabled(true);
+            }
             return;
         }
 
@@ -436,6 +453,10 @@ public class ScrapbookViewFragment extends Fragment {
         if (finalPageId == null || finalPageId.isEmpty()) {
             showBackgroundSelectionDialog();
             isInPastingMode = true;  // Restore flag since confirmation failed
+            isConfirmingPaste = false;
+            if (binding != null) {
+                binding.btnConfirmPaste.setEnabled(true);
+            }
             return;
         }
 
@@ -631,6 +652,7 @@ public class ScrapbookViewFragment extends Fragment {
             binding.cameraBtn.setVisibility(View.INVISIBLE);
             binding.btnSwitchPageCurlEffect.setVisibility(View.INVISIBLE);
             binding.btnConfirmPaste.setVisibility(View.VISIBLE);
+            binding.btnConfirmPaste.setEnabled(!isConfirmingPaste);
         }
     }
 }

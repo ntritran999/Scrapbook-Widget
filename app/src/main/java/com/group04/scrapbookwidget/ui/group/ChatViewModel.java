@@ -1,23 +1,24 @@
 package com.group04.scrapbookwidget.ui.group;
 
-import android.os.Handler;
-import android.os.Looper;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
+import androidx.lifecycle.Observer;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.ViewModel;
 
+import android.content.Context;
+import dagger.hilt.android.qualifiers.ApplicationContext;
+
 import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.auth.FirebaseUser;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.mlkit.nl.smartreply.SmartReply;
 import com.google.mlkit.nl.smartreply.SmartReplyGenerator;
 import com.google.mlkit.nl.smartreply.SmartReplySuggestion;
 import com.google.mlkit.nl.smartreply.TextMessage;
+import com.group04.scrapbookwidget.data.realtime.GroupRealtimeSocketClient;
 import com.group04.scrapbookwidget.data.model.Message;
 import com.group04.scrapbookwidget.data.model.TodayMemory;
 import com.group04.scrapbookwidget.data.service.GroupService;
@@ -34,13 +35,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import javax.inject.Inject;
-import javax.inject.Named;
 
 import dagger.hilt.android.lifecycle.HiltViewModel;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.WebSocket;
-import okhttp3.WebSocketListener;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
@@ -50,11 +46,13 @@ public class ChatViewModel extends ViewModel {
     private static final String TAG = "ChatViewModel";
     private final GroupService groupService;
     private final FirebaseAuth auth;
-    private final OkHttpClient okHttpClient;
-    private final String baseUrl;
+    private final Context appContext;
     private final Gson gson = new Gson();
     private final SmartReplyGenerator smartReply = SmartReply.getClient();
     private final ExecutorService backgroundExecutor = Executors.newSingleThreadExecutor();
+    private final GroupRealtimeSocketClient realtimeSocketClient;
+    private final Observer<GroupRealtimeSocketClient.SocketPacket> socketPacketObserver;
+    private final String socketSubscriberId = "chat_vm_" + System.identityHashCode(this);
 
     private final MutableLiveData<List<Message>> _messages = new MutableLiveData<>(new ArrayList<>());
     public LiveData<List<Message>> getMessages() { return _messages; }
@@ -78,20 +76,17 @@ public class ChatViewModel extends ViewModel {
     public LiveData<Message.SeenBy> getMarkAsSeenResponse() { return _markAsSeenResponse; }
 
     private String currentGroupId;
-    private WebSocket webSocket;
-    private boolean isStopped = false;
-    private long retryDelayMs = 1000;
-    private static final long MAX_RETRY_DELAY_MS = 30000;
 
     private final List<Message> masterMessagesList = new ArrayList<>();
-    private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
     @Inject
-    public ChatViewModel(GroupService groupService, FirebaseAuth auth, OkHttpClient okHttpClient, @Named("baseUrl") String baseUrl) {
+    public ChatViewModel(GroupService groupService, FirebaseAuth auth, @ApplicationContext Context appContext, GroupRealtimeSocketClient realtimeSocketClient) {
         this.groupService = groupService;
         this.auth = auth;
-        this.okHttpClient = okHttpClient;
-        this.baseUrl = baseUrl;
+        this.appContext = appContext;
+        this.realtimeSocketClient = realtimeSocketClient;
+        this.socketPacketObserver = this::onSocketPacket;
+        this.realtimeSocketClient.getSocketPacketsLiveData().observeForever(socketPacketObserver);
     }
 
     public void initChat(String groupId) {
@@ -99,7 +94,7 @@ public class ChatViewModel extends ViewModel {
         Log.d(TAG, "initChat: groupId=" + groupId);
 
         loadMessages();
-        startWebSocket();
+        realtimeSocketClient.subscribe(socketSubscriberId, groupId);
         loadTodayMemories();
     }
 
@@ -272,6 +267,18 @@ public class ChatViewModel extends ViewModel {
     public void generateReplies(List<Message> recentMessages, String currentUserId) {
         if (recentMessages == null || recentMessages.isEmpty() || currentUserId == null) return;
 
+        // Respect global AI features setting
+        try {
+            boolean aiEnabled = appContext.getSharedPreferences("APP_SETTINGS", Context.MODE_PRIVATE)
+                    .getBoolean("AI_FEATURES_ENABLED", true);
+            if (!aiEnabled) {
+                suggestedReplies.setValue(Collections.emptyList());
+                return;
+            }
+        } catch (Exception e) {
+            // If unable to read pref, proceed with default behavior
+        }
+
         backgroundExecutor.execute(() -> {
             List<Message> sortedMessages = new ArrayList<>(recentMessages);
             Collections.sort(sortedMessages, Comparator.comparingLong(this::parseTimestamp));
@@ -311,49 +318,6 @@ public class ChatViewModel extends ViewModel {
 
     public void clearSuggestedReplies() {
         suggestedReplies.setValue(Collections.emptyList());
-    }
-
-    private void startWebSocket() {
-        if (isStopped) return;
-        if (webSocket != null) {
-            webSocket.close(1000, "Reconnecting");
-        }
-
-        FirebaseUser user = auth.getCurrentUser();
-        if (user == null) return;
-
-        user.getIdToken(false).addOnSuccessListener(result -> {
-            String token = result.getToken();
-            String wsBaseUrl = baseUrl.replace("http://", "ws://").replace("https://", "wss://");
-            String wsUrl = wsBaseUrl + "groups/" + currentGroupId + "/messages/ws?token=" + token;
-
-            Request request = new Request.Builder().url(wsUrl).build();
-
-            webSocket = okHttpClient.newWebSocket(request, new WebSocketListener() {
-                @Override
-                public void onOpen(@NonNull WebSocket webSocket, @NonNull okhttp3.Response response) {
-                    Log.d(TAG, "WebSocket: Connected to " + wsUrl);
-                    retryDelayMs = 1000;
-                }
-
-                @Override
-                public void onMessage(@NonNull WebSocket webSocket, @NonNull String text) {
-                    handleWebSocketMessage(text);
-                }
-
-                @Override
-                public void onFailure(@NonNull WebSocket webSocket, @NonNull Throwable t, @Nullable okhttp3.Response response) {
-                    Log.e(TAG, "WebSocket Error: " + t.getMessage());
-                    reconnect();
-                }
-
-                @Override
-                public void onClosed(@NonNull WebSocket webSocket, int code, @NonNull String reason) {
-                    Log.d(TAG, "WebSocket: Closed " + reason);
-                    reconnect();
-                }
-            });
-        });
     }
 
     private void handleWebSocketMessage(String text) {
@@ -469,21 +433,30 @@ public class ChatViewModel extends ViewModel {
         _messageWrappers.postValue(wrappers);
     }
 
-    private void reconnect() {
-        if (isStopped) return;
-        mainHandler.postDelayed(this::startWebSocket, retryDelayMs);
-        retryDelayMs = Math.min(retryDelayMs * 2, MAX_RETRY_DELAY_MS);
-    }
-
     @Override
     protected void onCleared() {
         super.onCleared();
-        isStopped = true;
-        if (webSocket != null) {
-            webSocket.close(1000, "ViewModel cleared");
-        }
+        realtimeSocketClient.getSocketPacketsLiveData().removeObserver(socketPacketObserver);
+        realtimeSocketClient.unsubscribe(socketSubscriberId);
         smartReply.close();
         backgroundExecutor.shutdown();
+    }
+
+    private void onSocketPacket(GroupRealtimeSocketClient.SocketPacket packet) {
+        if (packet == null) {
+            return;
+        }
+        if (currentGroupId == null || !currentGroupId.equals(packet.getGroupId())) {
+            return;
+        }
+        String event = packet.getEventName();
+        if (event == null || event.isEmpty()) {
+            return;
+        }
+        if (!"messages.initial".equals(event) && !"message.created".equals(event) && !"message.seen".equals(event)) {
+            return;
+        }
+        handleWebSocketMessage(packet.getRawMessage());
     }
 
     private long parseTimestamp(Message message) {

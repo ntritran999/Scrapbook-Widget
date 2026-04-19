@@ -10,11 +10,16 @@ import android.os.Looper;
 import android.provider.MediaStore;
 import android.util.Log;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
+import androidx.lifecycle.Observer;
 import androidx.lifecycle.ViewModel;
 
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.group04.scrapbookwidget.data.realtime.GroupRealtimeSocketClient;
 import com.group04.scrapbookwidget.data.model.ItemContent;
 import com.group04.scrapbookwidget.data.model.Layout;
 import com.group04.scrapbookwidget.data.model.ScrapbookItem;
@@ -28,6 +33,8 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.inject.Inject;
@@ -36,11 +43,19 @@ import dagger.hilt.android.lifecycle.HiltViewModel;
 
 @HiltViewModel
 public class ScrapbookViewModel extends ViewModel {
+    private static final String TAG = "ScrapbookViewModel";
+    private static final long RELOAD_DELAY_MS = 250;
+
     private final IScrapbookRepository scrapbookRepository;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    private final ExecutorService realtimeExecutor = Executors.newSingleThreadExecutor();
+    private final GroupRealtimeSocketClient realtimeSocketClient;
+    private final Observer<GroupRealtimeSocketClient.SocketPacket> socketPacketObserver;
+    private final String socketSubscriberId = "scrapbook_vm_" + System.identityHashCode(this);
 
     private int pageIndex = 0;
     private String groupId;
+    private String realtimeGroupId;
     private String defaultPageId;
     private final MutableLiveData<List<ScrapbookPageData>> pagesLiveData = new MutableLiveData<>();
     private final MutableLiveData<Boolean> isLoading = new MutableLiveData<>();
@@ -57,14 +72,20 @@ public class ScrapbookViewModel extends ViewModel {
 
     private final MutableLiveData<String> exportStatus = new MutableLiveData<>();
     public LiveData<String> getExportStatus() { return exportStatus; }
-    
-    // Debounce mechanism for reload
+
     private Runnable pendingReloadRunnable = null;
-    private static final long RELOAD_DELAY_MS = 100;
-    
+    private boolean realtimeReloadPending = false;
+    private boolean realtimeReloadInProgress = false;
+
     @Inject
-    public ScrapbookViewModel(IScrapbookRepository repo) {
+    public ScrapbookViewModel(
+            IScrapbookRepository repo,
+            GroupRealtimeSocketClient realtimeSocketClient
+    ) {
         scrapbookRepository = repo;
+        this.realtimeSocketClient = realtimeSocketClient;
+        this.socketPacketObserver = this::onSocketPacket;
+        this.realtimeSocketClient.getSocketPacketsLiveData().observeForever(socketPacketObserver);
     }
 
     public int getPageIndex() {
@@ -119,12 +140,18 @@ public class ScrapbookViewModel extends ViewModel {
     }
 
     public void loadScrapbook(String groupId, String pageId) {
+        loadScrapbookInternal(groupId, pageId, false);
+    }
+
+    private void loadScrapbookInternal(String groupId, String pageId, boolean isRealtimeReload) {
         if (groupId == null || groupId.trim().isEmpty()) {
             errorMessage.setValue("Invalid group ID");
             isLoading.setValue(false);
+            finishRealtimeReloadIfNeeded(isRealtimeReload);
             return;
         }
 
+        ensureRealtimeSocket(groupId);
         isLoading.setValue(true);
         this.groupId = groupId;
 
@@ -133,6 +160,7 @@ public class ScrapbookViewModel extends ViewModel {
             public void onSuccess(List<ScrapbookPage> pages) {
                 if (pages == null || pages.isEmpty()) {
                     isLoading.setValue(false);
+                    finishRealtimeReloadIfNeeded(isRealtimeReload);
                     return;
                 }
 
@@ -143,6 +171,7 @@ public class ScrapbookViewModel extends ViewModel {
                         defaultPageId = firstPage.getId();
                         isLoading.setValue(false);
                         Log.d("create-page-defaultPageId", defaultPageId + "");
+                        finishRealtimeReloadIfNeeded(isRealtimeReload);
                         return;
                     }
                 }
@@ -168,6 +197,7 @@ public class ScrapbookViewModel extends ViewModel {
                                 }
                                 pagesLiveData.setValue(scrapbookData);
                                 isLoading.setValue(false);
+                                finishRealtimeReloadIfNeeded(isRealtimeReload);
                             }
                         }
 
@@ -177,6 +207,7 @@ public class ScrapbookViewModel extends ViewModel {
                             hasError[0] = true;
                             errorMessage.setValue("Failed to load items: " + e.getMessage());
                             isLoading.setValue(false);
+                            finishRealtimeReloadIfNeeded(isRealtimeReload);
                         }
                     });
                 }
@@ -186,6 +217,7 @@ public class ScrapbookViewModel extends ViewModel {
             public void onError(Exception e) {
                 errorMessage.setValue("Failed to load pages: " + e.getMessage());
                 isLoading.setValue(false);
+                finishRealtimeReloadIfNeeded(isRealtimeReload);
             }
         });
     }
@@ -252,6 +284,11 @@ public class ScrapbookViewModel extends ViewModel {
                                    float x, float y, float width, float height,
                                    float rotation, float scale, float zIndex, String caption,
                                    @Nullable List<List<Double>> faceEmbeddings) {
+        if (Boolean.TRUE.equals(isSavingItem.getValue())) {
+            Log.w(TAG, "saveScrapbookItem ignored because a save is already in progress");
+            return;
+        }
+
         if (groupId == null || groupId.isEmpty() || pageId == null || pageId.isEmpty()) {
             itemSaveError.setValue("Invalid page or group ID");
             return;
@@ -338,5 +375,113 @@ public class ScrapbookViewModel extends ViewModel {
             bitmap.compress(Bitmap.CompressFormat.PNG, 100, fos);
             fos.close();
         }
+    }
+
+    private void ensureRealtimeSocket(@NonNull String targetGroupId) {
+        if (targetGroupId.equals(realtimeGroupId)) {
+            return;
+        }
+        realtimeGroupId = targetGroupId;
+        realtimeSocketClient.subscribe(socketSubscriberId, targetGroupId);
+    }
+
+    private void onSocketPacket(GroupRealtimeSocketClient.SocketPacket packet) {
+        if (packet == null) {
+            return;
+        }
+        if (groupId == null || !groupId.equals(packet.getGroupId())) {
+            return;
+        }
+        realtimeExecutor.execute(() -> {
+            if (!shouldReloadScrapbook(packet.getEventName(), packet.getData())) {
+                return;
+            }
+            scheduleRealtimeReload();
+        });
+    }
+
+    private boolean shouldReloadScrapbook(String event, @Nullable JsonElement data) {
+        if (event == null || event.trim().isEmpty()) {
+            return false;
+        }
+
+        String normalizedEvent = event.trim().toLowerCase();
+        if (normalizedEvent.startsWith("scrapbook.")) {
+            return true;
+        }
+        if (normalizedEvent.equals("item.created") || normalizedEvent.endsWith(".item.created")) {
+            return true;
+        }
+
+        if (!normalizedEvent.endsWith(".created")) {
+            return false;
+        }
+        if (!(data instanceof JsonObject)) {
+            return false;
+        }
+
+        JsonObject payload = (JsonObject) data;
+        if (payload.has("pageId") || payload.has("scrapbookPageId")) {
+            return true;
+        }
+        if (payload.has("type")) {
+            String type = payload.get("type").getAsString();
+            return "photo".equalsIgnoreCase(type);
+        }
+        return false;
+    }
+
+    private void scheduleRealtimeReload() {
+        realtimeReloadPending = true;
+
+        if (pendingReloadRunnable != null) {
+            mainHandler.removeCallbacks(pendingReloadRunnable);
+        }
+
+        pendingReloadRunnable = this::triggerRealtimeReloadIfNeeded;
+        mainHandler.postDelayed(pendingReloadRunnable, RELOAD_DELAY_MS);
+    }
+
+    private void triggerRealtimeReloadIfNeeded() {
+        if (!realtimeReloadPending || realtimeReloadInProgress) {
+            return;
+        }
+        if (groupId == null || groupId.trim().isEmpty()) {
+            realtimeReloadPending = false;
+            return;
+        }
+        if (Boolean.TRUE.equals(isLoading.getValue())) {
+            scheduleRealtimeReload();
+            return;
+        }
+
+        realtimeReloadPending = false;
+        realtimeReloadInProgress = true;
+
+        String targetGroupId = groupId;
+        String targetPageId = getCurrentPageId();
+        mainHandler.post(() -> loadScrapbookInternal(targetGroupId, targetPageId, true));
+    }
+
+    private void finishRealtimeReloadIfNeeded(boolean isRealtimeReload) {
+        if (!isRealtimeReload) {
+            return;
+        }
+        realtimeReloadInProgress = false;
+        if (realtimeReloadPending) {
+            triggerRealtimeReloadIfNeeded();
+        }
+    }
+
+    @Override
+    protected void onCleared() {
+        super.onCleared();
+        if (pendingReloadRunnable != null) {
+            mainHandler.removeCallbacks(pendingReloadRunnable);
+            pendingReloadRunnable = null;
+        }
+        realtimeSocketClient.getSocketPacketsLiveData().removeObserver(socketPacketObserver);
+        realtimeSocketClient.unsubscribe(socketSubscriberId);
+        realtimeExecutor.shutdown();
     }
 }

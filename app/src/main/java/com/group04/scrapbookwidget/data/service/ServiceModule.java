@@ -6,6 +6,7 @@ import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.auth.GetTokenResult;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.group04.scrapbookwidget.data.realtime.GroupRealtimeSocketClient;
 
 import java.io.IOException;
 import java.util.concurrent.ExecutionException;
@@ -30,7 +31,7 @@ import java.util.concurrent.TimeUnit;
 @Module
 @InstallIn(SingletonComponent.class)
 public class ServiceModule {
-    private final String BASE_URL = "http://10.123.1.131:3000/api/v1/";
+    private final String BASE_URL = "http://192.168.1.5:3000/api/v1/";
 
     @Provides
     @Named("baseUrl")
@@ -150,6 +151,16 @@ public class ServiceModule {
     @Provides
     public BackgroundImageService provideBackgroundImageService(Retrofit retrofit) {
         return retrofit.create(BackgroundImageService.class);
+    }
+
+    @Singleton
+    @Provides
+    public GroupRealtimeSocketClient provideGroupRealtimeSocketClient(
+            OkHttpClient okHttpClient,
+            FirebaseAuth firebaseAuth,
+            @Named("baseUrl") String baseUrl
+    ) {
+        return new GroupRealtimeSocketClient(okHttpClient, firebaseAuth, baseUrl);
     }
 
 }

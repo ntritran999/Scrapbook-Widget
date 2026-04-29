@@ -7,6 +7,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Bundle;
+import android.util.Log;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
@@ -21,6 +22,7 @@ import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.NavController;
+import androidx.navigation.NavOptions;
 import androidx.navigation.fragment.NavHostFragment;
 
 import com.google.firebase.auth.FirebaseAuth;
@@ -32,6 +34,7 @@ import dagger.hilt.android.AndroidEntryPoint;
 @AndroidEntryPoint
 public class MainActivity extends AppCompatActivity {
 
+    private static final String TAG = "MainActivity";
     private static final String TMP_PREF_NAME = "TMP_USER_SESSION";
     private static final String KEY_PENDING_INVITE_CODE = "PENDING_INVITE_CODE";
 
@@ -72,15 +75,84 @@ public class MainActivity extends AppCompatActivity {
         if (navHostFragment == null) return;
         NavController navController = navHostFragment.getNavController();
 
-        if (currentUser == null) {
-            // Chưa đăng nhập: set graph (mặc định vào authLoginFragment do startDestination)
-            navController.setGraph(R.navigation.app_nav);
-        } else {
-            // Đã đăng nhập: sync session và ép buộc điều hướng tới Home
-            syncUserSession(currentUser.getUid());
-            navController.setGraph(R.navigation.app_nav);
-            navController.navigate(R.id.homeFragment, getIntent().getExtras());
+        // Prevent resetting the graph if it's already set
+        boolean isGraphSet = false;
+        try {
+            navController.getGraph();
+            isGraphSet = true;
+        } catch (IllegalStateException e) {
+            // Graph not set yet
         }
+
+        if (!isGraphSet) {
+            navController.setGraph(R.navigation.app_nav);
+        }
+
+        if (currentUser == null) {
+            // Not logged in: ensure we are at the login destination
+            if (navController.getCurrentDestination() != null &&
+                navController.getCurrentDestination().getId() != R.id.authLoginFragment) {
+                navController.navigate(R.id.authLoginFragment);
+            }
+        } else {
+            // Logged in
+            syncUserSession(currentUser.getUid());
+
+            // Handle notification deep link
+            boolean notificationHandled = handleNotificationIntent(getIntent(), navController);
+
+            // Default navigation to Home if not handled by notification and we are at login
+            if (!notificationHandled) {
+                if (navController.getCurrentDestination() != null &&
+                    navController.getCurrentDestination().getId() == R.id.authLoginFragment) {
+                    navController.navigate(R.id.homeFragment, getIntent().getExtras());
+                }
+            }
+        }
+    }
+
+    private boolean handleNotificationIntent(Intent intent, NavController navController) {
+        if (intent == null || !intent.hasExtra("notification_type")) {
+            return false;
+        }
+
+        String type = intent.getStringExtra("notification_type");
+        String groupId = intent.getStringExtra("groupId");
+        Log.d(TAG, "Handling notification intent: " + type + " for group: " + groupId);
+
+        if (groupId == null || groupId.isEmpty()) return false;
+
+        Bundle args = new Bundle();
+        args.putString("GROUP_ID", groupId);
+
+        boolean handled = false;
+        switch (type) {
+            case "message_created":
+                // Navigate to chatDetailFragment. Pop up to ensure refresh if already there.
+                navController.navigate(R.id.chatDetailFragment, args,
+                        new NavOptions.Builder().setPopUpTo(R.id.chatDetailFragment, true).build());
+                handled = true;
+                break;
+            case "photo_created":
+            case "photo_reacted":
+                String pageId = intent.getStringExtra("pageId");
+                if (pageId != null) args.putString("PAGE_ID", pageId);
+                // HomeFragment handles deep linking to scrapbookViewFragment in its onViewCreated.
+                // Re-create HomeFragment to ensure it processes the new notification arguments.
+                navController.navigate(R.id.homeFragment, args,
+                        new NavOptions.Builder().setPopUpTo(R.id.homeFragment, true).build());
+                handled = true;
+                break;
+            default:
+                navController.navigate(R.id.homeFragment, args,
+                        new NavOptions.Builder().setPopUpTo(R.id.homeFragment, true).build());
+                handled = true;
+                break;
+        }
+
+        // Clear the notification extras so we don't re-handle them on rotation or activity restart
+        intent.removeExtra("notification_type");
+        return handled;
     }
 
     private void setupInviteObservers() {

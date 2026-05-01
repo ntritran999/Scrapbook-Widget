@@ -23,18 +23,6 @@
                 android:name="com.group04.scrapbookwidget.ui.scrapbookview.PageFragment"/>
         </FrameLayout>
 
-        <!-- Save Page Button -->
-        <Button
-            android:id="@+id/btnSavePage"
-            style="?attr/materialIconButtonOutlinedStyle"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:layout_margin="16dp"
-            android:contentDescription="Save page to storage"
-            app:icon="@drawable/save_24"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintStart_toStartOf="parent" />
-
         <!-- Switch Group Button -->
         <Button
             android:id="@+id/btnSwitchGroup"
@@ -72,6 +60,18 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"/>
 
+        <Button
+            android:id="@+id/btnSavePage"
+            style="?attr/materialIconButtonOutlinedStyle"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginStart="16dp"
+            android:layout_marginBottom="16dp"
+            android:contentDescription="Save page to storage"
+            app:icon="@drawable/save_24"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent" />
+
         <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -84,15 +84,16 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:fontFamily="monospace"
-                android:textStyle="italic"
+                android:text="Page curl effect"
                 android:textSize="12sp"
-                android:text="Page curl effect"/>
+                android:textStyle="italic" />
+
             <com.google.android.material.materialswitch.MaterialSwitch
                 android:id="@+id/btnSwitchPageCurlEffect"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_gravity="center_horizontal"
-                android:checked="true"/>
+                android:checked="true" />
         </LinearLayout>
 
 

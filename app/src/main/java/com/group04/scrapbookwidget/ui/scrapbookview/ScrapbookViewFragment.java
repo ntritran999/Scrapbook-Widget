@@ -2,6 +2,7 @@ package com.group04.scrapbookwidget.ui.scrapbookview;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.os.Bundle;
@@ -201,7 +202,9 @@ public class ScrapbookViewFragment extends Fragment {
 
         scrapbookViewModel.getExportStatus().observe(getViewLifecycleOwner(), status -> {
             if (status != null && !status.isEmpty()) {
-                if (status.contains("saved") || status.contains("Error") || status.contains("Failed")) {
+                if (status.contains("saved")) {
+                    showSaveSuccessDialog(status);
+                } else if (status.contains("Error") || status.contains("Failed")) {
                     Toast.makeText(requireContext(), status, Toast.LENGTH_SHORT).show();
                 }
             }
@@ -264,6 +267,10 @@ public class ScrapbookViewFragment extends Fragment {
         binding.btnSwitchPageCurlEffect.setOnClickListener(v -> {
             saveEffectChoice(binding.btnSwitchPageCurlEffect.isChecked());
         });
+
+        binding.btnSavePage.setOnClickListener(v -> {
+            scrapbookViewModel.saveCurrentPageToStorage(requireContext());
+        });
     }
 
     private void saveEffectChoice(boolean isEnabled) {
@@ -272,10 +279,17 @@ public class ScrapbookViewFragment extends Fragment {
                 .putBoolean("PAGE_CURL_EFFECT_ENABLED", isEnabled)
                 .apply();
         scrapbookViewModel.togglePageCurlEffect(isEnabled);
+    }
 
-        binding.btnSavePage.setOnClickListener(v -> {
-            scrapbookViewModel.saveCurrentPageToStorage(requireContext());
-        });
+    private void showSaveSuccessDialog(@NonNull String message) {
+        if (!isAdded()) {
+            return;
+        }
+        new AlertDialog.Builder(requireContext())
+                .setTitle("Saved")
+                .setMessage(message)
+                .setPositiveButton(android.R.string.ok, null)
+                .show();
     }
 
     private void showGroupSelectionDialog() {

@@ -32,10 +32,17 @@ public class PageCurlView extends GLSurfaceView {
     public interface OnPageChangedListener {
         void onPageChanged(int newPageIndex);
     }
+    public interface OnSwipeToNewPageListener {
+        void onSwipeToNewPage();
+    }
     private OnPageChangedListener pageChangedListener;
+    private OnSwipeToNewPageListener swipeToNewPageListener;
 
     public void setOnPageChangedListener(OnPageChangedListener listener) {
         this.pageChangedListener = listener;
+    }
+    public void setOnSwipeToNewPageListener(OnSwipeToNewPageListener listener) {
+        this.swipeToNewPageListener = listener;
     }
     private final Context _context;
     private PageRenderer pageRenderer;
@@ -92,7 +99,15 @@ public class PageCurlView extends GLSurfaceView {
                 }
 
                 isForward = normX >= CURL_THRESHOLD;
-                if ((isForward && curPage == numPages) || (!isForward && curPage == 1)) {
+                if (!isForward && curPage == 1) {
+                    isCurling = false;
+                    return true;
+                }
+
+                if (isForward && curPage == numPages) {
+                    if (swipeToNewPageListener != null) {
+                        swipeToNewPageListener.onSwipeToNewPage();
+                    }
                     isCurling = false;
                     return true;
                 }
@@ -156,18 +171,20 @@ public class PageCurlView extends GLSurfaceView {
     }
     public void setPhotoRects(List<ScrapbookPageData> pages) {
         photoRects = new ArrayList<>();
+        if (pages == null) return;
         for (var page: pages) {
             List<PhotoRect> pagePhotoRects = new ArrayList<>();
-            for (var item: page.scrapbookItems) {
-                Layout layout = item.getLayout();
-                Rect rect = new Rect(
-                        Math.round(layout.x),
-                        Math.round(layout.y),
-                        Math.round(layout.x + layout.width),
-                        Math.round(layout.y + layout.height)
-                );
-                System.out.println(item.getId());
-                pagePhotoRects.add(new PhotoRect(page.scrapbookPage.getId(), item.getId(), rect));
+            if (page.scrapbookItems != null) {
+                for (var item: page.scrapbookItems) {
+                    Layout layout = item.getLayout();
+                    Rect rect = new Rect(
+                            Math.round(layout.x),
+                            Math.round(layout.y),
+                            Math.round(layout.x + layout.width),
+                            Math.round(layout.y + layout.height)
+                    );
+                    pagePhotoRects.add(new PhotoRect(page.scrapbookPage.getId(), item.getId(), rect));
+                }
             }
             photoRects.add(pagePhotoRects);
         }
@@ -179,7 +196,7 @@ public class PageCurlView extends GLSurfaceView {
     }
 
     private PhotoRect getPhotoHit(float x, float y) {
-        if (photoRects != null) {
+        if (photoRects != null && curPage > 0 && curPage <= photoRects.size()) {
             float xScale = x * pageRenderer.getBmpW() / getWidth();
             float yScale = y * pageRenderer.getBmpH() / getHeight();
             List<PhotoRect> photos = photoRects.get(curPage - 1);

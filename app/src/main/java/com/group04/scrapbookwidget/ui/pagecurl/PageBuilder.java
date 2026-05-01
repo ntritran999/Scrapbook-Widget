@@ -14,6 +14,7 @@ import com.group04.scrapbookwidget.data.model.ScrapbookPage;
 import com.group04.scrapbookwidget.ui.scrapbookview.ScrapbookPageData;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -98,7 +99,14 @@ public class PageBuilder {
             canvas.drawBitmap(background, 0, 0, null);
 
             int itemsDrawn = 0;
-            for (var item: pageData.scrapbookItems) {
+            List<ScrapbookItem> scrapbookItems = pageData.scrapbookItems != null
+                    ? pageData.scrapbookItems
+                    : Collections.emptyList();
+            for (var item: scrapbookItems) {
+                if (item == null || item.getLayout() == null || item.getContent() == null) {
+                    android.util.Log.w("PageBuilder", "  Skipping invalid scrapbook item while building page");
+                    continue;
+                }
                 Layout layout = item.getLayout();
                 Bitmap photo = bitmapCache.get(item.getId());
 

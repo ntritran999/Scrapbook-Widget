@@ -38,7 +38,7 @@ public class PageRenderer implements GLSurfaceView.Renderer {
     }
 
     public void setCurPage(int p) {
-        curPage = p;
+        curPage = Math.max(1, p);
     }
 
     public void setIsForward(boolean forward) {
@@ -65,14 +65,23 @@ public class PageRenderer implements GLSurfaceView.Renderer {
     @Override
     public void onDrawFrame(GL10 gl) {
         GLES32.glClear(GLES32.GL_COLOR_BUFFER_BIT);
-        if (!isLoaded) return;;
+        if (!isLoaded || pageResources == null || textures == null || textures.length == 0 || backTex == null || backTex.length == 0) {
+            return;
+        }
+
+        int pageCount = pageResources.pageBitmaps != null ? pageResources.pageBitmaps.size() : 0;
+        if (pageCount <= 0) {
+            return;
+        }
+
+        curPage = Math.max(1, Math.min(curPage, pageCount));
 
         int front = textures[curPage - 1];
         int next = front;
 
         if (isEffectEnabled) {
             if (startX > 0.0f) {
-                if (isForward && curPage < pageResources.pageBitmaps.size()) {
+                if (isForward && curPage < pageCount && curPage < textures.length) {
                     next = textures[curPage];
                 }
                 else if (!isForward && curPage >= 2) {
@@ -113,6 +122,16 @@ public class PageRenderer implements GLSurfaceView.Renderer {
     }
 
     public void updatePageResources(PageResources pageResources) {
+        if (pageResources == null || pageResources.pageBitmaps == null || pageResources.pageBitmaps.isEmpty()
+                || pageResources.backgroundBitmap == null) {
+            isLoaded = false;
+            this.pageResources = pageResources;
+            textures = null;
+            backTex = null;
+            android.util.Log.w("PageRenderer", "updatePageResources: Skipped because page resources are incomplete");
+            return;
+        }
+
         this.pageResources = pageResources;
         textures = new int[pageResources.pageBitmaps.size()];
         GLES32.glGenTextures(textures.length, textures, 0);
@@ -126,6 +145,7 @@ public class PageRenderer implements GLSurfaceView.Renderer {
 
         bmpW = pageResources.bitmapWidth;
         bmpH = pageResources.bitmapHeight;
+        curPage = Math.max(1, Math.min(curPage, textures.length));
 
         if (!pageResources.backgroundBitmap.isRecycled()) {
             pageResources.backgroundBitmap.recycle();

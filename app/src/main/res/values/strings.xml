@@ -103,4 +103,8 @@
     <string name="invite_link_share_message">Let\'s make memory with me! Click here: %1$s</string>
     <string name="invite_link_login_required">Please log in to join this group</string>
     <string name="joining_group">Joining group...</string>
+
+    <!-- New Page / Premium strings -->
+    <string name="add_new_page">Add New Page</string>
+    <string name="upgrade_to_add_more">Please upgrade your plan to continue adding pages.</string>
 </resources>

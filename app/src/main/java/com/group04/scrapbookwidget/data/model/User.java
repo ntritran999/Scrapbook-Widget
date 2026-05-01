@@ -92,4 +92,8 @@ public class User {
 
     public String getDefaultPageId() { return defaultPageId; }
     public void setDefaultPageId(String defaultPageId) { this.defaultPageId = defaultPageId; }
+
+    public boolean isPremium() {
+        return "premium".equalsIgnoreCase(status) || "gold".equalsIgnoreCase(status);
+    }
 }

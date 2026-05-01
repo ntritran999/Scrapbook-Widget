@@ -10,6 +10,7 @@ import androidx.work.PeriodicWorkRequest;
 import androidx.work.WorkManager;
 
 import com.group04.scrapbookwidget.data.worker.WidgetUpdateWorker;
+import com.group04.scrapbookwidget.notifications.NotificationChannels;
 
 import java.util.concurrent.TimeUnit;
 
@@ -24,6 +25,8 @@ public final class ScrapbookWidgetApplication extends Application implements Con
     @Override
     public void onCreate() {
         super.onCreate();
+
+        NotificationChannels.create(this);
 
         PeriodicWorkRequest widgetUpdateWorkRequest =
                 new PeriodicWorkRequest.Builder(WidgetUpdateWorker.class, 30, TimeUnit.MINUTES)

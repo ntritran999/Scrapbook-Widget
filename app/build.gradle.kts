@@ -8,9 +8,7 @@ plugins {
 
 android {
     namespace = "com.group04.scrapbookwidget"
-    compileSdk {
-        version = release(36)
-    }
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.group04.scrapbookwidget"
@@ -78,6 +76,7 @@ dependencies {
     implementation("com.google.firebase:firebase-analytics")
     implementation("com.google.firebase:firebase-firestore")
     implementation("com.google.firebase:firebase-auth")
+    implementation("com.google.firebase:firebase-messaging")
 
     // Google Play Services Auth
     implementation("com.google.android.gms:play-services-auth:21.5.1")

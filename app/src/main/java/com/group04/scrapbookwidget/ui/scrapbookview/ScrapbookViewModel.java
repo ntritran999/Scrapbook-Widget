@@ -24,7 +24,9 @@ import com.group04.scrapbookwidget.data.model.ItemContent;
 import com.group04.scrapbookwidget.data.model.Layout;
 import com.group04.scrapbookwidget.data.model.ScrapbookItem;
 import com.group04.scrapbookwidget.data.model.ScrapbookPage;
+import com.group04.scrapbookwidget.data.model.User;
 import com.group04.scrapbookwidget.data.repository.IScrapbookRepository;
+import com.group04.scrapbookwidget.data.repository.IUserRepository;
 import com.group04.scrapbookwidget.data.repository.RepositoryCallback;
 import com.group04.scrapbookwidget.ui.pagecurl.PageBuilder;
 import com.group04.scrapbookwidget.ui.pagecurl.PageResources;
@@ -45,8 +47,10 @@ import dagger.hilt.android.lifecycle.HiltViewModel;
 public class ScrapbookViewModel extends ViewModel {
     private static final String TAG = "ScrapbookViewModel";
     private static final long RELOAD_DELAY_MS = 250;
+    private static final int FREE_PAGE_LIMIT = 7;
 
     private final IScrapbookRepository scrapbookRepository;
+    private final IUserRepository userRepository;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final ExecutorService realtimeExecutor = Executors.newSingleThreadExecutor();
     private final GroupRealtimeSocketClient realtimeSocketClient;
@@ -63,6 +67,7 @@ public class ScrapbookViewModel extends ViewModel {
     private final MutableLiveData<Boolean> isSavingItem = new MutableLiveData<>(false);
     private final MutableLiveData<String> itemSaveError = new MutableLiveData<>();
     private final MutableLiveData<Boolean> isPageCurlEffectEnabled = new MutableLiveData<>();
+    private final MutableLiveData<User> currentUser = new MutableLiveData<>();
     
     private final MutableLiveData<Boolean> isRendering = new MutableLiveData<>(false);
     public MutableLiveData<Boolean> getIsRendering() { return isRendering; }
@@ -80,12 +85,47 @@ public class ScrapbookViewModel extends ViewModel {
     @Inject
     public ScrapbookViewModel(
             IScrapbookRepository repo,
+            IUserRepository userRepository,
             GroupRealtimeSocketClient realtimeSocketClient
     ) {
         scrapbookRepository = repo;
+        this.userRepository = userRepository;
         this.realtimeSocketClient = realtimeSocketClient;
         this.socketPacketObserver = this::onSocketPacket;
         this.realtimeSocketClient.getSocketPacketsLiveData().observeForever(socketPacketObserver);
+        loadCurrentUserInfo();
+    }
+
+    private void loadCurrentUserInfo() {
+        com.google.firebase.auth.FirebaseUser fbUser = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
+        if (fbUser != null) {
+            userRepository.getUserById(fbUser.getUid(), new RepositoryCallback<User>() {
+                @Override
+                public void onSuccess(User result) {
+                    currentUser.postValue(result);
+                }
+
+                @Override
+                public void onError(Exception e) {
+                    Log.e(TAG, "Failed to load current user for premium check", e);
+                }
+            });
+        }
+    }
+
+    public LiveData<User> getCurrentUser() {
+        return currentUser;
+    }
+
+    public boolean canAddNewPage() {
+        User user = currentUser.getValue();
+        List<ScrapbookPageData> pages = pagesLiveData.getValue();
+        int pageCount = pages != null ? pages.size() : 0;
+
+        if (user != null && user.isPremium()) {
+            return true;
+        }
+        return pageCount < FREE_PAGE_LIMIT;
     }
 
     public int getPageIndex() {
@@ -186,11 +226,14 @@ public class ScrapbookViewModel extends ViewModel {
                         @Override
                         public void onSuccess(List<ScrapbookItem> items) {
                             if (hasError[0]) return;
-                            resultsArray[index] = items;
+                            resultsArray[index] = items != null ? items : new ArrayList<>();
                             if (completedCount.incrementAndGet() == pages.size()) {
                                 List<ScrapbookPageData> scrapbookData = new ArrayList<>();
                                 for (int j = 0; j < pages.size(); j++) {
-                                    scrapbookData.add(new ScrapbookPageData(pages.get(j), resultsArray[j]));
+                                    List<ScrapbookItem> pageItems = resultsArray[j] != null
+                                            ? resultsArray[j]
+                                            : new ArrayList<>();
+                                    scrapbookData.add(new ScrapbookPageData(pages.get(j), pageItems));
                                     if (pages.get(j).getId().equals(pageId)) {
                                         pageIndex = j;
                                     }
@@ -229,32 +272,32 @@ public class ScrapbookViewModel extends ViewModel {
         scrapbookRepository.createPage(groupId, newPage, new RepositoryCallback<ScrapbookPage>() {
             @Override
             public void onSuccess(ScrapbookPage result) {
-                List<ScrapbookPageData> scrapbookData = new ArrayList<>();
-                scrapbookData.add(new ScrapbookPageData(result, new ArrayList<>()));
+                List<ScrapbookPageData> currentPages = pagesLiveData.getValue();
+                if (currentPages == null) currentPages = new ArrayList<>();
+                
                 if (defaultPageId != null && !defaultPageId.isEmpty()) {
                     scrapbookRepository.removePage(groupId, defaultPageId, new RepositoryCallback<Void>() {
                         @Override
-                        public void onSuccess(Void result) {
-                            pagesLiveData.setValue(scrapbookData);
-                            pageIndex = 0;
-                            loadScrapbook(groupId, "");
+                        public void onSuccess(Void res) {
+                            loadScrapbook(groupId, result.getId());
                             isLoading.setValue(false);
                         }
 
                         @Override
                         public void onError(Exception exception) {
-                            pagesLiveData.setValue(new ArrayList<>());
-                            errorMessage.setValue("Failed to create initial page: " + exception.getMessage());
+                            errorMessage.setValue("Failed to update scrapbook: " + exception.getMessage());
                             isLoading.setValue(false);
                         }
                     });
+                } else {
+                    loadScrapbook(groupId, result.getId());
+                    isLoading.setValue(false);
                 }
             }
 
             @Override
             public void onError(Exception exception) {
-                pagesLiveData.setValue(new ArrayList<>());
-                errorMessage.setValue("Failed to create initial page: " + exception.getMessage());
+                errorMessage.setValue("Failed to create page: " + exception.getMessage());
                 isLoading.setValue(false);
             }
         });

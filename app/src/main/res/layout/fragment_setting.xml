@@ -219,58 +219,6 @@
 
                     </LinearLayout>
 
-                    <!-- Invite Card -->
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="12dp"
-                        android:background="@drawable/bg_chat_bubble"
-                        android:backgroundTint="#1A1A1A"
-                        android:gravity="center_vertical"
-                        android:orientation="horizontal"
-                        android:padding="16dp">
-
-                        <com.google.android.material.imageview.ShapeableImageView
-                            android:layout_width="32dp"
-                            android:layout_height="32dp"
-                            android:src="@drawable/account_circle_24"
-                            android:contentDescription="@null"
-                            app:shapeAppearanceOverlay="@style/CircleAppearance"
-                            app:strokeColor="#FFD700"
-                            app:strokeWidth="1dp" />
-
-                        <LinearLayout
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="12dp"
-                            android:layout_weight="1"
-                            android:orientation="vertical">
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="@string/invite_friends"
-                                android:textColor="#FFFFFF"
-                                android:textSize="14sp"
-                                android:textStyle="bold" />
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="@{`locket.cam/` + (viewModel.currentUser.username ?? `user`)}"
-                                android:textColor="#AAAAAA"
-                                android:textSize="12sp"
-                                tools:text="locket.cam/tremolitee" />
-                        </LinearLayout>
-
-                        <ImageView
-                            android:layout_width="20dp"
-                            android:layout_height="20dp"
-                            android:src="@drawable/ic_send"
-                            android:contentDescription="@null"
-                            app:tint="#FFFFFF" />
-                    </LinearLayout>
-
                     <!-- Widget Setup Section -->
                     <TextView
                         android:layout_width="match_parent"

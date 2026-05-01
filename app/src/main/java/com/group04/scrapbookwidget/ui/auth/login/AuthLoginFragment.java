@@ -29,8 +29,10 @@ import com.google.firebase.auth.AuthCredential;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.auth.GoogleAuthProvider;
+import com.google.firebase.messaging.FirebaseMessaging;
 import com.group04.scrapbookwidget.R;
 import com.group04.scrapbookwidget.databinding.FragmentAuthLoginBinding;
+import com.group04.scrapbookwidget.notifications.DeviceTokenRepository;
 import com.group04.scrapbookwidget.ui.MainActivity;
 
 import javax.inject.Inject;
@@ -47,6 +49,9 @@ public class AuthLoginFragment extends Fragment {
 
     @Inject
     FirebaseAuth firebaseAuth;
+
+    @Inject
+    DeviceTokenRepository deviceTokenRepository;
 
     private final ActivityResultLauncher<Intent> googleSignInLauncher = registerForActivityResult(
             new ActivityResultContracts.StartActivityForResult(),
@@ -115,6 +120,13 @@ public class AuthLoginFragment extends Fragment {
                 // Save user session
                 saveUserSession(user.getId());
                 
+                // Register device token immediately after login
+                FirebaseMessaging.getInstance().getToken().addOnSuccessListener(token -> {
+                    deviceTokenRepository.registerNow(requireContext(), token, () -> {
+                        // Navigate to home after registration success (optional, but requested behavior is to call immediately)
+                    });
+                });
+
                 // Navigate to home
                 Intent intent = new Intent(requireContext(), MainActivity.class);
                 intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);

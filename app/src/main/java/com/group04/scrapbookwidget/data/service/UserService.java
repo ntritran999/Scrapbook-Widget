@@ -11,6 +11,7 @@ import retrofit2.Call;
 import retrofit2.http.Body;
 import retrofit2.http.DELETE;
 import retrofit2.http.GET;
+import retrofit2.http.Header;
 import retrofit2.http.Multipart;
 import retrofit2.http.PATCH;
 import retrofit2.http.POST;
@@ -63,6 +64,15 @@ public interface UserService {
     @POST("users/{userId}/enroll-face")
     Call<FaceEnrollmentResponse> enrollUserFace(@Path("userId") String userId, @Body FaceEnrollmentRequest request);
 
+    @POST("users/me/device-token")
+    Call<Void> registerDeviceToken(@Header("Authorization") String token, @Body DeviceTokenRequest request);
+
+    @DELETE("users/me/device-token")
+    Call<Void> deleteDeviceToken(@Header("Authorization") String token, @Query("token") String deviceToken);
+
+    @PATCH("users/me/device-token/settings")
+    Call<Void> updateNotificationSettings(@Header("Authorization") String token, @Body NotificationSettingsRequest request);
+
     class UsernameCheckResponse {
         public boolean available;
         public boolean valid;
@@ -98,5 +108,28 @@ public interface UserService {
 
         @SerializedName("enrolledAt")
         public long enrolledAt;
+    }
+
+    class DeviceTokenRequest {
+        public String token;
+        public String platform;
+        public String deviceId;
+        public String deviceName;
+
+        public DeviceTokenRequest(String token, String platform, String deviceId, String deviceName) {
+            this.token = token;
+            this.platform = platform;
+            this.deviceId = deviceId;
+            this.deviceName = deviceName;
+        }
+    }
+
+    class NotificationSettingsRequest {
+        public String deviceId;
+        public String token;
+        public Boolean enabled;
+        public Boolean messageEnabled;
+        public Boolean photoEnabled;
+        public Boolean reactionEnabled;
     }
 }

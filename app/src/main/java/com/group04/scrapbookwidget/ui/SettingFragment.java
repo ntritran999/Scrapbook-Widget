@@ -159,6 +159,12 @@ public class SettingFragment extends Fragment {
             });
         }
 
+        if (binding.btnNotifications != null) {
+            binding.btnNotifications.getRoot().setOnClickListener(v -> {
+                Navigation.findNavController(v).navigate(R.id.action_settingFragment_to_notificationSettingFragment);
+            });
+        }
+
         if (binding.btnDeleteAccount != null) {
             binding.btnDeleteAccount.getRoot().setOnClickListener(v -> {
                 new AlertDialog.Builder(requireContext())

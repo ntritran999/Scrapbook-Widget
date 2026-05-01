@@ -93,6 +93,9 @@
         <action
             android:id="@+id/action_settingFragment_to_createGroupFragment"
             app:destination="@id/createGroupFragment" />
+        <action
+            android:id="@+id/action_settingFragment_to_notificationSettingFragment"
+            app:destination="@id/notificationSettingFragment" />
     </fragment>
     <fragment
         android:id="@+id/editProfileFragment"
@@ -104,4 +107,9 @@
         android:name="com.group04.scrapbookwidget.ui.group.create.CreateGroupFragment"
         android:label="CreateGroupFragment"
         tools:layout="@layout/fragment_create_group" />
+    <fragment
+        android:id="@+id/notificationSettingFragment"
+        android:name="com.group04.scrapbookwidget.ui.NotificationSettingFragment"
+        android:label="NotificationSettingFragment"
+        tools:layout="@layout/fragment_notification_setting" />
 </navigation>

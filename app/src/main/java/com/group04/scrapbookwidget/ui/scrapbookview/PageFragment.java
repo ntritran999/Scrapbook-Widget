@@ -7,6 +7,7 @@ import android.os.Looper;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 
@@ -15,6 +16,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Toast;
 
+import com.group04.scrapbookwidget.R;
 import com.group04.scrapbookwidget.ui.pagecurl.PageBuilder;
 import com.group04.scrapbookwidget.ui.pagecurl.PageCurlView;
 import com.group04.scrapbookwidget.ui.pagecurl.PageResources;
@@ -34,35 +36,22 @@ public class PageFragment extends Fragment {
     private Handler mainHandler = new Handler(Looper.getMainLooper());
     private Runnable pendingPrepareBitmapsRunnable = null;
     private boolean isBitmapPreparing = false;
-    private static final long BITMAP_PREPARE_DEBOUNCE_MS = 200;
+    private static final long BITMAP_PREPARE_DEBOBUNCE_MS = 200;
     private final ExecutorService bitmapExecutor = Executors.newSingleThreadExecutor();
     private static final String TAG = "ScrapbookLoader";
     private long renderStartTime = 0;
-    private long scrapbookLoadStartTime = 0;
 
     public PageFragment() {}
-
-    public static PageFragment newInstance(String param1, String param2) {
-        PageFragment fragment = new PageFragment();
-
-        return fragment;
-    }
-
-    @Override
-    public void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-    }
 
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         scrapbookViewModel = new ViewModelProvider(requireParentFragment()).get(ScrapbookViewModel.class);
+        
         scrapbookViewModel.getPagesLiveData().observe(getViewLifecycleOwner(), pages -> {
             if (pages != null && !pages.isEmpty()) {
                 android.util.Log.d(TAG, "onViewCreated: Pages not empty, calling debouncedPrepareBitmaps");
-                android.util.Log.d(TAG, "[RENDER_PIPELINE_START] Starting render preparation for page");
                 renderStartTime = System.currentTimeMillis();
-                // Debounce bitmap preparation to avoid frequent rendering
                 debouncedPrepareBitmaps(pages, scrapbookViewModel.getPageIndex());
 
                 pageCurlView.setPhotoRects(pages);
@@ -75,13 +64,16 @@ public class PageFragment extends Fragment {
                     android.util.Log.d("PageFragment", "Page flipped by user to index: " + newPageIndex);
                     scrapbookViewModel.setCurrentDisplayingPageIndex(newPageIndex);
                 });
+
+                pageCurlView.setOnSwipeToNewPageListener(this::handleSwipeToNewPage);
             }
             else {
                 Toast.makeText(getContext(), "Cannot load pages.", Toast.LENGTH_SHORT).show();
             }
         });
+
         scrapbookViewModel.getErrorMessage().observe(getViewLifecycleOwner(), error -> {
-            Toast.makeText(getContext(), "Cannot load pages", Toast.LENGTH_SHORT).show();
+            if (error != null) Toast.makeText(getContext(), error, Toast.LENGTH_SHORT).show();
         });
 
         scrapbookViewModel.getIsPageCurlEffectEnabled().observe(getViewLifecycleOwner(), isEnabled -> {
@@ -91,91 +83,86 @@ public class PageFragment extends Fragment {
         });
     }
 
+    private void handleSwipeToNewPage() {
+        if (scrapbookViewModel.canAddNewPage()) {
+            showAddNewPageDialog();
+        } else {
+            showUpgradePrompt();
+        }
+    }
+
+    private void showAddNewPageDialog() {
+        new AlertDialog.Builder(requireContext())
+                .setTitle(R.string.add_new_page)
+                .setMessage("A new page will be created using the same background.")
+                .setPositiveButton("Create Page", (dialog, which) -> {
+                    // Automatically use the background from the current last page
+                    List<ScrapbookPageData> pages = scrapbookViewModel.getPagesLiveData().getValue();
+                    String lastBackground = "";
+                    if (pages != null && !pages.isEmpty()) {
+                        lastBackground = pages.get(pages.size() - 1).scrapbookPage.getBackgroundImage();
+                    }
+                    scrapbookViewModel.createScrapbookPage(lastBackground);
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
+    private void showUpgradePrompt() {
+        new AlertDialog.Builder(requireContext())
+                .setTitle("Scrapbook Limit Reached")
+                .setMessage(R.string.upgrade_to_add_more)
+                .setPositiveButton("Upgrade to Gold", (dialog, which) -> {
+                    Toast.makeText(getContext(), "Redirecting to Premium...", Toast.LENGTH_SHORT).show();
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
-        // Inflate the layout for this fragment
         pageCurlView = new PageCurlView(this.getActivity(),
                 requireActivity().getSharedPreferences(SETTING_PREF_NAME, Activity.MODE_PRIVATE)
                         .getBoolean("PAGE_CURL_EFFECT_ENABLED", true));
         return pageCurlView;
     }
 
-    /**
-     * Debounces bitmap preparation to prevent excessive re-renders during rapid updates.
-     * This prevents ANR when multiple images are pasted or reloaded rapidly.
-     */
     private void debouncedPrepareBitmaps(List<ScrapbookPageData> data, int page) {
-        android.util.Log.d(TAG, "debouncedPrepareBitmaps: Called with " + (data != null ? data.size() : "null") + " pages, current page=" + page);
+        if (isBitmapPreparing) return;
 
-        // Skip if already preparing bitmaps
-        if (isBitmapPreparing) {
-            android.util.Log.d(TAG, "debouncedPrepareBitmaps: Already preparing, skipping");
-            return;
-        }
-
-        // Remove any pending prepare task
         if (pendingPrepareBitmapsRunnable != null) {
             mainHandler.removeCallbacks(pendingPrepareBitmapsRunnable);
-            android.util.Log.d(TAG, "debouncedPrepareBitmaps: Removed pending prepare task");
         }
 
-        // Create the debounced task
         pendingPrepareBitmapsRunnable = () -> {
-            android.util.Log.d(TAG, "debouncedPrepareBitmaps: Executing debounced prepare task");
             prepareBitmaps(data, page);
             pendingPrepareBitmapsRunnable = null;
         };
 
-        // Post with debounce delay to allow UI to settle
-        mainHandler.postDelayed(pendingPrepareBitmapsRunnable, BITMAP_PREPARE_DEBOUNCE_MS);
+        mainHandler.postDelayed(pendingPrepareBitmapsRunnable, BITMAP_PREPARE_DEBOBUNCE_MS);
     }
 
     private void prepareBitmaps(List<ScrapbookPageData> data, int page) {
-        android.util.Log.d(TAG, "[RENDER_PREPARE_START] Preparing bitmaps for page " + page);
-
-        // Notify ViewModel about the currently rendering page
         scrapbookViewModel.setCurrentDisplayingPageIndex(page);
-
         pageCurlView.setCurPage(page);
         isBitmapPreparing = true;
 
         mainHandler.post(() -> scrapbookViewModel.getIsRendering().setValue(true));
-
         long bitmapPrepareStart = System.currentTimeMillis();
         
-        // Use single-threaded executor to avoid thread pile-up
         bitmapExecutor.execute(() -> {
             try {
-                android.util.Log.d(TAG, "[BITMAP_BUILD_PROCESS] Calling PageBuilder.buildPages on background thread");
                 PageResources resources = PageBuilder.buildPages(getContext(), data);
-
-                long bitmapPrepareDuration = System.currentTimeMillis() - bitmapPrepareStart;
-                android.util.Log.d(TAG, "[BITMAP_PREPARE_COMPLETE] Bitmap preparation completed in " + bitmapPrepareDuration + "ms");
-                android.util.Log.d(TAG, "[RENDER_QUEUE_START] Queuing render update to GL thread");
-
                 pageCurlView.queueEvent(() -> {
                     pageCurlView.getPageRenderer().updatePageResources(resources);
                     pageCurlView.requestRender();
-                    long renderTotalTime = System.currentTimeMillis() - renderStartTime;
-                    android.util.Log.d(TAG, "[RENDER_COMPLETE] Page render completed in " + renderTotalTime + "ms (total from start)");
-                    android.util.Log.d(TAG, "[UX_STRATEGY_SUMMARY] ✓ Strategy 1: Thumbnail loading (10% quality) ✓ Strategy 2: Shimmer skeleton UI ✓ Strategy 3: Image downsampling to screen size");
                     isBitmapPreparing = false;
-
                     mainHandler.post(() -> scrapbookViewModel.getIsRendering().setValue(false));
                 });
             } catch (ExecutionException | InterruptedException e) {
-                android.util.Log.e(TAG, "[RENDER_ERROR] Exception during bitmap preparation: " + e.getMessage());
-                e.printStackTrace();
                 isBitmapPreparing = false;
-
-                long failDuration = System.currentTimeMillis() - renderStartTime;
-                android.util.Log.d(TAG, "[RENDER_FAIL] Render failed after " + failDuration + "ms");
-
                 mainHandler.post(() -> scrapbookViewModel.getIsRendering().setValue(false));
-                requireActivity().runOnUiThread(() -> {
-                    Toast.makeText(getContext(), "Failed to load images", Toast.LENGTH_SHORT).show();
-                });
             }
         });
     }
@@ -183,7 +170,6 @@ public class PageFragment extends Fragment {
     @Override
     public void onDestroy() {
         super.onDestroy();
-        // Clean up executor to avoid resource leak
         bitmapExecutor.shutdown();
         if (mainHandler != null && pendingPrepareBitmapsRunnable != null) {
             mainHandler.removeCallbacks(pendingPrepareBitmapsRunnable);

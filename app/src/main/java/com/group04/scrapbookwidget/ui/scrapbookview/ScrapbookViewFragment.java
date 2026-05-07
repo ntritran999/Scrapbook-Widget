@@ -366,7 +366,7 @@ public class ScrapbookViewFragment extends Fragment {
         isInPastingMode = false;
         isConfirmingPaste = false;
         binding.cameraBtn.setVisibility(View.VISIBLE);
-        binding.btnSwitchPageCurlEffect.setVisibility(View.INVISIBLE);
+        binding.btnSwitchPageCurlEffect.setVisibility(View.VISIBLE);
         binding.btnConfirmPaste.setVisibility(View.INVISIBLE);
         binding.btnSavePage.setVisibility(View.VISIBLE);
     }

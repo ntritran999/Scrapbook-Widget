@@ -26,6 +26,12 @@ public interface UserService {
     @POST("auth/register")
     Call<User> register(@Body User user);
 
+    @POST("auth/register/otp")
+    Call<RegisterOtpResponse> requestRegisterOtp(@Body RegisterOtpRequest request);
+
+    @POST("auth/register")
+    Call<RegisterResponse> registerWithOtp(@Body RegisterOtpConfirmRequest request);
+
     @POST("auth/session")
     Call<User> verifySession(@Body User user);
 
@@ -81,6 +87,46 @@ public interface UserService {
 
     class AvatarUploadResponse {
         public String avatarUrl;
+    }
+
+    class RegisterOtpRequest {
+        public String email;
+
+        public RegisterOtpRequest(String email) {
+            this.email = email;
+        }
+    }
+
+    class RegisterOtpResponse {
+        public String email;
+        public boolean otpSent;
+        public int expiresInMinutes;
+        public int retryAfterSeconds;
+        public String message;
+    }
+
+    class RegisterOtpConfirmRequest {
+        public String email;
+        public String password;
+        public String otpCode;
+        public String displayName;
+        public String username;
+        public String nickname;
+        public String avatarUrl;
+        public String status;
+    }
+
+    class RegisterResponse {
+        public String uid;
+        public String email;
+        public Onboarding onboarding;
+        public String message;
+    }
+
+    class Onboarding {
+        public String defaultGroupId;
+        public String defaultGroupName;
+        public String defaultPageId;
     }
 
     /**

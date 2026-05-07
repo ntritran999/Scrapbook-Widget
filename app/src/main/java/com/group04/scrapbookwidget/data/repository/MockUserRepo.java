@@ -78,14 +78,46 @@ public class MockUserRepo implements IUserRepository {
 
     @Override
     public void register(String email, String password, String name, RepositoryCallback<User> callback) {
-        User user = new User();
-        user.setEmail(email);
-        user.setPassword(password);
-        user.setDisplayName(name);
-        userService.register(user).enqueue(new Callback<User>() {
+        callback.onError(new Exception("Registration now requires OTP verification"));
+    }
+
+    @Override
+    public void requestRegisterOtp(String email, RepositoryCallback<UserService.RegisterOtpResponse> callback) {
+        userService.requestRegisterOtp(new UserService.RegisterOtpRequest(email)).enqueue(new Callback<UserService.RegisterOtpResponse>() {
             @Override
-            public void onResponse(@NonNull Call<User> call, @NonNull Response<User> response) {
-                if (response.isSuccessful()) {
+            public void onResponse(@NonNull Call<UserService.RegisterOtpResponse> call,
+                                   @NonNull Response<UserService.RegisterOtpResponse> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    callback.onSuccess(response.body());
+                } else {
+                    callback.onError(new Exception("Failed to send OTP: " + response.code()));
+                }
+            }
+
+            @Override
+            public void onFailure(@NonNull Call<UserService.RegisterOtpResponse> call, @NonNull Throwable t) {
+                callback.onError(new Exception(t));
+            }
+        });
+    }
+
+    @Override
+    public void registerWithOtp(String email, String password, String displayName, String otpCode,
+                                RepositoryCallback<UserService.RegisterResponse> callback) {
+        UserService.RegisterOtpConfirmRequest request = new UserService.RegisterOtpConfirmRequest();
+        request.email = email;
+        request.password = password;
+        request.otpCode = otpCode;
+        request.displayName = displayName;
+        request.username = email.contains("@") ? email.substring(0, email.indexOf('@')) : email;
+        request.nickname = displayName;
+        request.status = "active";
+
+        userService.registerWithOtp(request).enqueue(new Callback<UserService.RegisterResponse>() {
+            @Override
+            public void onResponse(@NonNull Call<UserService.RegisterResponse> call,
+                                   @NonNull Response<UserService.RegisterResponse> response) {
+                if (response.isSuccessful() && response.body() != null) {
                     callback.onSuccess(response.body());
                 } else {
                     callback.onError(new Exception("Registration failed: " + response.code()));
@@ -93,7 +125,7 @@ public class MockUserRepo implements IUserRepository {
             }
 
             @Override
-            public void onFailure(@NonNull Call<User> call, @NonNull Throwable t) {
+            public void onFailure(@NonNull Call<UserService.RegisterResponse> call, @NonNull Throwable t) {
                 callback.onError(new Exception(t));
             }
         });

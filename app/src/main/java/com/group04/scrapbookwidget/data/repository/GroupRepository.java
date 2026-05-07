@@ -1,6 +1,8 @@
 package com.group04.scrapbookwidget.data.repository;
 
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.group04.scrapbookwidget.data.cache.AppCacheStore;
+import com.group04.scrapbookwidget.data.cache.NetworkStatusProvider;
 import com.group04.scrapbookwidget.data.model.Group;
 import com.group04.scrapbookwidget.data.model.LeaveGroupResponse;
 import com.group04.scrapbookwidget.data.service.GroupService;
@@ -24,12 +26,17 @@ public class GroupRepository implements IGroupRepository {
     private final GroupService groupService;
     private final UserService userService;
     private final FirebaseFirestore db;
+    private final AppCacheStore cacheStore;
+    private final NetworkStatusProvider networkStatusProvider;
 
     @Inject
-    public GroupRepository(GroupService groupService, UserService userService) {
+    public GroupRepository(GroupService groupService, UserService userService,
+                           AppCacheStore cacheStore, NetworkStatusProvider networkStatusProvider) {
         this.groupService = groupService;
         this.userService = userService;
         this.db = FirebaseFirestore.getInstance();
+        this.cacheStore = cacheStore;
+        this.networkStatusProvider = networkStatusProvider;
     }
 
     @Override
@@ -38,15 +45,16 @@ public class GroupRepository implements IGroupRepository {
             @Override
             public void onResponse(Call<Group> call, Response<Group> response) {
                 if (response.isSuccessful() && response.body() != null) {
+                    cacheStore.saveGroup(response.body());
                     callback.onSuccess(response.body());
                 } else {
-                    callback.onError(new Exception("Failed to get group: " + response.code()));
+                    deliverCachedGroup(groupId, callback, new Exception("Failed to get group: " + response.code()));
                 }
             }
 
             @Override
             public void onFailure(Call<Group> call, Throwable t) {
-                callback.onError(new Exception(t));
+                deliverCachedGroup(groupId, callback, new Exception(t));
             }
         });
     }
@@ -57,15 +65,21 @@ public class GroupRepository implements IGroupRepository {
             @Override
             public void onResponse(Call<List<Group>> call, Response<List<Group>> response) {
                 if (response.isSuccessful() && response.body() != null) {
+                    cacheStore.saveUserGroups(userId, response.body());
+                    for (Group group : response.body()) {
+                        if (group != null) {
+                            cacheStore.saveGroup(group);
+                        }
+                    }
                     callback.onSuccess(response.body());
                 } else {
-                    callback.onError(new Exception("Failed to get user groups: " + response.code()));
+                    deliverCachedGroups(userId, callback, new Exception("Failed to get user groups: " + response.code()));
                 }
             }
 
             @Override
             public void onFailure(Call<List<Group>> call, Throwable t) {
-                callback.onError(new Exception(t));
+                deliverCachedGroups(userId, callback, new Exception(t));
             }
         });
     }
@@ -81,6 +95,7 @@ public class GroupRepository implements IGroupRepository {
             @Override
             public void onResponse(Call<Group> call, Response<Group> response) {
                 if (response.isSuccessful() && response.body() != null) {
+                    cacheStore.saveGroup(response.body());
                     callback.onSuccess(response.body());
                 } else {
                     callback.onError(new Exception("Failed to create group: " + response.code()));
@@ -164,5 +179,23 @@ public class GroupRepository implements IGroupRepository {
                 callback.onError(new Exception(t));
             }
         });
+    }
+
+    private void deliverCachedGroup(String groupId, RepositoryCallback<Group> callback, Exception originalError) {
+        Group cachedGroup = cacheStore.getGroup(groupId);
+        if (cachedGroup != null) {
+            callback.onSuccess(cachedGroup);
+            return;
+        }
+        callback.onError(networkStatusProvider.isOnline() ? originalError : new Exception("Offline mode: group details unavailable in cache"));
+    }
+
+    private void deliverCachedGroups(String userId, RepositoryCallback<List<Group>> callback, Exception originalError) {
+        List<Group> cachedGroups = cacheStore.getUserGroups(userId);
+        if (cachedGroups != null) {
+            callback.onSuccess(cachedGroups);
+            return;
+        }
+        callback.onError(networkStatusProvider.isOnline() ? originalError : new Exception("Offline mode: group list unavailable in cache"));
     }
 }

@@ -18,6 +18,8 @@ import com.google.mlkit.nl.smartreply.SmartReply;
 import com.google.mlkit.nl.smartreply.SmartReplyGenerator;
 import com.google.mlkit.nl.smartreply.SmartReplySuggestion;
 import com.google.mlkit.nl.smartreply.TextMessage;
+import com.group04.scrapbookwidget.data.cache.AppCacheStore;
+import com.group04.scrapbookwidget.data.cache.NetworkStatusProvider;
 import com.group04.scrapbookwidget.data.realtime.GroupRealtimeSocketClient;
 import com.group04.scrapbookwidget.data.model.Message;
 import com.group04.scrapbookwidget.data.model.TodayMemory;
@@ -51,6 +53,8 @@ public class ChatViewModel extends ViewModel {
     private final SmartReplyGenerator smartReply = SmartReply.getClient();
     private final ExecutorService backgroundExecutor = Executors.newSingleThreadExecutor();
     private final GroupRealtimeSocketClient realtimeSocketClient;
+    private final AppCacheStore cacheStore;
+    private final NetworkStatusProvider networkStatusProvider;
     private final Observer<GroupRealtimeSocketClient.SocketPacket> socketPacketObserver;
     private final String socketSubscriberId = "chat_vm_" + System.identityHashCode(this);
 
@@ -80,11 +84,15 @@ public class ChatViewModel extends ViewModel {
     private final List<Message> masterMessagesList = new ArrayList<>();
 
     @Inject
-    public ChatViewModel(GroupService groupService, FirebaseAuth auth, @ApplicationContext Context appContext, GroupRealtimeSocketClient realtimeSocketClient) {
+    public ChatViewModel(GroupService groupService, FirebaseAuth auth, @ApplicationContext Context appContext,
+                         GroupRealtimeSocketClient realtimeSocketClient, AppCacheStore cacheStore,
+                         NetworkStatusProvider networkStatusProvider) {
         this.groupService = groupService;
         this.auth = auth;
         this.appContext = appContext;
         this.realtimeSocketClient = realtimeSocketClient;
+        this.cacheStore = cacheStore;
+        this.networkStatusProvider = networkStatusProvider;
         this.socketPacketObserver = this::onSocketPacket;
         this.realtimeSocketClient.getSocketPacketsLiveData().observeForever(socketPacketObserver);
     }
@@ -100,14 +108,23 @@ public class ChatViewModel extends ViewModel {
 
     private void loadMessages() {
         if (currentGroupId == null) return;
+        String targetGroupId = currentGroupId;
+
+        List<Message> cachedMessages = cacheStore.getMessages(targetGroupId);
+        if (cachedMessages != null && !cachedMessages.isEmpty()) {
+            mergeMessages(cachedMessages);
+        }
 
         _isLoading.setValue(true);
-        groupService.getMessages(currentGroupId).enqueue(new Callback<List<Message>>() {
+        groupService.getMessages(targetGroupId).enqueue(new Callback<List<Message>>() {
             @Override
             public void onResponse(@NonNull Call<List<Message>> call, @NonNull Response<List<Message>> response) {
                 _isLoading.setValue(false);
                 if (response.isSuccessful() && response.body() != null) {
+                    cacheStore.saveMessages(targetGroupId, response.body());
                     mergeMessages(response.body());
+                } else if (cachedMessages == null || cachedMessages.isEmpty()) {
+                    _error.postValue("Could not load messages.");
                 }
             }
 
@@ -115,24 +132,39 @@ public class ChatViewModel extends ViewModel {
             public void onFailure(@NonNull Call<List<Message>> call, @NonNull Throwable t) {
                 _isLoading.setValue(false);
                 Log.e(TAG, "loadMessages: Failed", t);
+                if (cachedMessages == null || cachedMessages.isEmpty()) {
+                    _error.postValue(networkStatusProvider.isOnline()
+                            ? "Could not load messages."
+                            : "Offline mode: no cached messages yet.");
+                }
             }
         });
     }
 
     private void loadTodayMemories() {
         if (currentGroupId == null) return;
+        String targetGroupId = currentGroupId;
 
-        groupService.getTodayMemory(currentGroupId).enqueue(new Callback<List<TodayMemory>>() {
+        List<TodayMemory> cachedMemories = cacheStore.getTodayMemories(targetGroupId);
+        if (cachedMemories != null) {
+            _todayMemories.setValue(cachedMemories);
+        }
+
+        groupService.getTodayMemory(targetGroupId).enqueue(new Callback<List<TodayMemory>>() {
             @Override
             public void onResponse(@NonNull Call<List<TodayMemory>> call, @NonNull Response<List<TodayMemory>> response) {
                 if (response.isSuccessful()) {
-                    _todayMemories.setValue(response.body() != null ? response.body() : new ArrayList<>());
+                    List<TodayMemory> memories = response.body() != null ? response.body() : new ArrayList<>();
+                    cacheStore.saveTodayMemories(targetGroupId, memories);
+                    _todayMemories.setValue(memories);
                 }
             }
 
             @Override
             public void onFailure(@NonNull Call<List<TodayMemory>> call, @NonNull Throwable t) {
-                _todayMemories.postValue(new ArrayList<>());
+                if (cachedMemories == null) {
+                    _todayMemories.postValue(new ArrayList<>());
+                }
             }
         });
     }
@@ -397,6 +429,9 @@ public class ChatViewModel extends ViewModel {
 
     private void processAndPostMessages() {
         Collections.sort(masterMessagesList, Comparator.comparingLong(this::parseTimestamp));
+        if (currentGroupId != null && !currentGroupId.isEmpty()) {
+            cacheStore.saveMessages(currentGroupId, new ArrayList<>(masterMessagesList));
+        }
         _messages.postValue(new ArrayList<>(masterMessagesList));
 
         String myUid = auth.getUid();

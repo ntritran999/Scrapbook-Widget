@@ -655,7 +655,7 @@ public class ScrapbookViewFragment extends Fragment {
         });
     }
 
-q    private void resizePastedImage(View view, MotionEvent event) {
+    private void resizePastedImage(View view, MotionEvent event) {
         if (initialPinchDistance <= 0f) {
             return;
         }

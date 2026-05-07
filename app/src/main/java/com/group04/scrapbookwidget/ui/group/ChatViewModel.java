@@ -188,6 +188,7 @@ public class ChatViewModel extends ViewModel {
     }
 
     private void failMessageInList(String id) {
+        if (backgroundExecutor.isShutdown()) return;
         backgroundExecutor.execute(() -> {
             for (int i = 0; i < masterMessagesList.size(); i++) {
                 if (masterMessagesList.get(i).getId().equals(id)) {
@@ -200,6 +201,7 @@ public class ChatViewModel extends ViewModel {
     }
 
     private void updateMessageInList(Message message) {
+        if (backgroundExecutor.isShutdown()) return;
         backgroundExecutor.execute(() -> {
             for (int i = 0; i < masterMessagesList.size(); i++) {
                 if (masterMessagesList.get(i).getId().equals(message.getId())) {
@@ -212,6 +214,7 @@ public class ChatViewModel extends ViewModel {
     }
 
     private void replaceTempWithMessage(String tempId, Message realMessage) {
+        if (backgroundExecutor.isShutdown()) return;
         backgroundExecutor.execute(() -> {
             int tempIdx = -1;
             for (int i = 0; i < masterMessagesList.size(); i++) {
@@ -341,6 +344,7 @@ public class ChatViewModel extends ViewModel {
     }
 
     private void mergeMessages(List<Message> newMessages) {
+        if (backgroundExecutor.isShutdown()) return;
         backgroundExecutor.execute(() -> mergeMessagesInternal(newMessages));
     }
 

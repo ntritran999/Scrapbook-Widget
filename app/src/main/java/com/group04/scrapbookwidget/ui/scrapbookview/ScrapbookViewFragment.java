@@ -54,6 +54,11 @@ public class ScrapbookViewFragment extends Fragment {
     private boolean shouldPromptEnrollmentAfterGroupSelection = false;
     private boolean hasShownEnrollPrompt = false;
     private float dX, dY;
+    private float initialPinchDistance;
+    private float initialPinchWidth;
+    private float initialPinchHeight;
+    private float initialPinchCenterX;
+    private float initialPinchCenterY;
     private ImageView currentPastingView;
     private String pastedImagePath;
 
@@ -609,17 +614,38 @@ public class ScrapbookViewFragment extends Fragment {
     @SuppressLint("ClickableViewAccessibility")
     private void setupDragListener(View view) {
         view.setOnTouchListener((v, event) -> {
-            switch (event.getAction()) {
+            switch (event.getActionMasked()) {
                 case MotionEvent.ACTION_DOWN:
                     dX = v.getX() - event.getRawX();
                     dY = v.getY() - event.getRawY();
-                    v.animate().scaleX(1.05f).scaleY(1.05f).setDuration(100).start();
+                    v.setAlpha(0.92f);
+                    break;
+                case MotionEvent.ACTION_POINTER_DOWN:
+                    if (event.getPointerCount() == 2) {
+                        initialPinchDistance = getPointerDistance(event);
+                        initialPinchWidth = v.getWidth();
+                        initialPinchHeight = v.getHeight();
+                        initialPinchCenterX = v.getX() + (v.getWidth() / 2f);
+                        initialPinchCenterY = v.getY() + (v.getHeight() / 2f);
+                    }
                     break;
                 case MotionEvent.ACTION_MOVE:
-                    v.animate().x(event.getRawX() + dX).y(event.getRawY() + dY).setDuration(0).start();
+                    if (event.getPointerCount() >= 2) {
+                        resizePastedImage(v, event);
+                    } else {
+                        v.setX(event.getRawX() + dX);
+                        v.setY(event.getRawY() + dY);
+                    }
+                    break;
+                case MotionEvent.ACTION_POINTER_UP:
+                    if (event.getPointerCount() - 1 < 2) {
+                        initialPinchDistance = 0f;
+                    }
                     break;
                 case MotionEvent.ACTION_UP:
-                    v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(100).start();
+                case MotionEvent.ACTION_CANCEL:
+                    initialPinchDistance = 0f;
+                    v.setAlpha(1.0f);
                     v.performClick();
                     break;
                 default:
@@ -627,6 +653,68 @@ public class ScrapbookViewFragment extends Fragment {
             }
             return true;
         });
+    }
+
+q    private void resizePastedImage(View view, MotionEvent event) {
+        if (initialPinchDistance <= 0f) {
+            return;
+        }
+
+        float currentDistance = getPointerDistance(event);
+        if (currentDistance <= 0f) {
+            return;
+        }
+
+        float scaleFactor = currentDistance / initialPinchDistance;
+        int minSize = (int) (120 * getResources().getDisplayMetrics().density);
+        int maxWidth = binding != null && binding.scrapbookFrame != null
+                ? binding.scrapbookFrame.getWidth()
+                : 0;
+        int maxHeight = binding != null && binding.scrapbookFrame != null
+                ? binding.scrapbookFrame.getHeight()
+                : 0;
+
+        float targetWidth = Math.max(minSize, initialPinchWidth * scaleFactor);
+        float targetHeight = Math.max(minSize, initialPinchHeight * scaleFactor);
+
+        if (maxWidth > 0 && targetWidth > maxWidth) {
+            float ratio = maxWidth / targetWidth;
+            targetWidth = maxWidth;
+            targetHeight *= ratio;
+        }
+        if (maxHeight > 0 && targetHeight > maxHeight) {
+            float ratio = maxHeight / targetHeight;
+            targetHeight = maxHeight;
+            targetWidth *= ratio;
+        }
+
+        FrameLayout.LayoutParams layoutParams = (FrameLayout.LayoutParams) view.getLayoutParams();
+        layoutParams.width = Math.round(targetWidth);
+        layoutParams.height = Math.round(targetHeight);
+        view.setLayoutParams(layoutParams);
+
+        float newX = initialPinchCenterX - (targetWidth / 2f);
+        float newY = initialPinchCenterY - (targetHeight / 2f);
+
+        if (binding != null && binding.scrapbookFrame != null) {
+            float boundedX = Math.max(0f, Math.min(newX, binding.scrapbookFrame.getWidth() - targetWidth));
+            float boundedY = Math.max(0f, Math.min(newY, binding.scrapbookFrame.getHeight() - targetHeight));
+            view.setX(boundedX);
+            view.setY(boundedY);
+        } else {
+            view.setX(newX);
+            view.setY(newY);
+        }
+    }
+
+    private float getPointerDistance(MotionEvent event) {
+        if (event.getPointerCount() < 2) {
+            return 0f;
+        }
+
+        float dx = event.getX(0) - event.getX(1);
+        float dy = event.getY(0) - event.getY(1);
+        return (float) Math.hypot(dx, dy);
     }
 
     private void showBackgroundSelectionDialog() {

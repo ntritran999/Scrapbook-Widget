@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_otp_dialog"
+    android:orientation="vertical">
+
+    <TextView
+        android:id="@+id/tvOtpTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Enter OTP"
+        android:textColor="@android:color/white"
+        android:textSize="22sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/tvOtpMessage"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:textColor="#CCFFFFFF"
+        android:textSize="14sp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="22dp"
+        android:gravity="center"
+        android:orientation="horizontal">
+
+        <EditText
+            android:id="@+id/otpDigit1"
+            android:layout_width="44dp"
+            android:layout_height="52dp"
+            android:layout_marginHorizontal="4dp"
+            android:background="@drawable/bg_otp_slot"
+            android:gravity="center"
+            android:importantForAutofill="no"
+            android:inputType="number"
+            android:maxLength="1"
+            android:textColor="@android:color/white"
+            android:textColorHint="#66FFFFFF"
+            android:textCursorDrawable="@null"
+            android:textSize="22sp"
+            android:textStyle="bold" />
+
+        <EditText
+            android:id="@+id/otpDigit2"
+            android:layout_width="44dp"
+            android:layout_height="52dp"
+            android:layout_marginHorizontal="4dp"
+            android:background="@drawable/bg_otp_slot"
+            android:gravity="center"
+            android:importantForAutofill="no"
+            android:inputType="number"
+            android:maxLength="1"
+            android:textColor="@android:color/white"
+            android:textColorHint="#66FFFFFF"
+            android:textCursorDrawable="@null"
+            android:textSize="22sp"
+            android:textStyle="bold" />
+
+        <EditText
+            android:id="@+id/otpDigit3"
+            android:layout_width="44dp"
+            android:layout_height="52dp"
+            android:layout_marginHorizontal="4dp"
+            android:background="@drawable/bg_otp_slot"
+            android:gravity="center"
+            android:importantForAutofill="no"
+            android:inputType="number"
+            android:maxLength="1"
+            android:textColor="@android:color/white"
+            android:textColorHint="#66FFFFFF"
+            android:textCursorDrawable="@null"
+            android:textSize="22sp"
+            android:textStyle="bold" />
+
+        <EditText
+            android:id="@+id/otpDigit4"
+            android:layout_width="44dp"
+            android:layout_height="52dp"
+            android:layout_marginHorizontal="4dp"
+            android:background="@drawable/bg_otp_slot"
+            android:gravity="center"
+            android:importantForAutofill="no"
+            android:inputType="number"
+            android:maxLength="1"
+            android:textColor="@android:color/white"
+            android:textColorHint="#66FFFFFF"
+            android:textCursorDrawable="@null"
+            android:textSize="22sp"
+            android:textStyle="bold" />
+
+        <EditText
+            android:id="@+id/otpDigit5"
+            android:layout_width="44dp"
+            android:layout_height="52dp"
+            android:layout_marginHorizontal="4dp"
+            android:background="@drawable/bg_otp_slot"
+            android:gravity="center"
+            android:importantForAutofill="no"
+            android:inputType="number"
+            android:maxLength="1"
+            android:textColor="@android:color/white"
+            android:textColorHint="#66FFFFFF"
+            android:textCursorDrawable="@null"
+            android:textSize="22sp"
+            android:textStyle="bold" />
+
+        <EditText
+            android:id="@+id/otpDigit6"
+            android:layout_width="44dp"
+            android:layout_height="52dp"
+            android:layout_marginHorizontal="4dp"
+            android:background="@drawable/bg_otp_slot"
+            android:gravity="center"
+            android:importantForAutofill="no"
+            android:inputType="number"
+            android:maxLength="1"
+            android:textColor="@android:color/white"
+            android:textColorHint="#66FFFFFF"
+            android:textCursorDrawable="@null"
+            android:textSize="22sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+</LinearLayout>

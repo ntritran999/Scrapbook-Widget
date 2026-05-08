@@ -13,6 +13,9 @@ public interface IUserRepository {
     void login(String email, String password, RepositoryCallback<User> callback);
     void loginWithGoogle(String idToken, RepositoryCallback<User> callback);
     void register(String email, String password, String name, RepositoryCallback<User> callback);
+    void requestRegisterOtp(String email, RepositoryCallback<UserService.RegisterOtpResponse> callback);
+    void registerWithOtp(String email, String password, String displayName, String otpCode,
+                         RepositoryCallback<UserService.RegisterResponse> callback);
     void logout();
 
     void getUserById(String userId, RepositoryCallback<User> callback);

@@ -11,6 +11,8 @@ import androidx.work.WorkManager;
 
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import com.group04.scrapbookwidget.data.cache.AppCacheStore;
+import com.group04.scrapbookwidget.data.cache.NetworkStatusProvider;
 import com.group04.scrapbookwidget.data.model.Group;
 import com.group04.scrapbookwidget.data.model.User;
 import com.group04.scrapbookwidget.data.service.AuthService;
@@ -23,6 +25,7 @@ import java.util.List;
 import javax.inject.Inject;
 
 import dagger.hilt.android.qualifiers.ApplicationContext;
+import org.json.JSONObject;
 import okhttp3.MediaType;
 import okhttp3.MultipartBody;
 import okhttp3.RequestBody;
@@ -37,14 +40,19 @@ public class UserRepository implements IUserRepository {
     private final AuthService authService;
     private final FirebaseAuth firebaseAuth;
     private final Context context;
+    private final AppCacheStore cacheStore;
+    private final NetworkStatusProvider networkStatusProvider;
 
     @Inject
     public UserRepository(UserService userService, FirebaseAuth firebaseAuth, AuthService authService,
-                          @ApplicationContext Context context) {
+                          @ApplicationContext Context context, AppCacheStore cacheStore,
+                          NetworkStatusProvider networkStatusProvider) {
         this.userService = userService;
         this.authService = authService;
         this.firebaseAuth = firebaseAuth;
         this.context = context;
+        this.cacheStore = cacheStore;
+        this.networkStatusProvider = networkStatusProvider;
     }
 
     @Override
@@ -82,6 +90,7 @@ public class UserRepository implements IUserRepository {
             @Override
             public void onResponse(@NonNull Call<User> call, @NonNull Response<User> response) {
                 if (response.isSuccessful() && response.body() != null) {
+                    cacheStore.saveUser(response.body());
                     Log.d(TAG, "loginWithGoogle: SUCCESS");
                     callback.onSuccess(response.body());
                 } else {
@@ -116,6 +125,7 @@ public class UserRepository implements IUserRepository {
             @Override
             public void onResponse(@NonNull Call<User> call, @NonNull Response<User> response) {
                 if (response.isSuccessful() && response.body() != null) {
+                    cacheStore.saveUser(response.body());
                     callback.onSuccess(response.body());
                     OneTimeWorkRequest workRequest = OneTimeWorkRequest.from(WidgetUpdateWorker.class);
                     WorkManager.getInstance(context)
@@ -134,32 +144,66 @@ public class UserRepository implements IUserRepository {
 
     @Override
     public void register(String email, String password, String name, RepositoryCallback<User> callback) {
-        User userRequest = new User();
-        userRequest.setEmail(email);
-        userRequest.setPassword(password);
-        userRequest.setDisplayName(name);
-        userRequest.setUsername(email.split("@")[0]); 
-        
-        userService.register(userRequest).enqueue(new Callback<User>() {
+        callback.onError(new Exception("Registration now requires OTP verification"));
+    }
+
+    @Override
+    public void requestRegisterOtp(String email, RepositoryCallback<UserService.RegisterOtpResponse> callback) {
+        userService.requestRegisterOtp(new UserService.RegisterOtpRequest(email)).enqueue(new Callback<UserService.RegisterOtpResponse>() {
             @Override
-            public void onResponse(@NonNull Call<User> call, @NonNull Response<User> response) {
+            public void onResponse(@NonNull Call<UserService.RegisterOtpResponse> call,
+                                   @NonNull Response<UserService.RegisterOtpResponse> response) {
                 if (response.isSuccessful() && response.body() != null) {
                     callback.onSuccess(response.body());
                 } else {
-                    String errorMsg = "Registration failed";
-                    try {
-                        if (response.errorBody() != null) {
-                            errorMsg += ": " + response.errorBody().string();
-                        }
-                    } catch (Exception e) {
-                        Log.e(TAG, "Error parsing error body", e);
-                    }
-                    callback.onError(new Exception(errorMsg));
+                    callback.onError(new Exception(readErrorMessage(response, "Failed to send OTP")));
                 }
             }
 
             @Override
-            public void onFailure(@NonNull Call<User> call, @NonNull Throwable t) {
+            public void onFailure(@NonNull Call<UserService.RegisterOtpResponse> call, @NonNull Throwable t) {
+                callback.onError(new Exception("Network error: " + t.getMessage()));
+            }
+        });
+    }
+
+    @Override
+    public void registerWithOtp(String email, String password, String displayName, String otpCode,
+                                RepositoryCallback<UserService.RegisterResponse> callback) {
+        UserService.RegisterOtpConfirmRequest request = new UserService.RegisterOtpConfirmRequest();
+        request.email = email;
+        request.password = password;
+        request.otpCode = otpCode;
+        request.displayName = displayName;
+        request.username = buildUsernameFromEmail(email);
+        request.nickname = displayName;
+        request.status = "active";
+
+        userService.registerWithOtp(request).enqueue(new Callback<UserService.RegisterResponse>() {
+            @Override
+            public void onResponse(@NonNull Call<UserService.RegisterResponse> call,
+                                   @NonNull Response<UserService.RegisterResponse> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    UserService.RegisterResponse registerResponse = response.body();
+                    User cachedUser = new User();
+                    cachedUser.setUid(registerResponse.uid);
+                    cachedUser.setEmail(registerResponse.email);
+                    cachedUser.setDisplayName(displayName);
+                    cachedUser.setUsername(request.username);
+                    cachedUser.setNickname(request.nickname);
+                    if (registerResponse.onboarding != null) {
+                        cachedUser.setDefaultGroupId(registerResponse.onboarding.defaultGroupId);
+                        cachedUser.setDefaultPageId(registerResponse.onboarding.defaultPageId);
+                    }
+                    cacheStore.saveUser(cachedUser);
+                    callback.onSuccess(registerResponse);
+                } else {
+                    callback.onError(new Exception(readErrorMessage(response, "Registration failed")));
+                }
+            }
+
+            @Override
+            public void onFailure(@NonNull Call<UserService.RegisterResponse> call, @NonNull Throwable t) {
                 callback.onError(new Exception("Network error: " + t.getMessage()));
             }
         });
@@ -187,15 +231,21 @@ public class UserRepository implements IUserRepository {
             @Override
             public void onResponse(@NonNull Call<User> call, @NonNull Response<User> response) {
                 if (response.isSuccessful()) {
-                    callback.onSuccess(response.body());
+                    User user = response.body();
+                    if (user != null) {
+                        cacheStore.saveUser(user);
+                        callback.onSuccess(user);
+                    } else {
+                        callback.onError(new Exception("User not found"));
+                    }
                 } else {
-                    callback.onError(new Exception("User not found"));
+                    deliverCachedUser(userId, callback, new Exception("User not found"));
                 }
             }
 
             @Override
             public void onFailure(@NonNull Call<User> call, @NonNull Throwable t) {
-                callback.onError(new Exception(t));
+                deliverCachedUser(userId, callback, new Exception(t));
             }
         });
     }
@@ -210,6 +260,9 @@ public class UserRepository implements IUserRepository {
             @Override
             public void onResponse(@NonNull Call<User> call, @NonNull Response<User> response) {
                 if (response.isSuccessful()) {
+                    if (response.body() != null) {
+                        cacheStore.saveUser(response.body());
+                    }
                     callback.onSuccess(null);
                 } else {
                     callback.onError(new Exception("Create user failed"));
@@ -229,6 +282,7 @@ public class UserRepository implements IUserRepository {
             @Override
             public void onResponse(@NonNull Call<User> call, @NonNull Response<User> response) {
                 if (response.isSuccessful()) {
+                    cacheMergedUser(userId, updatedUser);
                     callback.onSuccess(null);
                 } else {
                     String errorMsg = "Update user failed";
@@ -300,15 +354,26 @@ public class UserRepository implements IUserRepository {
             @Override
             public void onResponse(@NonNull Call<List<Group>> call, @NonNull Response<List<Group>> response) {
                 if (response.isSuccessful()) {
-                    callback.onSuccess(response.body());
+                    List<Group> groups = response.body();
+                    if (groups != null) {
+                        cacheStore.saveUserGroups(userId, groups);
+                        for (Group group : groups) {
+                            if (group != null) {
+                                cacheStore.saveGroup(group);
+                            }
+                        }
+                        callback.onSuccess(groups);
+                    } else {
+                        callback.onSuccess(java.util.Collections.emptyList());
+                    }
                 } else {
-                    callback.onError(new Exception("Failed to fetch groups"));
+                    deliverCachedGroups(userId, callback, new Exception("Failed to fetch groups"));
                 }
             }
 
             @Override
             public void onFailure(@NonNull Call<List<Group>> call, @NonNull Throwable t) {
-                callback.onError(new Exception(t));
+                deliverCachedGroups(userId, callback, new Exception(t));
             }
         });
     }
@@ -515,5 +580,75 @@ public class UserRepository implements IUserRepository {
                 callback.onError(error);
             }
         });
+    }
+
+    private void deliverCachedUser(@NonNull String userId,
+                                   @NonNull RepositoryCallback<User> callback,
+                                   @NonNull Exception originalError) {
+        User cachedUser = cacheStore.getUser(userId);
+        if (cachedUser != null) {
+            callback.onSuccess(cachedUser);
+            return;
+        }
+        callback.onError(networkStatusProvider.isOnline() ? originalError : new Exception("Offline mode: user profile unavailable in cache"));
+    }
+
+    private void deliverCachedGroups(@NonNull String userId,
+                                     @NonNull RepositoryCallback<List<Group>> callback,
+                                     @NonNull Exception originalError) {
+        List<Group> cachedGroups = cacheStore.getUserGroups(userId);
+        if (cachedGroups != null) {
+            callback.onSuccess(cachedGroups);
+            return;
+        }
+        callback.onError(networkStatusProvider.isOnline() ? originalError : new Exception("Offline mode: group list unavailable in cache"));
+    }
+
+    private void cacheMergedUser(@NonNull String userId, @NonNull User updatedUser) {
+        User mergedUser = cacheStore.getUser(userId);
+        if (mergedUser == null) {
+            mergedUser = new User();
+            mergedUser.setId(userId);
+        }
+
+        if (updatedUser.getUid() != null) mergedUser.setUid(updatedUser.getUid());
+        if (updatedUser.getEmail() != null) mergedUser.setEmail(updatedUser.getEmail());
+        if (updatedUser.getUsername() != null) mergedUser.setUsername(updatedUser.getUsername());
+        if (updatedUser.getNickname() != null) mergedUser.setNickname(updatedUser.getNickname());
+        if (updatedUser.getDisplayName() != null) mergedUser.setDisplayName(updatedUser.getDisplayName());
+        if (updatedUser.getName() != null) mergedUser.setName(updatedUser.getName());
+        if (updatedUser.getAvatarUrl() != null) mergedUser.setAvatarUrl(updatedUser.getAvatarUrl());
+        if (updatedUser.getStatus() != null) mergedUser.setStatus(updatedUser.getStatus());
+        if (updatedUser.getToken() != null) mergedUser.setToken(updatedUser.getToken());
+        if (updatedUser.getIdToken() != null) mergedUser.setIdToken(updatedUser.getIdToken());
+        if (updatedUser.getFaceVector() != null) mergedUser.setFaceVector(updatedUser.getFaceVector());
+        if (updatedUser.getDefaultGroupId() != null) mergedUser.setDefaultGroupId(updatedUser.getDefaultGroupId());
+        if (updatedUser.getDefaultPageId() != null) mergedUser.setDefaultPageId(updatedUser.getDefaultPageId());
+
+        cacheStore.saveUser(mergedUser);
+    }
+
+    @NonNull
+    private String buildUsernameFromEmail(@NonNull String email) {
+        String localPart = email.contains("@") ? email.substring(0, email.indexOf('@')) : email;
+        String sanitized = localPart.trim().toLowerCase().replaceAll("[^a-z0-9._]", "_");
+        return sanitized.isEmpty() ? "user" : sanitized;
+    }
+
+    @NonNull
+    private <T> String readErrorMessage(@NonNull Response<T> response, @NonNull String fallback) {
+        String errorMessage = fallback;
+        try {
+            if (response.errorBody() != null) {
+                String rawBody = response.errorBody().string();
+                if (rawBody != null && !rawBody.isEmpty()) {
+                    JSONObject jsonObject = new JSONObject(rawBody);
+                    errorMessage = jsonObject.optString("message", rawBody);
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error reading error body", e);
+        }
+        return errorMessage;
     }
 }

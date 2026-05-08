@@ -46,7 +46,7 @@ public class CameraFragment extends Fragment {
 
     private Camera camera;
 
-    private int lensFacing = CameraSelector.LENS_FACING_FRONT;
+    private int lensFacing = CameraSelector.LENS_FACING_BACK;
 
     private int flashMode = ImageCapture.FLASH_MODE_OFF;
 
@@ -94,13 +94,21 @@ public class CameraFragment extends Fragment {
 
         // flash button
         binding.btnFlash.setOnClickListener(view -> {
+            if (!hasFlashUnit()) {
+                flashMode = ImageCapture.FLASH_MODE_OFF;
+                updateFlashButtonState();
+                Toast.makeText(requireContext(), "Flash is not available on this camera.", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
             if (flashMode == ImageCapture.FLASH_MODE_OFF) {
-                binding.btnFlash.setColorFilter(Color.parseColor("#FFC107"));
                 flashMode = ImageCapture.FLASH_MODE_ON;
             } else {
-                binding.btnFlash.setColorFilter(Color.WHITE);
                 flashMode = ImageCapture.FLASH_MODE_OFF;
             }
+
+            applyFlashMode();
+            updateFlashButtonState();
         });
 
         preferences = requireContext().getSharedPreferences("TMP_USER_SESSION", Context.MODE_PRIVATE);
@@ -120,7 +128,9 @@ public class CameraFragment extends Fragment {
                 preview.setSurfaceProvider(binding.viewFinder.getSurfaceProvider());
 
                 // imageCapture setup
-                imageCapture = new ImageCapture.Builder().build();
+                imageCapture = new ImageCapture.Builder()
+                        .setFlashMode(flashMode)
+                        .build();
 
                 // front/back camera
                 CameraSelector cameraSelector = new CameraSelector.Builder()
@@ -129,6 +139,7 @@ public class CameraFragment extends Fragment {
 
                 cameraProvider.unbindAll();
                 camera = cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageCapture);
+                syncFlashForCurrentCamera();
 
                 // pinch listener
                 ScaleGestureDetector scaleGestureDetector = new ScaleGestureDetector(requireContext(),
@@ -164,6 +175,8 @@ public class CameraFragment extends Fragment {
         }
 
         if (imageCapture == null) return;
+
+        applyFlashMode();
 
         File photoFile = new File(requireContext().getCacheDir(), System.currentTimeMillis() + ".jpg");
         ImageCapture.OutputFileOptions outputOptions = new ImageCapture.OutputFileOptions.Builder(photoFile).build();
@@ -216,5 +229,37 @@ public class CameraFragment extends Fragment {
     @VisibleForTesting
     public Camera getCamera() {
         return camera;
+    }
+
+    private void applyFlashMode() {
+        if (imageCapture != null) {
+            imageCapture.setFlashMode(flashMode);
+        }
+    }
+
+    private void syncFlashForCurrentCamera() {
+        if (!hasFlashUnit()) {
+            flashMode = ImageCapture.FLASH_MODE_OFF;
+        }
+
+        applyFlashMode();
+        updateFlashButtonState();
+    }
+
+    private boolean hasFlashUnit() {
+        return camera != null && camera.getCameraInfo().hasFlashUnit();
+    }
+
+    private void updateFlashButtonState() {
+        if (binding == null) {
+            return;
+        }
+
+        boolean flashAvailable = hasFlashUnit();
+        binding.btnFlash.setEnabled(flashAvailable);
+        binding.btnFlash.setAlpha(flashAvailable ? 1f : 0.5f);
+        binding.btnFlash.setColorFilter(
+                flashMode == ImageCapture.FLASH_MODE_ON ? Color.parseColor("#FFC107") : Color.WHITE
+        );
     }
 }

@@ -2,11 +2,16 @@ package com.group04.scrapbookwidget.ui.camera;
 
 import android.app.Activity;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Matrix;
+import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.NetworkCapabilities;
+import android.net.NetworkRequest;
 import android.net.Uri;
 import android.os.Bundle;
 import android.view.LayoutInflater;
@@ -44,9 +49,16 @@ import dagger.hilt.android.AndroidEntryPoint;
 @AndroidEntryPoint
 public class ImageEditorFragment extends Fragment {
     private static final String FACE_EMBEDDINGS_KEY = "FACE_EMBEDDINGS";
+    private static final String PHOTO_PATH_KEY = "PHOTO_PATH";
+    private static final String ORIGINAL_PHOTO_PATH_KEY = "ORIGINAL_PHOTO_PATH";
+    private static final String DRAFT_PREF_NAME = "IMAGE_EDITOR_DRAFT";
+    private static final String DRAFT_SOURCE_KEY = "DRAFT_SOURCE_PATH";
+    private static final String DRAFT_PATH_KEY = "DRAFT_PATH";
+    private static final String DRAFT_CAPTION_KEY = "DRAFT_CAPTION";
 
     private FragmentImageEditorBinding binding;
     private String photoPath;
+    private String originalPhotoPath;
     private boolean isMaskApplied = false;
     private boolean isDrawingMode = false;
     private static final String PREF_NAME = "tmp_pref";
@@ -63,6 +75,8 @@ public class ImageEditorFragment extends Fragment {
     private boolean hasStartedFaceExtraction = false;
     private boolean shouldNavigateAfterFaceExtraction = false;
     private ArrayList<ArrayList<Double>> pendingFaceEmbeddings;
+    private ConnectivityManager connectivityManager;
+    private ConnectivityManager.NetworkCallback networkCallback;
 
     private boolean saveToGallery(String cachedPhotoPath) {
         if (cachedPhotoPath == null) {
@@ -73,11 +87,11 @@ public class ImageEditorFragment extends Fragment {
         java.io.File sourceFile = new java.io.File(cachedPhotoPath);
         if (!sourceFile.exists()) return false;
 
-        String fileName = "Scrapbook_" + System.currentTimeMillis() + ".jpg";
+        String fileName = "Scrapbook_" + System.currentTimeMillis() + ".png";
 
         android.content.ContentValues values = new android.content.ContentValues();
         values.put(android.provider.MediaStore.Images.Media.DISPLAY_NAME, fileName);
-        values.put(android.provider.MediaStore.Images.Media.MIME_TYPE, "image/jpeg");
+        values.put(android.provider.MediaStore.Images.Media.MIME_TYPE, "image/png");
         values.put(android.provider.MediaStore.Images.Media.RELATIVE_PATH, android.os.Environment.DIRECTORY_PICTURES + "/Scrapbook");
 
         android.net.Uri uri = requireContext().getContentResolver().insert(android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
@@ -106,8 +120,11 @@ public class ImageEditorFragment extends Fragment {
         super.onCreate(savedInstanceState);
         if (getArguments() != null) {
             photoPath = getArguments().getString("PHOTO_PATH");
+            originalPhotoPath = photoPath;
         }
         if (savedInstanceState != null) {
+            photoPath = savedInstanceState.getString(PHOTO_PATH_KEY, photoPath);
+            originalPhotoPath = savedInstanceState.getString(ORIGINAL_PHOTO_PATH_KEY, originalPhotoPath);
             pendingImagePath = savedInstanceState.getString("PASTED_IMAGE_PATH", "");
             currentCaption = savedInstanceState.getString("CAPTION", "");
             Serializable serializedEmbeddings = savedInstanceState.getSerializable(FACE_EMBEDDINGS_KEY);
@@ -116,11 +133,14 @@ public class ImageEditorFragment extends Fragment {
                 pendingFaceEmbeddings = (ArrayList<ArrayList<Double>>) serializedEmbeddings;
             }
         }
+
+        restoreDraftForCurrentPhoto();
         
         groupId = requireActivity().getSharedPreferences(PREF_NAME, Activity.MODE_PRIVATE)
                 .getString("CURRENT_GROUP_ID", "");
         pageId = requireActivity().getSharedPreferences(PREF_NAME, Activity.MODE_PRIVATE)
                 .getString("CURRENT_PAGE_ID", "");
+        connectivityManager = ContextCompat.getSystemService(requireContext(), ConnectivityManager.class);
 
         // FaceEmbeddingManager is injected by Hilt and already initialized
     }
@@ -173,7 +193,10 @@ public class ImageEditorFragment extends Fragment {
 
         binding.btnSave.setOnClickListener(view -> {
             if (!isDevelopingPolaroid[0]) {
-                saveToGallery(photoPath);
+                String exportPath = cacheCurrentEditorState("saved_image", false);
+                if (exportPath != null) {
+                    saveToGallery(exportPath);
+                }
             }
         });
         
@@ -184,15 +207,28 @@ public class ImageEditorFragment extends Fragment {
         });
 
         binding.btnBack.setOnClickListener(view -> {
+            clearDraftState();
             Navigation.findNavController(requireView()).navigate(R.id.cameraFragment);
         });
 
+        refreshPasteActionState();
         startFaceExtractionIfNeeded();
 
         return binding.getRoot();
     }
 
     private void handlePasteToScrapbook() {
+        if (!isOnline()) {
+            cacheCurrentEditorState("offline_editor_draft", true);
+            Snackbar.make(
+                    binding.container,
+                    "You're offline. The edited photo is saved locally, but sticking it into the scrapbook needs internet.",
+                    Snackbar.LENGTH_LONG
+            ).show();
+            refreshPasteActionState();
+            return;
+        }
+
         if (binding.tornPaperFrame.getWidth() <= 0 || binding.tornPaperFrame.getHeight() <= 0) {
             Toast.makeText(getContext(), "Please wait!", Toast.LENGTH_SHORT).show();
             return;
@@ -208,7 +244,7 @@ public class ImageEditorFragment extends Fragment {
             File outputDir = requireContext().getCacheDir();
             File imageFile = File.createTempFile("pasted_image", ".png", outputDir);
             try (FileOutputStream out = new FileOutputStream(imageFile)) {
-                bitmap.compress(Bitmap.CompressFormat.WEBP, 80, out);
+                bitmap.compress(Bitmap.CompressFormat.PNG, 100, out);
             }
 
             bitmap.recycle();
@@ -246,7 +282,10 @@ public class ImageEditorFragment extends Fragment {
             return;
         }
 
-        if (photoPath == null || photoPath.isEmpty()) {
+        String faceSourcePath = (originalPhotoPath != null && !originalPhotoPath.isEmpty())
+                ? originalPhotoPath
+                : photoPath;
+        if (faceSourcePath == null || faceSourcePath.isEmpty()) {
             return;
         }
 
@@ -268,7 +307,7 @@ public class ImageEditorFragment extends Fragment {
         hasStartedFaceExtraction = true;
         isExtractingFaces = true;
 
-        Bitmap sourceBitmap = loadBitmapForFaceExtraction(photoPath);
+        Bitmap sourceBitmap = loadBitmapForFaceExtraction(faceSourcePath);
         if (sourceBitmap == null) {
             android.util.Log.e("ImageEditorFragment", "Could not decode source photo for face extraction");
             return;
@@ -330,6 +369,7 @@ public class ImageEditorFragment extends Fragment {
 
             android.util.Log.d("ImageEditorFragment", "Navigate with - groupId: " + groupId + ", pageId: " + pageId + ", caption: " + currentCaption);
 
+            clearDraftState();
             navController.navigate(R.id.action_imageEditorFragment_to_scrapbookViewFragment, bundle);
         } else {
             Toast.makeText(getContext(), "NAVIGATION ERROR: ", Toast.LENGTH_SHORT).show();
@@ -518,14 +558,213 @@ public class ImageEditorFragment extends Fragment {
     @Override
     public void onSaveInstanceState(@NonNull Bundle outState) {
         super.onSaveInstanceState(outState);
+        String cachedStatePath = cacheCurrentEditorState("editor_state", true);
+        if (cachedStatePath != null) {
+            photoPath = cachedStatePath;
+        }
+        outState.putString(PHOTO_PATH_KEY, photoPath);
+        outState.putString(ORIGINAL_PHOTO_PATH_KEY, originalPhotoPath);
         outState.putString("PASTED_IMAGE_PATH", pendingImagePath);
         outState.putString("CAPTION", currentCaption);
         outState.putSerializable(FACE_EMBEDDINGS_KEY, pendingFaceEmbeddings);
     }
 
     @Override
+    public void onResume() {
+        super.onResume();
+        refreshPasteActionState();
+    }
+
+    @Override
+    public void onStart() {
+        super.onStart();
+        registerNetworkCallback();
+    }
+
+    @Override
+    public void onStop() {
+        cacheCurrentEditorState("editor_state", true);
+        unregisterNetworkCallback();
+        super.onStop();
+    }
+
+    @Override
     public void onDestroyView() {
         super.onDestroyView();
         binding = null;
+    }
+
+    @Nullable
+    private String cacheCurrentEditorState(@NonNull String filePrefix, boolean persistDraft) {
+        if (binding == null || binding.tornPaperFrame.getWidth() <= 0 || binding.tornPaperFrame.getHeight() <= 0) {
+            return null;
+        }
+
+        try {
+            Bitmap bitmap = Bitmap.createBitmap(
+                    binding.tornPaperFrame.getWidth(),
+                    binding.tornPaperFrame.getHeight(),
+                    Bitmap.Config.ARGB_8888
+            );
+            Canvas canvas = new Canvas(bitmap);
+            binding.tornPaperFrame.draw(canvas);
+
+            File draftFile = File.createTempFile(filePrefix, ".png", requireContext().getCacheDir());
+            try (FileOutputStream out = new FileOutputStream(draftFile)) {
+                bitmap.compress(Bitmap.CompressFormat.PNG, 100, out);
+            }
+            bitmap.recycle();
+
+            photoPath = draftFile.getAbsolutePath();
+            if (persistDraft) {
+                persistDraftState(photoPath);
+            }
+            return photoPath;
+        } catch (Exception e) {
+            android.util.Log.e("ImageEditorFragment", "cacheCurrentEditorState failed", e);
+            return null;
+        }
+    }
+
+    private void persistDraftState(@NonNull String draftPath) {
+        SharedPreferences preferences = requireContext().getSharedPreferences(DRAFT_PREF_NAME, Context.MODE_PRIVATE);
+        String previousDraftPath = preferences.getString(DRAFT_PATH_KEY, "");
+        if (previousDraftPath != null && !previousDraftPath.isEmpty() && !previousDraftPath.equals(draftPath)) {
+            File previousDraftFile = new File(previousDraftPath);
+            if (previousDraftFile.exists()) {
+                // Replace the old cached snapshot so one editor session keeps a single draft file.
+                //noinspection ResultOfMethodCallIgnored
+                previousDraftFile.delete();
+            }
+        }
+
+        preferences.edit()
+                .putString(DRAFT_SOURCE_KEY, originalPhotoPath)
+                .putString(DRAFT_PATH_KEY, draftPath)
+                .putString(DRAFT_CAPTION_KEY, currentCaption)
+                .apply();
+    }
+
+    private void restoreDraftForCurrentPhoto() {
+        if (originalPhotoPath == null || originalPhotoPath.isEmpty()) {
+            return;
+        }
+
+        SharedPreferences draftPreferences = requireContext().getSharedPreferences(DRAFT_PREF_NAME, Context.MODE_PRIVATE);
+        String draftSourcePath = draftPreferences.getString(DRAFT_SOURCE_KEY, "");
+        String draftPath = draftPreferences.getString(DRAFT_PATH_KEY, "");
+        if (!originalPhotoPath.equals(draftSourcePath) || draftPath == null || draftPath.isEmpty()) {
+            return;
+        }
+
+        File draftFile = new File(draftPath);
+        if (!draftFile.exists()) {
+            clearDraftState();
+            return;
+        }
+
+        photoPath = draftPath;
+        currentCaption = draftPreferences.getString(DRAFT_CAPTION_KEY, currentCaption);
+    }
+
+    private void clearDraftState() {
+        SharedPreferences preferences = requireContext().getSharedPreferences(DRAFT_PREF_NAME, Context.MODE_PRIVATE);
+        String draftPath = preferences.getString(DRAFT_PATH_KEY, "");
+        if (draftPath != null && !draftPath.isEmpty()) {
+            File draftFile = new File(draftPath);
+            if (draftFile.exists()) {
+                //noinspection ResultOfMethodCallIgnored
+                draftFile.delete();
+            }
+        }
+
+        preferences.edit()
+                .remove(DRAFT_SOURCE_KEY)
+                .remove(DRAFT_PATH_KEY)
+                .remove(DRAFT_CAPTION_KEY)
+                .apply();
+    }
+
+    private void refreshPasteActionState() {
+        if (binding == null) {
+            return;
+        }
+
+        boolean online = isOnline();
+        binding.btnPaste.setText(online ? "Stick Here" : "Need Internet");
+        binding.btnPaste.setAlpha(online ? 1f : 0.85f);
+    }
+
+    private boolean isOnline() {
+        if (connectivityManager == null) {
+            return false;
+        }
+
+        Network activeNetwork = connectivityManager.getActiveNetwork();
+        if (activeNetwork == null) {
+            return false;
+        }
+
+        NetworkCapabilities capabilities = connectivityManager.getNetworkCapabilities(activeNetwork);
+        return capabilities != null
+                && capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                && capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED);
+    }
+
+    private void registerNetworkCallback() {
+        if (connectivityManager == null || networkCallback != null) {
+            return;
+        }
+
+        networkCallback = new ConnectivityManager.NetworkCallback() {
+            @Override
+            public void onAvailable(@NonNull Network network) {
+                postRefreshPasteActionState();
+            }
+
+            @Override
+            public void onLost(@NonNull Network network) {
+                postRefreshPasteActionState();
+            }
+
+            @Override
+            public void onCapabilitiesChanged(@NonNull Network network, @NonNull NetworkCapabilities networkCapabilities) {
+                postRefreshPasteActionState();
+            }
+        };
+
+        try {
+            connectivityManager.registerNetworkCallback(
+                    new NetworkRequest.Builder()
+                            .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                            .build(),
+                    networkCallback
+            );
+        } catch (Exception e) {
+            android.util.Log.w("ImageEditorFragment", "registerNetworkCallback failed", e);
+            networkCallback = null;
+        }
+    }
+
+    private void unregisterNetworkCallback() {
+        if (connectivityManager == null || networkCallback == null) {
+            return;
+        }
+
+        try {
+            connectivityManager.unregisterNetworkCallback(networkCallback);
+        } catch (Exception e) {
+            android.util.Log.w("ImageEditorFragment", "unregisterNetworkCallback failed", e);
+        } finally {
+            networkCallback = null;
+        }
+    }
+
+    private void postRefreshPasteActionState() {
+        if (binding == null) {
+            return;
+        }
+
+        binding.getRoot().post(this::refreshPasteActionState);
     }
 }
